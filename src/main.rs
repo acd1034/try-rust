@@ -1,10 +1,13 @@
+#[derive(PartialEq)]
 enum TokenKind {
   Num,
+  Punct,
   Eof,
 }
 
 struct Token {
   kind: TokenKind,
+  c: char,
   num: i32,
 }
 
@@ -23,17 +26,19 @@ impl Parser {
     if s.is_empty() {
       self.tokens_.push(Token {
         kind: TokenKind::Eof,
+        c: '\0',
         num: 0,
       });
-      return Ok(());
+      Ok(())
+    } else if s.starts_with(|c: char| c.is_whitespace()) {
+      self.skip_whitespace(&s)
+    } else if s.starts_with(|c: char| c.is_digit(10)) {
+      self.tokenize_num(&s)
+    } else if s.starts_with(|c: char| c.is_ascii_punctuation()) {
+      self.tokenize_punct(&s)
+    } else {
+      Err("Unexpected character".to_string())
     }
-    if s.starts_with(|c: char| c.is_whitespace()) {
-      return self.skip_whitespace(&s);
-    }
-    if s.starts_with(|c: char| c.is_digit(10)) {
-      return self.tokenize_num(&s);
-    }
-    Err("Unexpected character".to_string())
   }
 
   fn skip_whitespace(&mut self, s: &str) -> Result<(), String> {
@@ -47,6 +52,7 @@ impl Parser {
     if res.is_ok() {
       self.tokens_.push(Token {
         kind: TokenKind::Num,
+        c: '\0',
         num: res.unwrap(),
       });
       self.tokenize(&s[pos..])
@@ -55,10 +61,48 @@ impl Parser {
     }
   }
 
-  fn parse(&mut self) -> Result<i32, String> {
-    match self.tokens_[0].kind {
-      TokenKind::Num => Ok(self.tokens_[0].num),
-      _ => Err("Unexpected Token".to_string()),
+  fn tokenize_punct(&mut self, s: &str) -> Result<(), String> {
+    self.tokens_.push(Token {
+      kind: TokenKind::Punct,
+      c: s.chars().next().unwrap(),
+      num: 0,
+    });
+    self.tokenize(&s[1..])
+  }
+
+  fn parse(&self) -> Result<i32, String> {
+    let tokens = &self.tokens_[..];
+    if tokens[0].kind != TokenKind::Num {
+      Err("Unexpected Token, expecting number".to_string())
+    } else {
+      let val = tokens[0].num;
+      self.parse_expr(&tokens[1..], val)
+    }
+  }
+
+  fn parse_expr(&self, tokens: &[Token], val: i32) -> Result<i32, String> {
+    if tokens[0].kind == TokenKind::Eof {
+      Ok(val)
+    } else if tokens[0].kind == TokenKind::Punct {
+      match tokens[0].c {
+        '+' => {
+          if tokens[1].kind != TokenKind::Num {
+            Err("Unexpected Token, expecting number".to_string())
+          } else {
+            self.parse_expr(&tokens[2..], val + tokens[1].num)
+          }
+        }
+        '-' => {
+          if tokens[1].kind != TokenKind::Num {
+            Err("Unexpected Token, expecting number".to_string())
+          } else {
+            self.parse_expr(&tokens[2..], val - tokens[1].num)
+          }
+        }
+        _ => Err("Unexpected punctuator, expecting '+' or '-'".to_string()),
+      }
+    } else {
+      Err("Unexpected Token".to_string())
     }
   }
 }
@@ -76,4 +120,6 @@ fn parse(s: &str) -> Result<i32, String> {
 fn main() {
   assert!(parse("42") == Ok(42));
   assert!(parse("  123  ") == Ok(123));
+  assert!(parse("1 + 2 + 3 + 4") == Ok(10));
+  assert!(parse("1 + 2 - 3 + 4") == Ok(4));
 }
