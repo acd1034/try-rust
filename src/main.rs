@@ -110,10 +110,10 @@ impl Parser {
 fn parse(s: &str) -> Result<i32, String> {
   let mut parser = Parser::new();
   let res = parser.tokenize(&s);
-  if res.is_err() {
-    Err(res.unwrap_err())
-  } else {
+  if res.is_ok() {
     parser.parse()
+  } else {
+    Err(res.unwrap_err())
   }
 }
 
