@@ -72,11 +72,11 @@ impl Parser {
 
   fn parse(&self) -> Result<i32, String> {
     let tokens = &self.tokens_[..];
-    if tokens[0].kind != TokenKind::Num {
-      Err("Unexpected Token, expecting number".to_string())
-    } else {
+    if tokens[0].kind == TokenKind::Num {
       let val = tokens[0].num;
       self.parse_expr(&tokens[1..], val)
+    } else {
+      Err("Unexpected Token, expecting number".to_string())
     }
   }
 
@@ -86,17 +86,17 @@ impl Parser {
     } else if tokens[0].kind == TokenKind::Punct {
       match tokens[0].c {
         '+' => {
-          if tokens[1].kind != TokenKind::Num {
-            Err("Unexpected Token, expecting number".to_string())
-          } else {
+          if tokens[1].kind == TokenKind::Num {
             self.parse_expr(&tokens[2..], val + tokens[1].num)
+          } else {
+            Err("Unexpected Token, expecting number".to_string())
           }
         }
         '-' => {
-          if tokens[1].kind != TokenKind::Num {
-            Err("Unexpected Token, expecting number".to_string())
-          } else {
+          if tokens[1].kind == TokenKind::Num {
             self.parse_expr(&tokens[2..], val - tokens[1].num)
+          } else {
+            Err("Unexpected Token, expecting number".to_string())
           }
         }
         _ => Err("Unexpected punctuator, expecting '+' or '-'".to_string()),
