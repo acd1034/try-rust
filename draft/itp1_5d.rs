@@ -18,13 +18,40 @@ fn include3(x: i64) -> bool {
   }
 }
 
+struct Nabeatsu {
+  a: i64,
+  b: i64,
+}
+
+impl Nabeatsu {
+  // 初期化を行います。
+  fn new(b: i64) -> Nabeatsu {
+    Nabeatsu { a: 1, b: b }
+  }
+}
+
+impl Iterator for Nabeatsu {
+  type Item = i64;
+  fn next(&mut self) -> Option<i64> {
+    loop {
+      if self.a > self.b {
+        return None;
+      } else if self.a % 3 == 0 || include3(self.a) {
+        let x = self.a;
+        self.a += 1;
+        return Some(x);
+      } else {
+        self.a += 1;
+      }
+    }
+  }
+}
+
 fn solve() -> Expected<()> {
   let input = read_line()?;
   let n = input.parse::<i64>().map_err(|_| "failed to read n")?;
-  for x in 1..=n {
-    if x % 3 == 0 || include3(x) {
-      print!(" {}", x)
-    }
+  for x in Nabeatsu::new(n) {
+    print!(" {}", x)
   }
   Ok(())
 }
