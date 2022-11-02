@@ -17,11 +17,13 @@ fn read_expr() -> Expected<String> {
   if vec == vec![0, 0] {
     Err("EOF")
   } else {
-    let s = format!("{:#<width$}\n", "", width = vec[1]);
+    let front = format!("{:#<width$}\n", "", width = vec[1]);
+    let back = front.clone();
+    let s = format!("#{:.<width$}#\n", "", width = vec[1] - 2);
     let sum = std::iter::repeat(s)
-      .take(vec[0])
-      .fold(String::new(), |x, y| x + &y);
-    Ok(sum)
+      .take(vec[0] - 2)
+      .fold(front, |x, y| x + &y);
+    Ok(sum + &back)
   }
 }
 
