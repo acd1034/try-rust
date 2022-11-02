@@ -10,12 +10,12 @@ enum Token {
 fn tokenize<'a>(s: &'a str) -> Expected<(Token, &'a str)> {
   if s.is_empty() {
     Ok((Token::Eof, s))
-  } else if s.starts_with(|c: char| c.is_whitespace()) {
-    let pos = s.find(|c: char| !c.is_whitespace()).unwrap_or(s.len());
+  } else if s.starts_with(|c: char| c.is_ascii_whitespace()) {
+    let pos = s.find(|c: char| !c.is_ascii_whitespace()).unwrap_or(s.len());
     tokenize(&s[pos..])
   } else if s.starts_with(|c: char| c.is_digit(10)) {
     let pos = s.find(|c: char| !c.is_digit(10)).unwrap_or(s.len());
-    let num = s[..pos].parse::<i64>().map_err(|_| "Failed to read i64")?;
+    let num = s[..pos].parse::<i64>().map_err(|_| "Failed to read integer")?;
     Ok((Token::Num(num), &s[pos..]))
   } else if s.starts_with(|c: char| c.is_ascii_punctuation()) {
     Ok((Token::Punct(s.chars().next().unwrap()), &s[1..]))
@@ -55,10 +55,9 @@ fn expect_num<F, T>(it: &mut Tokenizer, f: F) -> Expected<T>
 where
   F: FnOnce(&mut Tokenizer, i64) -> Expected<T>,
 {
-  if let Token::Num(n) = it.next().unwrap()? {
-    f(it, n)
-  } else {
-    Err("Unexpected token, expecting number")
+  match it.next().unwrap()? {
+    Token::Num(n) => f(it, n),
+    _ => Err("Unexpected token, expecting number"),
   }
 }
 
@@ -67,9 +66,7 @@ fn parse_expr_impl(it: &mut Tokenizer, n: i64) -> Expected<i64> {
     Token::Eof => Ok(n),
     Token::Punct('+') => expect_num(it, |it, m| parse_expr_impl(it, n + m)),
     Token::Punct('-') => expect_num(it, |it, m| parse_expr_impl(it, n - m)),
-    _ => {
-      return Err("Unexpected token");
-    }
+    _ => Err("Unexpected token"),
   }
 }
 
