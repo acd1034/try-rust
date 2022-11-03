@@ -36,6 +36,7 @@ impl<'a> Tokenizer<'a> {
   fn new(input: &'a str) -> Tokenizer {
     Tokenizer { input_: input }
   }
+
   fn current(&mut self) -> Option<<Self as Iterator>::Item> {
     match tokenize(self.input_) {
       Ok((tok, _)) => Some(Ok(tok)),
@@ -46,6 +47,7 @@ impl<'a> Tokenizer<'a> {
 
 impl<'a> Iterator for Tokenizer<'a> {
   type Item = Expected<Token<'a>>;
+
   fn next(&mut self) -> Option<Self::Item> {
     match tokenize(self.input_) {
       // Ok((Token::Eof, s)) => {
@@ -70,6 +72,13 @@ fn consume(it: &mut Tokenizer, op: &str) -> Expected<bool> {
   }
 }
 
+fn expect_eof(it: &mut Tokenizer) -> Expected<()> {
+  match it.current().unwrap()? {
+    Token::Eof => Ok(()),
+    _ => Err("Unexpected token, expecting eof"),
+  }
+}
+
 fn expect_num(it: &mut Tokenizer) -> Expected<i64> {
   match it.current().unwrap()? {
     Token::Num(n) => {
@@ -80,12 +89,29 @@ fn expect_num(it: &mut Tokenizer) -> Expected<i64> {
   }
 }
 
+fn parse_term_impl(it: &mut Tokenizer, n: i64) -> Expected<i64> {
+  if consume(it, "*")? {
+    let m = expect_num(it)?;
+    parse_term_impl(it, n * m)
+  } else if consume(it, "/")? {
+    let m = expect_num(it)?;
+    parse_term_impl(it, n / m)
+  } else {
+    Ok(n)
+  }
+}
+
+fn parse_term(it: &mut Tokenizer) -> Expected<i64> {
+  let n = expect_num(it)?;
+  parse_term_impl(it, n)
+}
+
 fn parse_expr_impl(it: &mut Tokenizer, n: i64) -> Expected<i64> {
   if consume(it, "+")? {
-    let m = expect_num(it)?;
+    let m = parse_term(it)?;
     parse_expr_impl(it, n + m)
   } else if consume(it, "-")? {
-    let m = expect_num(it)?;
+    let m = parse_term(it)?;
     parse_expr_impl(it, n - m)
   } else {
     Ok(n)
@@ -93,8 +119,10 @@ fn parse_expr_impl(it: &mut Tokenizer, n: i64) -> Expected<i64> {
 }
 
 fn parse_expr(it: &mut Tokenizer) -> Expected<i64> {
-  let n = expect_num(it)?;
-  parse_expr_impl(it, n)
+  let n = parse_term(it)?;
+  let n = parse_expr_impl(it, n)?;
+  expect_eof(it)?;
+  Ok(n)
 }
 
 fn parse(s: &str) -> Expected<i64> {
@@ -104,10 +132,25 @@ fn parse(s: &str) -> Expected<i64> {
 
 #[test]
 fn test1() {
+  // num
   assert_eq!(parse("42"), Ok(42));
   assert_eq!(parse("  123  "), Ok(123));
+
+  // expr
   assert_eq!(parse("1 + 2 + 3 + 4"), Ok(10));
   assert_eq!(parse("1 + 2 - 3 + 4"), Ok(4));
+  assert_eq!(parse("_ + 2").ok(), None);
+  assert_eq!(parse("1 _ 2").ok(), None);
+  assert_eq!(parse("1 + _").ok(), None);
+
+  // term
+  assert_eq!(parse("1 * 2 * 3 * 4"), Ok(24));
+  assert_eq!(parse("3 * 4 / 6 * 2"), Ok(4));
+  assert_eq!(parse("1 * 2 + 3 * 4 + 5 * 6"), Ok(44));
+  assert_eq!(parse("1 * 2 - 6 / 3 + 4 * 5"), Ok(20));
+  assert_eq!(parse("_ * 2").ok(), None);
+  assert_eq!(parse("1 _ 2").ok(), None);
+  assert_eq!(parse("1 * _").ok(), None);
 }
 
 fn main() {
