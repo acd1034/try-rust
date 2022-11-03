@@ -3,8 +3,8 @@ type Expected<T> = Result<T, &'static str>;
 #[derive(Debug, PartialEq)]
 enum Token<'a> {
   Eof,
-  Punct(&'a str),
   Num(i64),
+  Punct(&'a str),
 }
 
 fn tokenize<'a>(s: &'a str) -> Expected<(Token, &'a str)> {
@@ -89,12 +89,31 @@ fn expect_num(it: &mut Tokenizer) -> Expected<i64> {
   }
 }
 
+fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
+  if it.current().unwrap()? == Token::Punct(op) {
+    it.next();
+    Ok(())
+  } else {
+    Err("Unexpected token, expecting punctuator")
+  }
+}
+
+fn parse_primary(it: &mut Tokenizer) -> Expected<i64> {
+  if consume(it, "(")? {
+    let n = parse_expr(it)?;
+    expect(it, ")")?;
+    Ok(n)
+  } else {
+    expect_num(it)
+  }
+}
+
 fn parse_term_impl(it: &mut Tokenizer, n: i64) -> Expected<i64> {
   if consume(it, "*")? {
-    let m = expect_num(it)?;
+    let m = parse_primary(it)?;
     parse_term_impl(it, n * m)
   } else if consume(it, "/")? {
-    let m = expect_num(it)?;
+    let m = parse_primary(it)?;
     parse_term_impl(it, n / m)
   } else {
     Ok(n)
@@ -102,7 +121,7 @@ fn parse_term_impl(it: &mut Tokenizer, n: i64) -> Expected<i64> {
 }
 
 fn parse_term(it: &mut Tokenizer) -> Expected<i64> {
-  let n = expect_num(it)?;
+  let n = parse_primary(it)?;
   parse_term_impl(it, n)
 }
 
@@ -120,14 +139,14 @@ fn parse_expr_impl(it: &mut Tokenizer, n: i64) -> Expected<i64> {
 
 fn parse_expr(it: &mut Tokenizer) -> Expected<i64> {
   let n = parse_term(it)?;
-  let n = parse_expr_impl(it, n)?;
-  expect_eof(it)?;
-  Ok(n)
+  parse_expr_impl(it, n)
 }
 
 fn parse(s: &str) -> Expected<i64> {
   let mut it = Tokenizer::new(s);
-  parse_expr(&mut it)
+  let n = parse_expr(&mut it)?;
+  expect_eof(&mut it)?;
+  Ok(n)
 }
 
 #[test]
@@ -135,6 +154,8 @@ fn test1() {
   // num
   assert_eq!(parse("42"), Ok(42));
   assert_eq!(parse("  123  "), Ok(123));
+  assert_eq!(parse("  _  ").ok(), None);
+  assert_eq!(parse("     ").ok(), None);
 
   // expr
   assert_eq!(parse("1 + 2 + 3 + 4"), Ok(10));
@@ -142,6 +163,7 @@ fn test1() {
   assert_eq!(parse("_ + 2").ok(), None);
   assert_eq!(parse("1 _ 2").ok(), None);
   assert_eq!(parse("1 + _").ok(), None);
+  assert_eq!(parse("1 +  ").ok(), None);
 
   // term
   assert_eq!(parse("1 * 2 * 3 * 4"), Ok(24));
@@ -151,6 +173,25 @@ fn test1() {
   assert_eq!(parse("_ * 2").ok(), None);
   assert_eq!(parse("1 _ 2").ok(), None);
   assert_eq!(parse("1 * _").ok(), None);
+  assert_eq!(parse("1 *  ").ok(), None);
+
+  // primary
+  assert_eq!(parse("(1 + 2 + 3) * 4"), Ok((1 + 2 + 3) * 4));
+  assert_eq!(
+    parse("1 + 2 * (3 + 4 * 5 + 6) * 7 + 8"),
+    Ok(1 + 2 * (3 + 4 * 5 + 6) * 7 + 8)
+  );
+  assert_eq!(
+    parse("1 * (2 + (3 * (4 + 5) * 6) + 7) * 8"),
+    Ok(1 * (2 + (3 * (4 + 5) * 6) + 7) * 8)
+  );
+  assert_eq!(parse("1 * _2 + 3)").ok(), None);
+  assert_eq!(parse("1 * (_ + 3)").ok(), None);
+  assert_eq!(parse("1 * (2 _ 3)").ok(), None);
+  assert_eq!(parse("1 * (2 + _)").ok(), None);
+  assert_eq!(parse("1 * (2 +  )").ok(), None);
+  assert_eq!(parse("1 * (2 + 3_").ok(), None);
+  assert_eq!(parse("1 * (2 + 3 ").ok(), None);
 }
 
 fn main() {
