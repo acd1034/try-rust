@@ -1,9 +1,9 @@
 type Expected<T> = Result<T, &'static str>;
 
 #[derive(Debug, PartialEq)]
-enum Token {
+enum Token<'a> {
   Eof,
-  Punct(char),
+  Punct(&'a str),
   Num(i64),
 }
 
@@ -22,7 +22,7 @@ fn tokenize<'a>(s: &'a str) -> Expected<(Token, &'a str)> {
       .map_err(|_| "Failed to read integer")?;
     Ok((Token::Num(num), &s[pos..]))
   } else if s.starts_with(|c: char| c.is_ascii_punctuation()) {
-    Ok((Token::Punct(s.chars().next().unwrap()), &s[1..]))
+    Ok((Token::Punct(&s[..1]), &s[1..]))
   } else {
     Err("Unexpected character")
   }
@@ -45,7 +45,7 @@ impl<'a> Tokenizer<'a> {
 }
 
 impl<'a> Iterator for Tokenizer<'a> {
-  type Item = Expected<Token>;
+  type Item = Expected<Token<'a>>;
   fn next(&mut self) -> Option<Self::Item> {
     match tokenize(self.input_) {
       // Ok((Token::Eof, s)) => {
@@ -61,8 +61,8 @@ impl<'a> Iterator for Tokenizer<'a> {
   }
 }
 
-fn consume(it: &mut Tokenizer, c: char) -> Expected<bool> {
-  if it.current().unwrap()? == Token::Punct(c) {
+fn consume(it: &mut Tokenizer, op: &str) -> Expected<bool> {
+  if it.current().unwrap()? == Token::Punct(op) {
     it.next();
     Ok(true)
   } else {
@@ -81,10 +81,10 @@ fn expect_num(it: &mut Tokenizer) -> Expected<i64> {
 }
 
 fn parse_expr_impl(it: &mut Tokenizer, n: i64) -> Expected<i64> {
-  if consume(it, '+')? {
+  if consume(it, "+")? {
     let m = expect_num(it)?;
     parse_expr_impl(it, n + m)
-  } else if consume(it, '-')? {
+  } else if consume(it, "-")? {
     let m = expect_num(it)?;
     parse_expr_impl(it, n - m)
   } else {

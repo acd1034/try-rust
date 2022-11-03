@@ -1,5 +1,5 @@
 [package]
-name = "try_rust"
+name = "try-rust"
 version = "0.1.0"
 edition = "2021"
 
