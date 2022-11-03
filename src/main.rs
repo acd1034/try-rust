@@ -1,6 +1,6 @@
 type Expected<T> = Result<T, &'static str>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum Token {
   Eof,
   Punct(char),
@@ -11,11 +11,15 @@ fn tokenize<'a>(s: &'a str) -> Expected<(Token, &'a str)> {
   if s.is_empty() {
     Ok((Token::Eof, s))
   } else if s.starts_with(|c: char| c.is_ascii_whitespace()) {
-    let pos = s.find(|c: char| !c.is_ascii_whitespace()).unwrap_or(s.len());
+    let pos = s
+      .find(|c: char| !c.is_ascii_whitespace())
+      .unwrap_or(s.len());
     tokenize(&s[pos..])
   } else if s.starts_with(|c: char| c.is_digit(10)) {
     let pos = s.find(|c: char| !c.is_digit(10)).unwrap_or(s.len());
-    let num = s[..pos].parse::<i64>().map_err(|_| "Failed to read integer")?;
+    let num = s[..pos]
+      .parse::<i64>()
+      .map_err(|_| "Failed to read integer")?;
     Ok((Token::Num(num), &s[pos..]))
   } else if s.starts_with(|c: char| c.is_ascii_punctuation()) {
     Ok((Token::Punct(s.chars().next().unwrap()), &s[1..]))
@@ -31,6 +35,12 @@ struct Tokenizer<'a> {
 impl<'a> Tokenizer<'a> {
   fn new(input: &'a str) -> Tokenizer {
     Tokenizer { input_: input }
+  }
+  fn current(&mut self) -> Option<<Self as Iterator>::Item> {
+    match tokenize(self.input_) {
+      Ok((tok, _)) => Some(Ok(tok)),
+      Err(msg) => Some(Err(msg)),
+    }
   }
 }
 
@@ -51,27 +61,40 @@ impl<'a> Iterator for Tokenizer<'a> {
   }
 }
 
-fn expect_num<F, T>(it: &mut Tokenizer, f: F) -> Expected<T>
-where
-  F: FnOnce(&mut Tokenizer, i64) -> Expected<T>,
-{
-  match it.next().unwrap()? {
-    Token::Num(n) => f(it, n),
+fn consume(it: &mut Tokenizer, c: char) -> Expected<bool> {
+  if it.current().unwrap()? == Token::Punct(c) {
+    it.next();
+    Ok(true)
+  } else {
+    Ok(false)
+  }
+}
+
+fn expect_num(it: &mut Tokenizer) -> Expected<i64> {
+  match it.current().unwrap()? {
+    Token::Num(n) => {
+      it.next();
+      Ok(n)
+    }
     _ => Err("Unexpected token, expecting number"),
   }
 }
 
 fn parse_expr_impl(it: &mut Tokenizer, n: i64) -> Expected<i64> {
-  match it.next().unwrap()? {
-    Token::Eof => Ok(n),
-    Token::Punct('+') => expect_num(it, |it, m| parse_expr_impl(it, n + m)),
-    Token::Punct('-') => expect_num(it, |it, m| parse_expr_impl(it, n - m)),
-    _ => Err("Unexpected token"),
+  if consume(it, '+')? {
+    let m = expect_num(it)?;
+    parse_expr_impl(it, n + m)
+  } else if consume(it, '-')? {
+    let m = expect_num(it)?;
+    parse_expr_impl(it, n - m)
+  } else {
+    Ok(n)
   }
 }
 
 fn parse_expr(it: &mut Tokenizer) -> Expected<i64> {
-  expect_num(it, |it, n| parse_expr_impl(it, n))
+  let n = expect_num(it)?;
+  parse_expr_impl(it, n)
 }
 
 fn parse(s: &str) -> Expected<i64> {
@@ -87,4 +110,9 @@ fn test1() {
   assert_eq!(parse("1 + 2 - 3 + 4"), Ok(4));
 }
 
-fn main() {}
+fn main() {
+  match parse("42") {
+    Ok(n) => println!("{}", n),
+    Err(msg) => println!("{}", msg),
+  }
+}
