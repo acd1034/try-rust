@@ -73,6 +73,8 @@ impl<'a> Iterator for Tokenizer<'a> {
 
 #[derive(Debug, PartialEq)]
 enum AST {
+  Add(Box<AST>, Box<AST>),
+  Sub(Box<AST>, Box<AST>),
   Mul(Box<AST>, Box<AST>),
   Div(Box<AST>, Box<AST>),
   Num(i64),
@@ -124,29 +126,29 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
 
 // program = expr eof
 fn parse(mut it: Tokenizer) -> Expected<AST> {
-  let n = parse_term(&mut it)?;
+  let n = parse_expr(&mut it)?;
   expect_eof(&mut it)?;
   Ok(n)
 }
 
-// // expr    = term ("+" term | "-" term)*
-// // → expr  = expr | term
-// fn parse_expr(it: &mut Tokenizer) -> Expected<i64> {
-//   let n = parse_term(it)?;
-//   parse_expr_impl(it, n)
-// }
+// expr    = term ("+" term | "-" term)*
+// → expr  = expr | term
+fn parse_expr(it: &mut Tokenizer) -> Expected<AST> {
+  let n = parse_term(it)?;
+  parse_expr_impl(it, n)
+}
 
-// fn parse_expr_impl(it: &mut Tokenizer, n: i64) -> Expected<i64> {
-//   if consume(it, "+")? {
-//     let m = parse_term(it)?;
-//     parse_expr_impl(it, n + m)
-//   } else if consume(it, "-")? {
-//     let m = parse_term(it)?;
-//     parse_expr_impl(it, n - m)
-//   } else {
-//     Ok(n)
-//   }
-// }
+fn parse_expr_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
+  if consume(it, "+")? {
+    let m = parse_term(it)?;
+    parse_expr_impl(it, AST::Add(Box::new(n), Box::new(m)))
+  } else if consume(it, "-")? {
+    let m = parse_term(it)?;
+    parse_expr_impl(it, AST::Sub(Box::new(n), Box::new(m)))
+  } else {
+    Ok(n)
+  }
+}
 
 // term    = primary ("*" primary | "/" primary)*
 // → term  = term | primary
@@ -185,6 +187,8 @@ fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
 
 fn codegen(ast: AST) -> String {
   match ast {
+    AST::Add(n, m) => format!("({} + {})", codegen(*n), codegen(*m)),
+    AST::Sub(n, m) => format!("({} - {})", codegen(*n), codegen(*m)),
     AST::Mul(n, m) => format!("({} * {})", codegen(*n), codegen(*m)),
     AST::Div(n, m) => format!("({} / {})", codegen(*n), codegen(*m)),
     AST::Num(n) => format!("{}", n),
@@ -209,8 +213,15 @@ fn test(s: &str) {
 }
 
 fn main() {
-  // test("1 * 2 + 3 * 4 + 5 * 6");
-  // test("1 * 2 - 6 / 3 + 4 * 5");
+  // expr
+  test("1 + 2 + 3 + 4");
+  test("1 + 2 - 3 + 4");
+  test("1 * 2 + 3 * 4 + 5 * 6");
+  test("1 * 2 - 6 / 3 + 4 * 5");
+  test("_ + 2");
+  test("1 _ 2");
+  test("1 + _");
+  test("1 +  ");
 
   // term
   test("1 * 2 * 3 * 4");
