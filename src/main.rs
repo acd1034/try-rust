@@ -118,9 +118,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
 /**
  * program = expr eof
  * expr    = term ("+" term | "-" term)*
- * → expr  = expr | term
  * term    = primary ("*" primary | "/" primary)*
- * → term  = term | primary
  * primary = num | "(" expr ")"
  */
 
@@ -132,7 +130,6 @@ fn parse(mut it: Tokenizer) -> Expected<AST> {
 }
 
 // expr    = term ("+" term | "-" term)*
-// → expr  = expr | term
 fn parse_expr(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_term(it)?;
   parse_expr_impl(it, n)
@@ -151,7 +148,6 @@ fn parse_expr_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
 }
 
 // term    = primary ("*" primary | "/" primary)*
-// → term  = term | primary
 fn parse_term(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_primary(it)?;
   parse_term_impl(it, n)
