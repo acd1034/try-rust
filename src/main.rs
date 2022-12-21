@@ -73,6 +73,8 @@ impl<'a> Iterator for Tokenizer<'a> {
 
 #[derive(Debug, PartialEq)]
 enum AST {
+  Mul(Box<AST>, Box<AST>),
+  Div(Box<AST>, Box<AST>),
   Num(i64),
 }
 
@@ -122,7 +124,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
 
 // program = expr eof
 fn parse(mut it: Tokenizer) -> Expected<AST> {
-  let n = parse_primary(&mut it)?;
+  let n = parse_term(&mut it)?;
   expect_eof(&mut it)?;
   Ok(n)
 }
@@ -146,24 +148,24 @@ fn parse(mut it: Tokenizer) -> Expected<AST> {
 //   }
 // }
 
-// // term    = primary ("*" primary | "/" primary)*
-// // → term  = term | primary
-// fn parse_term(it: &mut Tokenizer) -> Expected<i64> {
-//   let n = parse_primary(it)?;
-//   parse_term_impl(it, n)
-// }
+// term    = primary ("*" primary | "/" primary)*
+// → term  = term | primary
+fn parse_term(it: &mut Tokenizer) -> Expected<AST> {
+  let n = parse_primary(it)?;
+  parse_term_impl(it, n)
+}
 
-// fn parse_term_impl(it: &mut Tokenizer, n: i64) -> Expected<i64> {
-//   if consume(it, "*")? {
-//     let m = parse_primary(it)?;
-//     parse_term_impl(it, n * m)
-//   } else if consume(it, "/")? {
-//     let m = parse_primary(it)?;
-//     parse_term_impl(it, n / m)
-//   } else {
-//     Ok(n)
-//   }
-// }
+fn parse_term_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
+  if consume(it, "*")? {
+    let m = parse_primary(it)?;
+    parse_term_impl(it, AST::Mul(Box::new(n), Box::new(m)))
+  } else if consume(it, "/")? {
+    let m = parse_primary(it)?;
+    parse_term_impl(it, AST::Div(Box::new(n), Box::new(m)))
+  } else {
+    Ok(n)
+  }
+}
 
 // primary = num | "(" expr ")"
 fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
@@ -203,6 +205,18 @@ fn test(s: &str) {
 }
 
 fn main() {
+  // test("1 * 2 + 3 * 4 + 5 * 6");
+  // test("1 * 2 - 6 / 3 + 4 * 5");
+
+  // term
+  test("1 * 2 * 3 * 4");
+  test("3 * 4 / 6 * 2");
+  test("_ * 2");
+  test("1 _ 2");
+  test("1 * _");
+  test("1 *  ");
+
+  // num
   test("42");
   test("42_");
   // match compile("42") {
