@@ -115,34 +115,18 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  * primary = num | "(" expr ")"
  */
 
-// primary = num | "(" expr ")"
-fn parse_primary(it: &mut Tokenizer) -> Expected<i64> {
-  if consume(it, "(")? {
-    let n = parse_expr(it)?;
-    expect(it, ")")?;
-    Ok(n)
-  } else {
-    expect_num(it)
-  }
+// program = expr eof
+fn parse(mut it: Tokenizer) -> Expected<i64> {
+  let n = parse_expr(&mut it)?;
+  expect_eof(&mut it)?;
+  Ok(n)
 }
 
-fn parse_term_impl(it: &mut Tokenizer, n: i64) -> Expected<i64> {
-  if consume(it, "*")? {
-    let m = parse_primary(it)?;
-    parse_term_impl(it, n * m)
-  } else if consume(it, "/")? {
-    let m = parse_primary(it)?;
-    parse_term_impl(it, n / m)
-  } else {
-    Ok(n)
-  }
-}
-
-// term    = primary ("*" primary | "/" primary)*
-// → term  = term | primary
-fn parse_term(it: &mut Tokenizer) -> Expected<i64> {
-  let n = parse_primary(it)?;
-  parse_term_impl(it, n)
+// expr    = term ("+" term | "-" term)*
+// → expr  = expr | term
+fn parse_expr(it: &mut Tokenizer) -> Expected<i64> {
+  let n = parse_term(it)?;
+  parse_expr_impl(it, n)
 }
 
 fn parse_expr_impl(it: &mut Tokenizer, n: i64) -> Expected<i64> {
@@ -157,19 +141,39 @@ fn parse_expr_impl(it: &mut Tokenizer, n: i64) -> Expected<i64> {
   }
 }
 
-// expr    = term ("+" term | "-" term)*
-// → expr  = expr | term
-fn parse_expr(it: &mut Tokenizer) -> Expected<i64> {
-  let n = parse_term(it)?;
-  parse_expr_impl(it, n)
+// term    = primary ("*" primary | "/" primary)*
+// → term  = term | primary
+fn parse_term(it: &mut Tokenizer) -> Expected<i64> {
+  let n = parse_primary(it)?;
+  parse_term_impl(it, n)
 }
 
-// program = expr eof
-fn parse(mut it: Tokenizer) -> Expected<i64> {
-  let n = parse_expr(&mut it)?;
-  expect_eof(&mut it)?;
-  Ok(n)
+fn parse_term_impl(it: &mut Tokenizer, n: i64) -> Expected<i64> {
+  if consume(it, "*")? {
+    let m = parse_primary(it)?;
+    parse_term_impl(it, n * m)
+  } else if consume(it, "/")? {
+    let m = parse_primary(it)?;
+    parse_term_impl(it, n / m)
+  } else {
+    Ok(n)
+  }
 }
+
+// primary = num | "(" expr ")"
+fn parse_primary(it: &mut Tokenizer) -> Expected<i64> {
+  if consume(it, "(")? {
+    let n = parse_expr(it)?;
+    expect(it, ")")?;
+    Ok(n)
+  } else {
+    expect_num(it)
+  }
+}
+
+/******************************************************************************
+ * Compiler
+ ******************************************************************************/
 
 fn compile(s: &str) -> Expected<i64> {
   let it = Tokenizer::new(s);
@@ -178,12 +182,6 @@ fn compile(s: &str) -> Expected<i64> {
 
 #[test]
 fn test1() {
-  // num
-  assert_eq!(compile("42").ok(), Some(42));
-  assert_eq!(compile("  123  ").ok(), Some(123));
-  assert_eq!(compile("  _  ").ok(), None);
-  assert_eq!(compile("     ").ok(), None);
-
   // expr
   assert_eq!(compile("1 + 2 + 3 + 4").ok(), Some(10));
   assert_eq!(compile("1 + 2 - 3 + 4").ok(), Some(4));
@@ -219,6 +217,12 @@ fn test1() {
   assert_eq!(compile("1 * (2 +  )").ok(), None);
   assert_eq!(compile("1 * (2 + 3_").ok(), None);
   assert_eq!(compile("1 * (2 + 3 ").ok(), None);
+
+  // num
+  assert_eq!(compile("42").ok(), Some(42));
+  assert_eq!(compile("  123  ").ok(), Some(123));
+  assert_eq!(compile("  _  ").ok(), None);
+  assert_eq!(compile("     ").ok(), None);
 }
 
 fn main() {
