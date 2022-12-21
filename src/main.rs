@@ -28,7 +28,7 @@ fn tokenize<'a>(s: &'a str) -> Expected<(Token, &'a str)> {
   } else if s.starts_with(|c: char| c.is_ascii_punctuation()) {
     Ok((Token::Punct(&s[..1]), &s[1..]))
   } else {
-    Err("Unexpected character")
+    Err("unexpected character")
   }
 }
 
@@ -90,7 +90,7 @@ fn consume(it: &mut Tokenizer, op: &str) -> Expected<bool> {
 fn expect_eof(it: &mut Tokenizer) -> Expected<()> {
   match it.current().unwrap()? {
     Token::Eof => Ok(()),
-    _ => Err("Unexpected token, expecting eof"),
+    _ => Err("unexpected token, expecting eof"),
   }
 }
 
@@ -100,7 +100,7 @@ fn expect_num(it: &mut Tokenizer) -> Expected<AST> {
       it.next();
       Ok(AST::Num(n))
     }
-    _ => Err("Unexpected token, expecting number"),
+    _ => Err("unexpected token, expecting number"),
   }
 }
 
@@ -109,7 +109,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
     it.next();
     Ok(())
   } else {
-    Err("Unexpected token, expecting punctuator")
+    Err("unexpected token, expecting punctuator")
   }
 }
 
@@ -184,7 +184,11 @@ fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
  ******************************************************************************/
 
 fn codegen(ast: AST) -> String {
-  format!("{:?}", ast)
+  match ast {
+    AST::Mul(n, m) => format!("({} * {})", codegen(*n), codegen(*m)),
+    AST::Div(n, m) => format!("({} / {})", codegen(*n), codegen(*m)),
+    AST::Num(n) => format!("{}", n),
+  }
 }
 
 /******************************************************************************
