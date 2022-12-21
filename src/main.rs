@@ -119,7 +119,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  * program = expr eof
  * expr    = term ("+" term | "-" term)*
  * term    = primary ("*" primary | "/" primary)*
- * primary = num | "(" expr ")"
+ * primary = "(" expr ")" | num
  */
 
 // program = expr eof
@@ -165,16 +165,15 @@ fn parse_term_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   }
 }
 
-// primary = num | "(" expr ")"
+// primary = "(" expr ")" | num
 fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
-  // if consume(it, "(")? {
-  //   let n = parse_expr(it)?;
-  //   expect(it, ")")?;
-  //   Ok(n)
-  // } else {
-  //   expect_num(it)
-  // }
-  expect_num(it)
+  if consume(it, "(")? {
+    let n = parse_expr(it)?;
+    expect(it, ")")?;
+    Ok(n)
+  } else {
+    expect_num(it)
+  }
 }
 
 /******************************************************************************
@@ -209,6 +208,18 @@ fn test(s: &str) {
 }
 
 fn main() {
+  // primary
+  test("(1 + 2 + 3) * 4");
+  test("1 + 2 * (3 + 4 * 5 + 6) * 7 + 8");
+  test("1 * (2 + 3 * (4 + 5) * 6 + 7) * 8");
+  test("1 * _2 + 3)");
+  test("1 * (_ + 3)");
+  test("1 * (2 _ 3)");
+  test("1 * (2 + _)");
+  test("1 * (2 +  )");
+  test("1 * (2 + 3_");
+  test("1 * (2 + 3 ");
+
   // expr
   test("1 + 2 + 3 + 4");
   test("1 + 2 - 3 + 4");
@@ -229,7 +240,10 @@ fn main() {
 
   // num
   test("42");
-  test("42_");
+  test("  123  ");
+  test("  _  ");
+  test("     ");
+
   // match compile("42") {
   //   Ok(n) => println!("{}", n),
   //   Err(msg) => println!("error: {}", msg),
