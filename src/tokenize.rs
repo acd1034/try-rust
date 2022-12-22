@@ -22,7 +22,14 @@ fn tokenize<'a>(s: &'a str) -> Expected<(Token, &'a str)> {
       .map_err(|_| "Failed to read integer")?;
     Ok((Token::Num(num), &s[pos..]))
   } else if s.starts_with(|c: char| c.is_ascii_punctuation()) {
-    Ok((Token::Punct(&s[..1]), &s[1..]))
+    if s.len() < 2 {
+      Ok((Token::Punct(&s[..1]), &s[1..]))
+    } else {
+      match &s[..2] {
+        "==" | "!=" | "<=" | ">=" => Ok((Token::Punct(&s[..2]), &s[2..])),
+        _ => Ok((Token::Punct(&s[..1]), &s[1..])),
+      }
+    }
   } else {
     Err("unexpected character")
   }

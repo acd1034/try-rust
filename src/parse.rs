@@ -2,6 +2,10 @@ use crate::tokenize::{Expected, Token, Tokenizer};
 
 #[derive(Debug, PartialEq)]
 pub enum AST {
+  Eq(Box<AST>, Box<AST>),
+  Ne(Box<AST>, Box<AST>),
+  Lt(Box<AST>, Box<AST>),
+  Le(Box<AST>, Box<AST>),
   Add(Box<AST>, Box<AST>),
   Sub(Box<AST>, Box<AST>),
   Mul(Box<AST>, Box<AST>),
@@ -45,21 +49,65 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
 }
 
 /**
- * program = expr eof
- * expr    = term ("+" term | "-" term)*
- * term    = unary ("*" unary | "/" unary)*
- * unary   = ("+" | "-")? primary
- * primary = "(" expr ")" | num
+ * program    = equality eof
+ * equality   = relational ("==" relational | "!=" relational)*
+ * relational = expr ("<" expr | "<=" expr | ">" expr | ">=" expr)*
+ * expr       = term ("+" term | "-" term)*
+ * term       = unary ("*" unary | "/" unary)*
+ * unary      = ("+" | "-")? primary
+ * primary    = "(" expr ")" | num
  */
 
-// program = expr eof
+// program    = equality eof
 pub fn parse(mut it: Tokenizer) -> Expected<AST> {
-  let n = parse_expr(&mut it)?;
+  let n = parse_equality(&mut it)?;
   expect_eof(&mut it)?;
   Ok(n)
 }
 
-// expr    = term ("+" term | "-" term)*
+// equality   = relational ("==" relational | "!=" relational)*
+fn parse_equality(it: &mut Tokenizer) -> Expected<AST> {
+  let n = parse_relational(it)?;
+  parse_equality_impl(it, n)
+}
+
+fn parse_equality_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
+  if consume(it, "==")? {
+    let m = parse_relational(it)?;
+    parse_equality_impl(it, AST::Eq(Box::new(n), Box::new(m)))
+  } else if consume(it, "!=")? {
+    let m = parse_relational(it)?;
+    parse_equality_impl(it, AST::Ne(Box::new(n), Box::new(m)))
+  } else {
+    Ok(n)
+  }
+}
+
+// relational = expr ("<" expr | "<=" expr | ">" expr | ">=" expr)*
+fn parse_relational(it: &mut Tokenizer) -> Expected<AST> {
+  let n = parse_expr(it)?;
+  parse_relational_impl(it, n)
+}
+
+fn parse_relational_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
+  if consume(it, "<")? {
+    let m = parse_expr(it)?;
+    parse_relational_impl(it, AST::Lt(Box::new(n), Box::new(m)))
+  } else if consume(it, "<=")? {
+    let m = parse_expr(it)?;
+    parse_relational_impl(it, AST::Le(Box::new(n), Box::new(m)))
+  } else if consume(it, ">")? {
+    let m = parse_expr(it)?;
+    parse_relational_impl(it, AST::Lt(Box::new(m), Box::new(n)))
+  } else if consume(it, ">=")? {
+    let m = parse_expr(it)?;
+    parse_relational_impl(it, AST::Le(Box::new(m), Box::new(n)))
+  } else {
+    Ok(n)
+  }
+}
+
+// expr       = term ("+" term | "-" term)*
 fn parse_expr(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_term(it)?;
   parse_expr_impl(it, n)
@@ -77,7 +125,7 @@ fn parse_expr_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   }
 }
 
-// term    = unary ("*" unary | "/" unary)*
+// term       = unary ("*" unary | "/" unary)*
 fn parse_term(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_unary(it)?;
   parse_term_impl(it, n)
@@ -95,7 +143,7 @@ fn parse_term_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   }
 }
 
-// unary   = ("+" | "-")? primary
+// unary      = ("+" | "-")? primary
 fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
   if consume(it, "+")? {
     parse_primary(it)
@@ -108,7 +156,7 @@ fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
   }
 }
 
-// primary = "(" expr ")" | num
+// primary    = "(" expr ")" | num
 fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
   if consume(it, "(")? {
     let n = parse_expr(it)?;

@@ -3,7 +3,9 @@ use crate::tokenize::Expected;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
+
 use inkwell::values::{AnyValue, IntValue};
+use inkwell::IntPredicate;
 
 pub struct CodeGen<'ctx> {
   pub context: &'ctx Context,
@@ -15,6 +17,42 @@ impl<'ctx> CodeGen<'ctx> {
   fn gen(&self, ast: AST) -> Expected<IntValue> {
     let i64_type = self.context.i64_type();
     match ast {
+      AST::Eq(n, m) => {
+        let lhs = self.gen(*n)?;
+        let rhs = self.gen(*m)?;
+        let cmp = self
+          .builder
+          .build_int_compare(IntPredicate::EQ, lhs, rhs, "");
+        let cmp = self.builder.build_int_cast(cmp, i64_type, "");
+        Ok(self.builder.build_int_neg(cmp, ""))
+      }
+      AST::Ne(n, m) => {
+        let lhs = self.gen(*n)?;
+        let rhs = self.gen(*m)?;
+        let cmp = self
+          .builder
+          .build_int_compare(IntPredicate::NE, lhs, rhs, "");
+        let cmp = self.builder.build_int_cast(cmp, i64_type, "");
+        Ok(self.builder.build_int_neg(cmp, ""))
+      }
+      AST::Lt(n, m) => {
+        let lhs = self.gen(*n)?;
+        let rhs = self.gen(*m)?;
+        let cmp = self
+          .builder
+          .build_int_compare(IntPredicate::ULT, lhs, rhs, "");
+        let cmp = self.builder.build_int_cast(cmp, i64_type, "");
+        Ok(self.builder.build_int_neg(cmp, ""))
+      }
+      AST::Le(n, m) => {
+        let lhs = self.gen(*n)?;
+        let rhs = self.gen(*m)?;
+        let cmp = self
+          .builder
+          .build_int_compare(IntPredicate::ULE, lhs, rhs, "");
+        let cmp = self.builder.build_int_cast(cmp, i64_type, "");
+        Ok(self.builder.build_int_neg(cmp, ""))
+      }
       AST::Add(n, m) => {
         let lhs = self.gen(*n)?;
         let rhs = self.gen(*m)?;
