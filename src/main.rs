@@ -11,7 +11,7 @@ fn compile(s: &str) -> Expected<String> {
   let context = Context::create();
   let codegen = codegen::CodeGen {
     context: &context,
-    module: context.create_module("main"),
+    module: context.create_module(""),
     builder: context.create_builder(),
   };
   codegen.codegen(ast)
@@ -20,10 +20,8 @@ fn compile(s: &str) -> Expected<String> {
 fn main() {
   match std::env::args().nth(1) {
     Some(arg) => match compile(arg.as_str()) {
-      Ok(ir) => println!("{}", ir),
-      Err(msg) => {
-        eprintln!("error: {}", msg);
-      }
+      Ok(ir) => println!("target triple = \"arm64-apple-macosx12.0.0\"\n{}", ir),
+      Err(msg) => eprintln!("error: {}", msg),
     },
     None => eprintln!("error: preprocess: invalid number of arguments"),
   }

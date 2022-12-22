@@ -53,7 +53,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
 
 // program = expr eof
 pub fn parse(mut it: Tokenizer) -> Expected<AST> {
-  let n = expect_num(&mut it)?;
+  let n = parse_expr(&mut it)?;
   expect_eof(&mut it)?;
   Ok(n)
 }

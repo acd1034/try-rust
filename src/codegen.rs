@@ -3,7 +3,6 @@ use crate::tokenize::Expected;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::support::LLVMString;
 use inkwell::values::{AnyValue, IntValue};
 
 pub struct CodeGen<'ctx> {
@@ -13,13 +12,29 @@ pub struct CodeGen<'ctx> {
 }
 
 impl<'ctx> CodeGen<'ctx> {
-  fn codegen_impl(&self, ast: AST) -> Expected<IntValue> {
+  fn gen(&self, ast: AST) -> Expected<IntValue> {
     let i64_type = self.context.i64_type();
     match ast {
-      AST::Add(n, m) => Err("unimplemented!"),
-      AST::Sub(n, m) => Err("unimplemented!"),
-      AST::Mul(n, m) => Err("unimplemented!"),
-      AST::Div(n, m) => Err("unimplemented!"),
+      AST::Add(n, m) => {
+        let lhs = self.gen(*n)?;
+        let rhs = self.gen(*m)?;
+        Ok(self.builder.build_int_add(lhs, rhs, ""))
+      }
+      AST::Sub(n, m) => {
+        let lhs = self.gen(*n)?;
+        let rhs = self.gen(*m)?;
+        Ok(self.builder.build_int_sub(lhs, rhs, ""))
+      }
+      AST::Mul(n, m) => {
+        let lhs = self.gen(*n)?;
+        let rhs = self.gen(*m)?;
+        Ok(self.builder.build_int_mul(lhs, rhs, ""))
+      }
+      AST::Div(n, m) => {
+        let lhs = self.gen(*n)?;
+        let rhs = self.gen(*m)?;
+        Ok(self.builder.build_int_signed_div(lhs, rhs, ""))
+      }
       AST::Num(n) => Ok(i64_type.const_int(n, false)),
     }
   }
@@ -32,7 +47,7 @@ impl<'ctx> CodeGen<'ctx> {
 
     self.builder.position_at_end(basic_block);
 
-    let i64_value = self.codegen_impl(ast)?;
+    let i64_value = self.gen(ast)?;
 
     self.builder.build_return(Some(&i64_value));
 
