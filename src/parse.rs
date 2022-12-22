@@ -1,4 +1,4 @@
-use crate::tokenize::*;
+use crate::tokenize::{Expected, Token, Tokenizer};
 
 #[derive(Debug, PartialEq)]
 pub enum AST {
@@ -53,7 +53,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
 
 // program = expr eof
 pub fn parse(mut it: Tokenizer) -> Expected<AST> {
-  let n = parse_expr(&mut it)?;
+  let n = expect_num(&mut it)?;
   expect_eof(&mut it)?;
   Ok(n)
 }
