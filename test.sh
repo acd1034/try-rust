@@ -19,8 +19,10 @@ assert() {
 }
 assert_fail() {
   input="$1"
-  ./target/debug/try-rust "$input" > tmp.ll
+  echo -n "$input => "
+  ./target/debug/try-rust "$input" > /dev/null
   if [ $? -eq 0 ]; then
+    echo "Error: unexpected success in compiling"
     exit 1
   fi
 }
