@@ -6,7 +6,7 @@ pub enum AST {
   Sub(Box<AST>, Box<AST>),
   Mul(Box<AST>, Box<AST>),
   Div(Box<AST>, Box<AST>),
-  Num(i64),
+  Num(u64),
 }
 
 fn consume(it: &mut Tokenizer, op: &str) -> Expected<bool> {

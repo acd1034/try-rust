@@ -3,7 +3,7 @@ pub type Expected<T> = Result<T, &'static str>;
 #[derive(Debug, PartialEq)]
 pub enum Token<'a> {
   Eof,
-  Num(i64),
+  Num(u64),
   Punct(&'a str),
 }
 
@@ -18,7 +18,7 @@ fn tokenize<'a>(s: &'a str) -> Expected<(Token, &'a str)> {
   } else if s.starts_with(|c: char| c.is_digit(10)) {
     let pos = s.find(|c: char| !c.is_digit(10)).unwrap_or(s.len());
     let num = s[..pos]
-      .parse::<i64>()
+      .parse::<u64>()
       .map_err(|_| "Failed to read integer")?;
     Ok((Token::Num(num), &s[pos..]))
   } else if s.starts_with(|c: char| c.is_ascii_punctuation()) {
