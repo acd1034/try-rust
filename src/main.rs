@@ -1,12 +1,20 @@
 mod codegen;
 mod parse;
 mod tokenize;
+use inkwell::context::Context;
 use tokenize::Expected;
 
 fn compile(s: &str) -> Expected<String> {
   let it = tokenize::Tokenizer::new(s);
   let ast = parse::parse(it)?;
-  Ok(codegen::codegen(ast))
+
+  let context = Context::create();
+  let codegen = codegen::CodeGen {
+    context: &context,
+    module: context.create_module("main"),
+    builder: context.create_builder(),
+  };
+  codegen.codegen(ast)
 }
 
 fn test(s: &str) {

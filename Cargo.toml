@@ -1,8 +1,10 @@
 [package]
+edition = "2021"
 name = "try-rust"
 version = "0.1.0"
-edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# LLVM_SYS_120_PREFIX=/opt/homebrew/opt/llvm@12 cargo build
+inkwell = {git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm12-0"]}
