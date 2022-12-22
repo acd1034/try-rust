@@ -17,12 +17,11 @@ fn compile(s: &str) -> Expected<String> {
   codegen.codegen(ast)
 }
 
-fn main() {
-  match std::env::args().nth(1) {
-    Some(arg) => match compile(arg.as_str()) {
-      Ok(ir) => println!("target triple = \"arm64-apple-macosx12.0.0\"\n{}", ir),
-      Err(msg) => eprintln!("error: {}", msg),
-    },
-    None => eprintln!("error: preprocess: invalid number of arguments"),
-  }
+fn main() -> Expected<()> {
+  let arg = std::env::args()
+    .nth(1)
+    .ok_or("preprocess: invalid number of arguments")?;
+  let ir = compile(arg.as_str())?;
+  println!("target triple = \"arm64-apple-macosx12.0.0\"\n{}", ir);
+  Ok(())
 }

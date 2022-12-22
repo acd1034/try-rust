@@ -17,6 +17,13 @@ assert() {
     exit 1
   fi
 }
+assert_fail() {
+  input="$1"
+  ./target/debug/try-rust "$input" > tmp.ll
+  if [ $? -eq 0 ]; then
+    exit 1
+  fi
+}
 
 assert 0 '0'
 assert 42 '42'
@@ -25,3 +32,4 @@ assert 41 '12 + 34 - 5'
 assert 47 '5+6*7'
 assert 15 '5*(9-6)'
 assert 4 '(3+5)/2'
+assert_fail '(3+ )/2'
