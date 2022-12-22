@@ -47,7 +47,8 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
 /**
  * program = expr eof
  * expr    = term ("+" term | "-" term)*
- * term    = primary ("*" primary | "/" primary)*
+ * term    = unary ("*" unary | "/" unary)*
+ * unary   = ("+" | "-")? primary
  * primary = "(" expr ")" | num
  */
 
@@ -76,21 +77,34 @@ fn parse_expr_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   }
 }
 
-// term    = primary ("*" primary | "/" primary)*
+// term    = unary ("*" unary | "/" unary)*
 fn parse_term(it: &mut Tokenizer) -> Expected<AST> {
-  let n = parse_primary(it)?;
+  let n = parse_unary(it)?;
   parse_term_impl(it, n)
 }
 
 fn parse_term_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   if consume(it, "*")? {
-    let m = parse_primary(it)?;
+    let m = parse_unary(it)?;
     parse_term_impl(it, AST::Mul(Box::new(n), Box::new(m)))
   } else if consume(it, "/")? {
-    let m = parse_primary(it)?;
+    let m = parse_unary(it)?;
     parse_term_impl(it, AST::Div(Box::new(n), Box::new(m)))
   } else {
     Ok(n)
+  }
+}
+
+// unary   = ("+" | "-")? primary
+fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
+  if consume(it, "+")? {
+    parse_primary(it)
+  } else if consume(it, "-")? {
+    let n = AST::Num(0);
+    let m = parse_primary(it)?;
+    Ok(AST::Sub(Box::new(n), Box::new(m)))
+  } else {
+    parse_primary(it)
   }
 }
 

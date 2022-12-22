@@ -1,6 +1,4 @@
 #!/bin/bash
-LLVM_SYS_120_PREFIX=/opt/homebrew/opt/llvm@12 cargo build
-
 assert() {
   expected="$1"
   input="$2"
@@ -27,11 +25,27 @@ assert_fail() {
   fi
 }
 
+LLVM_SYS_120_PREFIX=/opt/homebrew/opt/llvm@12 cargo build
+if [ $? -ne 0 ]; then
+  exit 1
+fi
+
+# num
 assert 0 '0'
 assert 42 '42'
-assert 21 '5+20-4'
-assert 41 '12 + 34 - 5'
-assert 47 '5+6*7'
+# term
+assert 24 '1 * 2 * 3 * 4'
+assert 4 '3 * 4 / 6 * 2'
+# expr
+assert 10 '1 + 2 + 3 + 4'
+assert 4 '1 + 2 - 3 + 4'
+assert 44 '1 * 2 + 3 * 4 + 5 * 6'
+assert 20 '1 * 2 - 6 / 3 + 4 * 5'
+# primary
 assert 15 '5*(9-6)'
 assert 4 '(3+5)/2'
 assert_fail '(3+ )/2'
+# unary
+assert 10 '-10+20'
+assert 10 '-(-10)'
+assert 2 '10 + -8'
