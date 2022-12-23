@@ -14,9 +14,19 @@ pub struct CodeGen<'ctx> {
 }
 
 impl<'ctx> CodeGen<'ctx> {
-  fn gen(&self, ast: AST) -> Expected<IntValue> {
+  fn gen<'a>(&self, ast: AST<'a>) -> Expected<IntValue> {
     let i64_type = self.context.i64_type();
     match ast {
+      AST::Assign(n, m) => {
+        let lhs = self.gen(*n)?;
+        let rhs = self.gen(*m)?;
+        // let cmp = self
+        //   .builder
+        //   .build_int_compare(IntPredicate::EQ, lhs, rhs, "");
+        // let cmp = self.builder.build_int_cast(cmp, i64_type, "");
+        // Ok(self.builder.build_int_neg(cmp, ""))
+        Err("unimplemented!")
+      }
       AST::Eq(n, m) => {
         let lhs = self.gen(*n)?;
         let rhs = self.gen(*m)?;
@@ -73,6 +83,7 @@ impl<'ctx> CodeGen<'ctx> {
         let rhs = self.gen(*m)?;
         Ok(self.builder.build_int_signed_div(lhs, rhs, ""))
       }
+      AST::Ident(name) => Err("unimplemented!"),
       AST::Num(n) => Ok(i64_type.const_int(n, false)),
     }
   }
