@@ -3,6 +3,7 @@ use crate::tokenize::Expected;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
+use std::collections::HashMap;
 
 use inkwell::values::{AnyValue, IntValue};
 use inkwell::IntPredicate;
@@ -11,10 +12,11 @@ pub struct CodeGen<'ctx> {
   pub context: &'ctx Context,
   pub module: Module<'ctx>,
   pub builder: Builder<'ctx>,
+  // variables: HashMap<String, PointerValue<'ctx>>,
 }
 
 impl<'ctx> CodeGen<'ctx> {
-  fn gen<'a>(&self, ast: AST<'a>) -> Expected<IntValue> {
+  fn gen(&self, ast: AST) -> Expected<IntValue> {
     let i64_type = self.context.i64_type();
     match ast {
       AST::Assign(n, m) => {
