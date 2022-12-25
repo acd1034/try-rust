@@ -63,7 +63,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  * relational = expr ("<" expr | "<=" expr | ">" expr | ">=" expr)*
  * expr       = term ("+" term | "-" term)*
  * term       = unary ("*" unary | "/" unary)*
- * unary      = ("+" | "-")? primary
+ * unary      = ("+" | "-")? unary | primary
  * primary    = "(" expr ")" | ident | num
  */
 
@@ -179,13 +179,13 @@ fn parse_term_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   }
 }
 
-// unary      = ("+" | "-")? primary
+// unary      = ("+" | "-")? unary | primary
 fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
   if consume(it, "+")? {
-    parse_primary(it)
+    parse_unary(it)
   } else if consume(it, "-")? {
     let n = AST::Num(0);
-    let m = parse_primary(it)?;
+    let m = parse_unary(it)?;
     Ok(AST::Sub(Box::new(n), Box::new(m)))
   } else {
     parse_primary(it)

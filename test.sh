@@ -47,9 +47,10 @@ assert 15 '5*(9-6);'
 assert 4 '(3+5)/2;'
 assert_fail '(3+ )/2;'
 # unary
-assert 10 '-10+20;'
+assert 10 '-10 - -20;'
 assert 10 '-(-10);'
-assert 2 '10 + -8;'
+assert 10 '- -10;'
+assert 10 '+10;'
 # relational
 assert 1 '0<1;'
 assert 0 '1<1;'
