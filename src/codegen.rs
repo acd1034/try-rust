@@ -5,7 +5,7 @@ use inkwell::context::Context;
 use inkwell::module::Module;
 use std::collections::HashMap;
 
-use inkwell::values::{AnyValue, IntValue};
+use inkwell::values::{AnyValue, IntValue, PointerValue};
 use inkwell::IntPredicate;
 
 pub struct CodeGen<'ctx> {
@@ -16,22 +16,35 @@ pub struct CodeGen<'ctx> {
 }
 
 impl<'ctx> CodeGen<'ctx> {
-  fn gen(&self, ast: AST) -> Expected<IntValue> {
+  fn gen_assign(
+    &self,
+    ast: AST,
+    vars: &mut HashMap<String, PointerValue<'ctx>>,
+  ) -> Expected<IntValue> {
     let i64_type = self.context.i64_type();
     match ast {
       AST::Assign(n, m) => {
-        let lhs = self.gen(*n)?;
-        let rhs = self.gen(*m)?;
-        // let cmp = self
-        //   .builder
-        //   .build_int_compare(IntPredicate::EQ, lhs, rhs, "");
-        // let cmp = self.builder.build_int_cast(cmp, i64_type, "");
-        // Ok(self.builder.build_int_neg(cmp, ""))
-        Err("unimplemented!")
+        let rhs = self.gen_assign(*m, vars)?;
+        match *n {
+          AST::Ident(name) => match vars.get(name.as_str()) {
+            Some(_var) => Err("variable already defined"),
+            None => {
+              let alloca = self.builder.build_alloca(i64_type, name.as_str());
+              self.builder.build_store(alloca, rhs);
+              let ret = self
+                .builder
+                .build_load(alloca, name.as_str())
+                .into_int_value();
+              vars.insert(name, alloca);
+              Ok(ret)
+            }
+          },
+          _ => Err("unexpected rvalue, expecting lvalue"),
+        }
       }
       AST::Eq(n, m) => {
-        let lhs = self.gen(*n)?;
-        let rhs = self.gen(*m)?;
+        let lhs = self.gen_assign(*n, vars)?;
+        let rhs = self.gen_assign(*m, vars)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::EQ, lhs, rhs, "");
@@ -39,8 +52,8 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(self.builder.build_int_neg(cmp, ""))
       }
       AST::Ne(n, m) => {
-        let lhs = self.gen(*n)?;
-        let rhs = self.gen(*m)?;
+        let lhs = self.gen_assign(*n, vars)?;
+        let rhs = self.gen_assign(*m, vars)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::NE, lhs, rhs, "");
@@ -48,8 +61,8 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(self.builder.build_int_neg(cmp, ""))
       }
       AST::Lt(n, m) => {
-        let lhs = self.gen(*n)?;
-        let rhs = self.gen(*m)?;
+        let lhs = self.gen_assign(*n, vars)?;
+        let rhs = self.gen_assign(*m, vars)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::ULT, lhs, rhs, "");
@@ -57,8 +70,8 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(self.builder.build_int_neg(cmp, ""))
       }
       AST::Le(n, m) => {
-        let lhs = self.gen(*n)?;
-        let rhs = self.gen(*m)?;
+        let lhs = self.gen_assign(*n, vars)?;
+        let rhs = self.gen_assign(*m, vars)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::ULE, lhs, rhs, "");
@@ -66,26 +79,34 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(self.builder.build_int_neg(cmp, ""))
       }
       AST::Add(n, m) => {
-        let lhs = self.gen(*n)?;
-        let rhs = self.gen(*m)?;
+        let lhs = self.gen_assign(*n, vars)?;
+        let rhs = self.gen_assign(*m, vars)?;
         Ok(self.builder.build_int_add(lhs, rhs, ""))
       }
       AST::Sub(n, m) => {
-        let lhs = self.gen(*n)?;
-        let rhs = self.gen(*m)?;
+        let lhs = self.gen_assign(*n, vars)?;
+        let rhs = self.gen_assign(*m, vars)?;
         Ok(self.builder.build_int_sub(lhs, rhs, ""))
       }
       AST::Mul(n, m) => {
-        let lhs = self.gen(*n)?;
-        let rhs = self.gen(*m)?;
+        let lhs = self.gen_assign(*n, vars)?;
+        let rhs = self.gen_assign(*m, vars)?;
         Ok(self.builder.build_int_mul(lhs, rhs, ""))
       }
       AST::Div(n, m) => {
-        let lhs = self.gen(*n)?;
-        let rhs = self.gen(*m)?;
+        let lhs = self.gen_assign(*n, vars)?;
+        let rhs = self.gen_assign(*m, vars)?;
         Ok(self.builder.build_int_signed_div(lhs, rhs, ""))
       }
-      AST::Ident(name) => Err("unimplemented!"),
+      AST::Ident(name) => match vars.get(name.as_str()) {
+        Some(var) => Ok(
+          self
+            .builder
+            .build_load(*var, name.as_str())
+            .into_int_value(),
+        ),
+        None => Err("variable not defined"),
+      },
       AST::Num(n) => Ok(i64_type.const_int(n, false)),
     }
   }
@@ -94,11 +115,12 @@ impl<'ctx> CodeGen<'ctx> {
     let i64_type = self.context.i64_type();
     let fn_type = i64_type.fn_type(&[], false);
     let function = self.module.add_function("main", fn_type, None);
-    let basic_block = self.context.append_basic_block(function, "entry");
+    let mut vars: HashMap<String, PointerValue<'ctx>> = HashMap::new();
 
+    let basic_block = self.context.append_basic_block(function, "entry");
     self.builder.position_at_end(basic_block);
 
-    let i64_value = self.gen(ast)?;
+    let i64_value = self.gen_assign(ast, &mut vars)?;
 
     self.builder.build_return(Some(&i64_value));
 

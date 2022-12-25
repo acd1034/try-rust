@@ -26,6 +26,7 @@ assert_fail() {
 }
 
 LLVM_SYS_120_PREFIX=/opt/homebrew/opt/llvm@12 cargo build
+# LLVM_SYS_120_PREFIX=/opt/homebrew/opt/llvm@12 cargo --explain E0499 E0502
 if [ $? -ne 0 ]; then
   exit 1
 fi
@@ -67,3 +68,8 @@ assert 0 '0==1;'
 assert 1 '42==42;'
 assert 1 '0!=1;'
 assert 0 '42!=42;'
+# assign
+assert 42 'foo123=42;'
+assert 42 '_123=42;'
+# assert 8 'a=3; z=5; a+z;'
+# assert 6 'a=b=3; a+b;'
