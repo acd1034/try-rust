@@ -26,9 +26,7 @@ impl<'ctx> CodeGen<'ctx> {
     let basic_block = self.context.append_basic_block(function, "entry");
     self.builder.position_at_end(basic_block);
 
-    let i64_value = self.gen_statements(ast, &mut vars)?;
-
-    self.builder.build_return(Some(&i64_value));
+    let _i64_value = self.gen_statements(ast, &mut vars)?;
 
     if function.verify(true) {
       Ok(function.print_to_string().to_string())
@@ -57,6 +55,11 @@ impl<'ctx> CodeGen<'ctx> {
   ) -> Expected<IntValue> {
     let i64_type = self.context.i64_type();
     match assign {
+      AST::Return(n) => {
+        let i64_value = self.gen_expr(*n, vars)?;
+        self.builder.build_return(Some(&i64_value));
+        Ok(i64_type.const_int(0, false))
+      }
       AST::Assign(n, m) => {
         let rhs = self.gen_expr(*m, vars)?;
         match *n {
@@ -78,12 +81,12 @@ impl<'ctx> CodeGen<'ctx> {
             if lhs.is_const() {
               Err("unexpected rvalue, expecting lvalue")
             } else {
-              Err("unimplemented!")
               // let name_str = lhs.get_name().to_str().map_err(|_| "failed to read cstr")?;
               // let alloca = vars.get(name_str).ok_or("XXX: failed to find var")?;
               // self.builder.build_store(*alloca, rhs);
               // let ret = self.builder.build_load(*alloca, name_str).into_int_value();
               // Ok(ret)
+              Err("unimplemented!")
             }
           }
         }

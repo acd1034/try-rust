@@ -3,6 +3,7 @@ pub type Expected<T> = Result<T, &'static str>;
 #[derive(Debug, PartialEq)]
 pub enum Token<'a> {
   Eof,
+  Keyword(&'a str),
   Ident(&'a str),
   Num(u64),
   Punct(&'a str),
@@ -20,7 +21,11 @@ fn tokenize<'a>(s: &'a str) -> Expected<(Token, &'a str)> {
     let pos = s
       .find(|c: char| c != '_' && !c.is_ascii_alphabetic() && !c.is_ascii_digit())
       .unwrap_or(s.len());
-    Ok((Token::Ident(&s[..pos]), &s[pos..]))
+    if &s[..pos] == "return" {
+      Ok((Token::Keyword(&s[..pos]), &s[pos..]))
+    } else {
+      Ok((Token::Ident(&s[..pos]), &s[pos..]))
+    }
   } else if s.starts_with(|c: char| c.is_ascii_digit()) {
     let pos = s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
     let num = s[..pos]

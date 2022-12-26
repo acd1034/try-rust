@@ -2,6 +2,7 @@ use crate::tokenize::{Expected, Token, Tokenizer};
 
 #[derive(Debug, PartialEq)]
 pub enum AST {
+  Return(Box<AST>),
   Assign(Box<AST>, Box<AST>),
   Eq(Box<AST>, Box<AST>),
   Ne(Box<AST>, Box<AST>),
@@ -15,8 +16,16 @@ pub enum AST {
   Num(u64),
 }
 
-fn consume(it: &mut Tokenizer, op: &str) -> Expected<bool> {
-  if it.current().unwrap()? == Token::Punct(op) {
+fn consume_eof(it: &mut Tokenizer) -> Expected<bool> {
+  if it.current().unwrap()? == Token::Eof {
+    Ok(true)
+  } else {
+    Ok(false)
+  }
+}
+
+fn consume_keyword(it: &mut Tokenizer, keyword: &str) -> Expected<bool> {
+  if it.current().unwrap()? == Token::Keyword(keyword) {
     it.next();
     Ok(true)
   } else {
@@ -24,8 +33,9 @@ fn consume(it: &mut Tokenizer, op: &str) -> Expected<bool> {
   }
 }
 
-fn consume_eof(it: &mut Tokenizer) -> Expected<bool> {
-  if it.current().unwrap()? == Token::Eof {
+fn consume(it: &mut Tokenizer, op: &str) -> Expected<bool> {
+  if it.current().unwrap()? == Token::Punct(op) {
+    it.next();
     Ok(true)
   } else {
     Ok(false)
@@ -57,7 +67,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
 
 /**
  * program    = statement* eof
- * statement  = expr ";"
+ * statement  = "return"? expr ";"
  * expr       = assign
  * assign     = equality ("=" assign)?
  * equality   = relational ("==" relational | "!=" relational)*
@@ -77,11 +87,17 @@ pub fn parse(mut it: Tokenizer) -> Expected<Vec<AST>> {
   Ok(stmts)
 }
 
-// statement  = assign ";"
+// statement  = "return"? expr ";"
 fn parse_statement(it: &mut Tokenizer) -> Expected<AST> {
-  let n = parse_expr(it)?;
-  expect(it, ";")?;
-  Ok(n)
+  if consume_keyword(it, "return")? {
+    let n = parse_expr(it)?;
+    expect(it, ";")?;
+    Ok(AST::Return(Box::new(n)))
+  } else {
+    let n = parse_expr(it)?;
+    expect(it, ";")?;
+    Ok(n)
+  }
 }
 
 // expr       = assign
