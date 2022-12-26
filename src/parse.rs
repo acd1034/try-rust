@@ -1,8 +1,13 @@
 use crate::tokenize::{Expected, Token, Tokenizer};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
+pub enum Stmt {
+  Return(AST),
+  Expr(AST),
+}
+
+#[derive(Debug)]
 pub enum AST {
-  Return(Box<AST>),
   Assign(Box<AST>, Box<AST>),
   Eq(Box<AST>, Box<AST>),
   Ne(Box<AST>, Box<AST>),
@@ -79,7 +84,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  */
 
 // program    = statement*
-pub fn parse(mut it: Tokenizer) -> Expected<Vec<AST>> {
+pub fn parse(mut it: Tokenizer) -> Expected<Vec<Stmt>> {
   let mut stmts = Vec::new();
   while !consume_eof(&mut it)? {
     stmts.push(parse_statement(&mut it)?);
@@ -88,15 +93,15 @@ pub fn parse(mut it: Tokenizer) -> Expected<Vec<AST>> {
 }
 
 // statement  = "return"? expr ";"
-fn parse_statement(it: &mut Tokenizer) -> Expected<AST> {
+fn parse_statement(it: &mut Tokenizer) -> Expected<Stmt> {
   if consume_keyword(it, "return")? {
     let n = parse_expr(it)?;
     expect(it, ";")?;
-    Ok(AST::Return(Box::new(n)))
+    Ok(Stmt::Return(n))
   } else {
     let n = parse_expr(it)?;
     expect(it, ";")?;
-    Ok(n)
+    Ok(Stmt::Expr(n))
   }
 }
 
