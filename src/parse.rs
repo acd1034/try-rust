@@ -57,12 +57,13 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
 
 /**
  * program    = statement* eof
- * statement  = assign ";"
+ * statement  = expr ";"
+ * expr       = assign
  * assign     = equality ("=" assign)?
  * equality   = relational ("==" relational | "!=" relational)*
- * relational = expr ("<" expr | "<=" expr | ">" expr | ">=" expr)*
- * expr       = term ("+" term | "-" term)*
- * term       = unary ("*" unary | "/" unary)*
+ * relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+ * add        = mul ("+" mul | "-" mul)*
+ * mul        = unary ("*" unary | "/" unary)*
  * unary      = ("+" | "-")? unary | primary
  * primary    = "(" expr ")" | ident | num
  */
@@ -78,9 +79,14 @@ pub fn parse(mut it: Tokenizer) -> Expected<Vec<AST>> {
 
 // statement  = assign ";"
 fn parse_statement(it: &mut Tokenizer) -> Expected<AST> {
-  let n = parse_assign(it)?;
+  let n = parse_expr(it)?;
   expect(it, ";")?;
   Ok(n)
+}
+
+// expr       = assign
+fn parse_expr(it: &mut Tokenizer) -> Expected<AST> {
+  parse_assign(it)
 }
 
 // assign     = equality ("=" assign)?
@@ -112,61 +118,61 @@ fn parse_equality_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   }
 }
 
-// relational = expr ("<" expr | "<=" expr | ">" expr | ">=" expr)*
+// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 fn parse_relational(it: &mut Tokenizer) -> Expected<AST> {
-  let n = parse_expr(it)?;
+  let n = parse_add(it)?;
   parse_relational_impl(it, n)
 }
 
 fn parse_relational_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   if consume(it, "<")? {
-    let m = parse_expr(it)?;
+    let m = parse_add(it)?;
     parse_relational_impl(it, AST::Lt(Box::new(n), Box::new(m)))
   } else if consume(it, "<=")? {
-    let m = parse_expr(it)?;
+    let m = parse_add(it)?;
     parse_relational_impl(it, AST::Le(Box::new(n), Box::new(m)))
   } else if consume(it, ">")? {
-    let m = parse_expr(it)?;
+    let m = parse_add(it)?;
     parse_relational_impl(it, AST::Lt(Box::new(m), Box::new(n)))
   } else if consume(it, ">=")? {
-    let m = parse_expr(it)?;
+    let m = parse_add(it)?;
     parse_relational_impl(it, AST::Le(Box::new(m), Box::new(n)))
   } else {
     Ok(n)
   }
 }
 
-// expr       = term ("+" term | "-" term)*
-fn parse_expr(it: &mut Tokenizer) -> Expected<AST> {
-  let n = parse_term(it)?;
-  parse_expr_impl(it, n)
+// add        = mul ("+" mul | "-" mul)*
+fn parse_add(it: &mut Tokenizer) -> Expected<AST> {
+  let n = parse_mul(it)?;
+  parse_add_impl(it, n)
 }
 
-fn parse_expr_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
+fn parse_add_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   if consume(it, "+")? {
-    let m = parse_term(it)?;
-    parse_expr_impl(it, AST::Add(Box::new(n), Box::new(m)))
+    let m = parse_mul(it)?;
+    parse_add_impl(it, AST::Add(Box::new(n), Box::new(m)))
   } else if consume(it, "-")? {
-    let m = parse_term(it)?;
-    parse_expr_impl(it, AST::Sub(Box::new(n), Box::new(m)))
+    let m = parse_mul(it)?;
+    parse_add_impl(it, AST::Sub(Box::new(n), Box::new(m)))
   } else {
     Ok(n)
   }
 }
 
-// term       = unary ("*" unary | "/" unary)*
-fn parse_term(it: &mut Tokenizer) -> Expected<AST> {
+// mul        = unary ("*" unary | "/" unary)*
+fn parse_mul(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_unary(it)?;
-  parse_term_impl(it, n)
+  parse_mul_impl(it, n)
 }
 
-fn parse_term_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
+fn parse_mul_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   if consume(it, "*")? {
     let m = parse_unary(it)?;
-    parse_term_impl(it, AST::Mul(Box::new(n), Box::new(m)))
+    parse_mul_impl(it, AST::Mul(Box::new(n), Box::new(m)))
   } else if consume(it, "/")? {
     let m = parse_unary(it)?;
-    parse_term_impl(it, AST::Div(Box::new(n), Box::new(m)))
+    parse_mul_impl(it, AST::Div(Box::new(n), Box::new(m)))
   } else {
     Ok(n)
   }

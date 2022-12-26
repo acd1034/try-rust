@@ -3,6 +3,7 @@ use crate::tokenize::Expected;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
+use inkwell::AddressSpace;
 use std::collections::HashMap;
 
 use inkwell::values::{AnyValue, IntValue, PointerValue};
@@ -44,12 +45,12 @@ impl<'ctx> CodeGen<'ctx> {
   ) -> Expected<IntValue> {
     let mut ex: Expected<_> = Err("empty statements");
     for assign in stmts {
-      ex = Ok(self.gen_assign(assign, vars)?);
+      ex = Ok(self.gen_expr(assign, vars)?);
     }
     ex
   }
 
-  fn gen_assign(
+  fn gen_expr(
     &self,
     assign: AST,
     vars: &mut HashMap<String, PointerValue<'ctx>>,
@@ -57,7 +58,7 @@ impl<'ctx> CodeGen<'ctx> {
     let i64_type = self.context.i64_type();
     match assign {
       AST::Assign(n, m) => {
-        let rhs = self.gen_assign(*m, vars)?;
+        let rhs = self.gen_expr(*m, vars)?;
         match *n {
           AST::Ident(name) => match vars.get(name.as_str()) {
             Some(_var) => Err("variable already defined"),
@@ -72,12 +73,24 @@ impl<'ctx> CodeGen<'ctx> {
               Ok(ret)
             }
           },
-          _ => Err("unexpected rvalue, expecting lvalue"),
+          _ => {
+            let lhs = self.gen_expr(*n, vars)?;
+            if lhs.is_const() {
+              Err("unexpected rvalue, expecting lvalue")
+            } else {
+              Err("unimplemented!")
+              // let name_str = lhs.get_name().to_str().map_err(|_| "failed to read cstr")?;
+              // let alloca = vars.get(name_str).ok_or("XXX: failed to find var")?;
+              // self.builder.build_store(*alloca, rhs);
+              // let ret = self.builder.build_load(*alloca, name_str).into_int_value();
+              // Ok(ret)
+            }
+          }
         }
       }
       AST::Eq(n, m) => {
-        let lhs = self.gen_assign(*n, vars)?;
-        let rhs = self.gen_assign(*m, vars)?;
+        let lhs = self.gen_expr(*n, vars)?;
+        let rhs = self.gen_expr(*m, vars)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::EQ, lhs, rhs, "");
@@ -85,8 +98,8 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(self.builder.build_int_neg(cmp, ""))
       }
       AST::Ne(n, m) => {
-        let lhs = self.gen_assign(*n, vars)?;
-        let rhs = self.gen_assign(*m, vars)?;
+        let lhs = self.gen_expr(*n, vars)?;
+        let rhs = self.gen_expr(*m, vars)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::NE, lhs, rhs, "");
@@ -94,8 +107,8 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(self.builder.build_int_neg(cmp, ""))
       }
       AST::Lt(n, m) => {
-        let lhs = self.gen_assign(*n, vars)?;
-        let rhs = self.gen_assign(*m, vars)?;
+        let lhs = self.gen_expr(*n, vars)?;
+        let rhs = self.gen_expr(*m, vars)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::ULT, lhs, rhs, "");
@@ -103,8 +116,8 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(self.builder.build_int_neg(cmp, ""))
       }
       AST::Le(n, m) => {
-        let lhs = self.gen_assign(*n, vars)?;
-        let rhs = self.gen_assign(*m, vars)?;
+        let lhs = self.gen_expr(*n, vars)?;
+        let rhs = self.gen_expr(*m, vars)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::ULE, lhs, rhs, "");
@@ -112,23 +125,23 @@ impl<'ctx> CodeGen<'ctx> {
         Ok(self.builder.build_int_neg(cmp, ""))
       }
       AST::Add(n, m) => {
-        let lhs = self.gen_assign(*n, vars)?;
-        let rhs = self.gen_assign(*m, vars)?;
+        let lhs = self.gen_expr(*n, vars)?;
+        let rhs = self.gen_expr(*m, vars)?;
         Ok(self.builder.build_int_add(lhs, rhs, ""))
       }
       AST::Sub(n, m) => {
-        let lhs = self.gen_assign(*n, vars)?;
-        let rhs = self.gen_assign(*m, vars)?;
+        let lhs = self.gen_expr(*n, vars)?;
+        let rhs = self.gen_expr(*m, vars)?;
         Ok(self.builder.build_int_sub(lhs, rhs, ""))
       }
       AST::Mul(n, m) => {
-        let lhs = self.gen_assign(*n, vars)?;
-        let rhs = self.gen_assign(*m, vars)?;
+        let lhs = self.gen_expr(*n, vars)?;
+        let rhs = self.gen_expr(*m, vars)?;
         Ok(self.builder.build_int_mul(lhs, rhs, ""))
       }
       AST::Div(n, m) => {
-        let lhs = self.gen_assign(*n, vars)?;
-        let rhs = self.gen_assign(*m, vars)?;
+        let lhs = self.gen_expr(*n, vars)?;
+        let rhs = self.gen_expr(*m, vars)?;
         Ok(self.builder.build_int_signed_div(lhs, rhs, ""))
       }
       AST::Ident(name) => match vars.get(name.as_str()) {
