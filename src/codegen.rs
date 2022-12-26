@@ -80,12 +80,12 @@ impl<'ctx> CodeGen<'ctx> {
             None => {
               let alloca = self.builder.build_alloca(i64_type, name.as_str());
               self.builder.build_store(alloca, rhs);
-              let ret = self
-                .builder
-                .build_load(alloca, name.as_str())
-                .into_int_value();
+              // let ret = self
+              //   .builder
+              //   .build_load(alloca, name.as_str())
+              //   .into_int_value();
               vars.insert(name, alloca);
-              Ok(ret)
+              Ok(rhs)
             }
           },
           _ => {
