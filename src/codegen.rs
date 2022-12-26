@@ -1,4 +1,4 @@
-use crate::parse::{Stmt, AST};
+use crate::parse::{Function, Stmt, AST};
 use crate::tokenize::Expected;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
@@ -6,7 +6,7 @@ use inkwell::module::Module;
 use inkwell::AddressSpace;
 use std::collections::HashMap;
 
-use inkwell::values::{AnyValue, IntValue, PointerValue};
+use inkwell::values::{IntValue, PointerValue};
 use inkwell::IntPredicate;
 
 pub struct CodeGen<'ctx> {
@@ -17,37 +17,41 @@ pub struct CodeGen<'ctx> {
 }
 
 impl<'ctx> CodeGen<'ctx> {
-  pub fn codegen(&self, ast: Vec<Stmt>) -> Expected<String> {
+  pub fn codegen(&self, functions: Vec<Function>) -> Expected<String> {
+    for function in functions {
+      self.gen_function(function)?;
+    }
+    Ok(self.module.to_string())
+  }
+
+  fn gen_function(&self, function: Function) -> Expected<()> {
     let i64_type = self.context.i64_type();
     let fn_type = i64_type.fn_type(&[], false);
-    let function = self.module.add_function("main", fn_type, None);
+    let fn_value = self.module.add_function(&function.name, fn_type, None);
     let mut vars: HashMap<String, PointerValue<'ctx>> = HashMap::new();
 
-    let basic_block = self.context.append_basic_block(function, "entry");
-    self.builder.position_at_end(basic_block);
+    let entry_block = self.context.append_basic_block(fn_value, "entry");
+    self.builder.position_at_end(entry_block);
 
-    self.gen_statements(ast, &mut vars)?;
+    for stmt in function.body {
+      self.gen_statement(stmt, &mut vars)?;
+    }
 
-    if function.verify(true) {
-      Ok(function.print_to_string().to_string())
+    if fn_value.verify(true) {
+      Ok(())
     } else {
-      // unsafe { function.delete(); }
+      unsafe {
+        fn_value.delete();
+      }
       Err("postprocess: failed to verify function")
     }
   }
 
-  fn gen_statements(
+  fn gen_statement(
     &self,
-    stmts: Vec<Stmt>,
+    stmt: Stmt,
     vars: &mut HashMap<String, PointerValue<'ctx>>,
   ) -> Expected<()> {
-    for stmt in stmts {
-      self.gen_stmt(stmt, vars)?;
-    }
-    Ok(())
-  }
-
-  fn gen_stmt(&self, stmt: Stmt, vars: &mut HashMap<String, PointerValue<'ctx>>) -> Expected<()> {
     match stmt {
       Stmt::Return(expr) => {
         let i64_value = self.gen_expr(expr, vars)?;

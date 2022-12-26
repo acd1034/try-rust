@@ -1,6 +1,12 @@
 use crate::tokenize::{Expected, Token, Tokenizer};
 
 #[derive(Debug)]
+pub struct Function {
+  pub name: String,
+  pub body: Vec<Stmt>,
+}
+
+#[derive(Debug)]
 pub enum Stmt {
   Return(AST),
   Expr(AST),
@@ -47,17 +53,13 @@ fn consume(it: &mut Tokenizer, op: &str) -> Expected<bool> {
   }
 }
 
-fn expect_ident_or_num(it: &mut Tokenizer) -> Expected<AST> {
+fn expect_ident(it: &mut Tokenizer) -> Expected<String> {
   match it.current().unwrap()? {
     Token::Ident(name) => {
       it.next();
-      Ok(AST::Ident(name.to_string()))
+      Ok(name.to_string())
     }
-    Token::Num(n) => {
-      it.next();
-      Ok(AST::Num(n))
-    }
-    _ => Err("unexpected token, expecting identifier or number"),
+    _ => Err("unexpected token, expecting identifier"),
   }
 }
 
@@ -71,7 +73,8 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
 }
 
 /**
- * program    = statement* eof
+ * program    = function* eof
+ * function   = ident "(" ")" "{" statement* "}"
  * statement  = "return"? expr ";"
  * expr       = assign
  * assign     = equality ("=" assign)?
@@ -83,13 +86,26 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  * primary    = "(" expr ")" | ident | num
  */
 
-// program    = statement*
-pub fn parse(mut it: Tokenizer) -> Expected<Vec<Stmt>> {
-  let mut stmts = Vec::new();
+// program    = function* eof
+pub fn parse(mut it: Tokenizer) -> Expected<Vec<Function>> {
+  let mut functions = Vec::new();
   while !consume_eof(&mut it)? {
-    stmts.push(parse_statement(&mut it)?);
+    functions.push(parse_function(&mut it)?);
   }
-  Ok(stmts)
+  Ok(functions)
+}
+
+// function   = ident "(" ")" "{" statement* "}"
+fn parse_function(it: &mut Tokenizer) -> Expected<Function> {
+  let name = expect_ident(it)?;
+  expect(it, "(")?;
+  expect(it, ")")?;
+  expect(it, "{")?;
+  let mut body = Vec::new();
+  while !consume(it, "}")? {
+    body.push(parse_statement(it)?);
+  }
+  Ok(Function { name, body })
 }
 
 // statement  = "return"? expr ";"
@@ -219,6 +235,20 @@ fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
     expect(it, ")")?;
     Ok(n)
   } else {
-    expect_ident_or_num(it)
+    parse_ident_or_num(it)
+  }
+}
+
+fn parse_ident_or_num(it: &mut Tokenizer) -> Expected<AST> {
+  match it.current().unwrap()? {
+    Token::Ident(name) => {
+      it.next();
+      Ok(AST::Ident(name.to_string()))
+    }
+    Token::Num(n) => {
+      it.next();
+      Ok(AST::Num(n))
+    }
+    _ => Err("unexpected token, expecting identifier or number"),
   }
 }
