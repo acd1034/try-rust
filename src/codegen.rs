@@ -108,56 +108,56 @@ impl<'ctx> CodeGen<'ctx> {
         let rhs = self.gen_expr(*m, vars)?;
         let cmp = self
           .builder
-          .build_int_compare(IntPredicate::EQ, lhs, rhs, "");
-        let cmp = self.builder.build_int_cast(cmp, i64_type, "");
-        Ok(self.builder.build_int_neg(cmp, ""))
+          .build_int_compare(IntPredicate::EQ, lhs, rhs, "tmpcmp");
+        let b = self.builder.build_int_cast(cmp, i64_type, "tmpbool");
+        Ok(self.builder.build_int_neg(b, ""))
       }
       AST::Ne(n, m) => {
         let lhs = self.gen_expr(*n, vars)?;
         let rhs = self.gen_expr(*m, vars)?;
         let cmp = self
           .builder
-          .build_int_compare(IntPredicate::NE, lhs, rhs, "");
-        let cmp = self.builder.build_int_cast(cmp, i64_type, "");
-        Ok(self.builder.build_int_neg(cmp, ""))
+          .build_int_compare(IntPredicate::NE, lhs, rhs, "tmpcmp");
+        let b = self.builder.build_int_cast(cmp, i64_type, "tmpbool");
+        Ok(self.builder.build_int_neg(b, ""))
       }
       AST::Lt(n, m) => {
         let lhs = self.gen_expr(*n, vars)?;
         let rhs = self.gen_expr(*m, vars)?;
         let cmp = self
           .builder
-          .build_int_compare(IntPredicate::ULT, lhs, rhs, "");
-        let cmp = self.builder.build_int_cast(cmp, i64_type, "");
-        Ok(self.builder.build_int_neg(cmp, ""))
+          .build_int_compare(IntPredicate::ULT, lhs, rhs, "tmpcmp");
+        let b = self.builder.build_int_cast(cmp, i64_type, "tmpbool");
+        Ok(self.builder.build_int_neg(b, ""))
       }
       AST::Le(n, m) => {
         let lhs = self.gen_expr(*n, vars)?;
         let rhs = self.gen_expr(*m, vars)?;
         let cmp = self
           .builder
-          .build_int_compare(IntPredicate::ULE, lhs, rhs, "");
-        let cmp = self.builder.build_int_cast(cmp, i64_type, "");
-        Ok(self.builder.build_int_neg(cmp, ""))
+          .build_int_compare(IntPredicate::ULE, lhs, rhs, "tmpcmp");
+        let b = self.builder.build_int_cast(cmp, i64_type, "tmpbool");
+        Ok(self.builder.build_int_neg(b, ""))
       }
       AST::Add(n, m) => {
         let lhs = self.gen_expr(*n, vars)?;
         let rhs = self.gen_expr(*m, vars)?;
-        Ok(self.builder.build_int_add(lhs, rhs, ""))
+        Ok(self.builder.build_int_add(lhs, rhs, "tmpadd"))
       }
       AST::Sub(n, m) => {
         let lhs = self.gen_expr(*n, vars)?;
         let rhs = self.gen_expr(*m, vars)?;
-        Ok(self.builder.build_int_sub(lhs, rhs, ""))
+        Ok(self.builder.build_int_sub(lhs, rhs, "tmpsub"))
       }
       AST::Mul(n, m) => {
         let lhs = self.gen_expr(*n, vars)?;
         let rhs = self.gen_expr(*m, vars)?;
-        Ok(self.builder.build_int_mul(lhs, rhs, ""))
+        Ok(self.builder.build_int_mul(lhs, rhs, "tmpmul"))
       }
       AST::Div(n, m) => {
         let lhs = self.gen_expr(*n, vars)?;
         let rhs = self.gen_expr(*m, vars)?;
-        Ok(self.builder.build_int_signed_div(lhs, rhs, ""))
+        Ok(self.builder.build_int_signed_div(lhs, rhs, "tmpdiv"))
       }
       AST::Ident(name) => match vars.get(name.as_str()) {
         Some(var) => Ok(
