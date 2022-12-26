@@ -68,20 +68,13 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  */
 
 // program    = statement*
-pub fn parse(mut it: Tokenizer) -> Expected<AST> {
-  parse_statement(&mut it)
+pub fn parse(mut it: Tokenizer) -> Expected<Vec<AST>> {
+  let mut stmts = Vec::new();
+  while !consume_eof(&mut it)? {
+    stmts.push(parse_statement(&mut it)?);
+  }
+  Ok(stmts)
 }
-// pub fn parse(mut it: Tokenizer) -> Expected<Vec<AST>> {
-//   let mut stmts = Vec::new();
-//   loop {
-//     if consume_eof(&mut it)? {
-//       break;
-//     } else {
-//       stmts.push(parse_statement(&mut it)?);
-//     }
-//   }
-//   Ok(stmts)
-// }
 
 // statement  = assign ";"
 fn parse_statement(it: &mut Tokenizer) -> Expected<AST> {

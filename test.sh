@@ -72,5 +72,9 @@ assert 0 '42!=42;'
 # assign
 assert 42 'foo123=42;'
 assert 42 '_123=42;'
-# assert 8 'a=3; z=5; a+z;'
-# assert 6 'a=b=3; a+b;'
+# statements
+assert 3 '1; 2; 3;'
+assert 8 'a=3; z=5; a+z;'
+assert 6 'a=b=3; a+b;'
+# assert 2 'a=a=2;'
+# assert 2 '(x=1)=2; x;'
