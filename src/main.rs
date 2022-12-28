@@ -21,7 +21,7 @@ fn main() -> Expected<()> {
   let arg = std::env::args()
     .nth(1)
     .ok_or("preprocess: invalid number of arguments")?;
-  let ir = compile(arg.as_str())?;
+  let ir = compile(&arg)?;
   println!("target triple = \"arm64-apple-macosx12.0.0\"\n{}", ir);
   Ok(())
 }

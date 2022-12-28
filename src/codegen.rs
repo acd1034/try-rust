@@ -75,14 +75,14 @@ impl<'ctx> CodeGen<'ctx> {
       AST::Assign(n, m) => {
         let rhs = self.gen_expr(*m, vars)?;
         match *n {
-          AST::Ident(name) => match vars.get(name.as_str()) {
+          AST::Ident(name) => match vars.get(&name) {
             Some(_var) => Err("variable already defined"),
             None => {
-              let alloca = self.builder.build_alloca(i64_type, name.as_str());
+              let alloca = self.builder.build_alloca(i64_type, &name);
               self.builder.build_store(alloca, rhs);
               // let ret = self
               //   .builder
-              //   .build_load(alloca, name.as_str())
+              //   .build_load(alloca, &name)
               //   .into_int_value();
               vars.insert(name, alloca);
               Ok(rhs)
@@ -159,13 +159,8 @@ impl<'ctx> CodeGen<'ctx> {
         let rhs = self.gen_expr(*m, vars)?;
         Ok(self.builder.build_int_signed_div(lhs, rhs, "tmpdiv"))
       }
-      AST::Ident(name) => match vars.get(name.as_str()) {
-        Some(var) => Ok(
-          self
-            .builder
-            .build_load(*var, name.as_str())
-            .into_int_value(),
-        ),
+      AST::Ident(name) => match vars.get(&name) {
+        Some(var) => Ok(self.builder.build_load(*var, &name).into_int_value()),
         None => Err("variable not defined"),
       },
       AST::Num(n) => Ok(i64_type.const_int(n, false)),

@@ -33,7 +33,7 @@ impl CodeGen {
         self.num = self.num + 1;
         let rhs = self.codegen(*m)?;
         match *n {
-          Node::Ident(name) => match self.vars.get(name.as_str()) {
+          Node::Ident(name) => match self.vars.get(&name) {
             Some(_var) => Err("variable already defined"),
             None => {
               self.vars.insert(name.clone(), ());
@@ -45,7 +45,7 @@ impl CodeGen {
       }
       Node::Ident(name) => {
         self.num = self.num + 1;
-        match self.vars.get(name.as_str()) {
+        match self.vars.get(&name) {
           Some(_var) => Ok(name),
           None => Err("variables not defined"),
         }
