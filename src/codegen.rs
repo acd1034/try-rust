@@ -3,10 +3,9 @@ use crate::tokenize::Expected;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::AddressSpace;
 use std::collections::HashMap;
 
-use inkwell::values::{IntValue, PointerValue};
+use inkwell::values::{BasicValueEnum, IntValue, PointerValue};
 use inkwell::IntPredicate;
 
 pub struct CodeGen<'ctx> {
@@ -54,7 +53,7 @@ impl<'ctx> CodeGen<'ctx> {
   ) -> Expected<()> {
     match stmt {
       Stmt::Return(expr) => {
-        let i64_value = self.gen_expr(expr, vars)?;
+        let i64_value = self.gen_expr_into_int_value(expr, vars)?;
         self.builder.build_return(Some(&i64_value));
         Ok(())
       }
@@ -65,105 +64,135 @@ impl<'ctx> CodeGen<'ctx> {
     }
   }
 
-  fn gen_expr(
+  // TODO: Creates a new stack allocation instruction in the entry block of the function.
+  fn create_entry_block_alloca(
+    &self,
+    name: String,
+    vars: &mut HashMap<String, PointerValue<'ctx>>,
+  ) -> PointerValue<'ctx> {
+    let i64_type = self.context.i64_type();
+    let alloca = self.builder.build_alloca(i64_type, &name);
+    vars.insert(name, alloca);
+    alloca
+  }
+
+  fn gen_expr_into_int_value(
     &self,
     expr: AST,
     vars: &mut HashMap<String, PointerValue<'ctx>>,
   ) -> Expected<IntValue> {
+    let value = self.gen_expr(expr, vars)?;
+    if value.is_pointer_value() {
+      Ok(
+        self
+          .builder
+          .build_load(value.into_pointer_value(), "tmpload")
+          .into_int_value(),
+      )
+    } else {
+      Ok(value.into_int_value())
+    }
+  }
+
+  fn gen_expr(
+    &self,
+    expr: AST,
+    vars: &mut HashMap<String, PointerValue<'ctx>>,
+  ) -> Expected<BasicValueEnum> {
     let i64_type = self.context.i64_type();
     match expr {
       AST::Assign(n, m) => {
-        let rhs = self.gen_expr(*m, vars)?;
+        let rhs = self.gen_expr_into_int_value(*m, vars)?;
         match *n {
           AST::Ident(name) => match vars.get(&name) {
             Some(_var) => Err("variable already defined"),
             None => {
-              let alloca = self.builder.build_alloca(i64_type, &name);
+              let alloca = self.create_entry_block_alloca(name, vars);
               self.builder.build_store(alloca, rhs);
-              // let ret = self
-              //   .builder
-              //   .build_load(alloca, &name)
-              //   .into_int_value();
-              vars.insert(name, alloca);
-              Ok(rhs)
+              Ok(BasicValueEnum::PointerValue(alloca))
             }
           },
           _ => {
             let lhs = self.gen_expr(*n, vars)?;
-            if lhs.is_const() {
-              Err("unexpected rvalue, expecting lvalue")
+            if lhs.is_pointer_value() {
+              let i64_ptr_value = lhs.into_pointer_value();
+              self.builder.build_store(i64_ptr_value, rhs);
+              Ok(BasicValueEnum::PointerValue(i64_ptr_value))
             } else {
-              // let name_str = lhs.get_name().to_str().map_err(|_| "failed to read cstr")?;
-              // let alloca = vars.get(name_str).ok_or("XXX: failed to find var")?;
-              // self.builder.build_store(*alloca, rhs);
-              // let ret = self.builder.build_load(*alloca, name_str).into_int_value();
-              // Ok(ret)
-              Err("unimplemented!")
+              Err("unexpected rvalue, expecting lvalue")
             }
           }
         }
       }
       AST::Eq(n, m) => {
-        let lhs = self.gen_expr(*n, vars)?;
-        let rhs = self.gen_expr(*m, vars)?;
+        let lhs = self.gen_expr_into_int_value(*n, vars)?;
+        let rhs = self.gen_expr_into_int_value(*m, vars)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::EQ, lhs, rhs, "tmpcmp");
         let b = self.builder.build_int_cast(cmp, i64_type, "tmpbool");
-        Ok(self.builder.build_int_neg(b, ""))
+        Ok(BasicValueEnum::IntValue(self.builder.build_int_neg(b, "")))
       }
       AST::Ne(n, m) => {
-        let lhs = self.gen_expr(*n, vars)?;
-        let rhs = self.gen_expr(*m, vars)?;
+        let lhs = self.gen_expr_into_int_value(*n, vars)?;
+        let rhs = self.gen_expr_into_int_value(*m, vars)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::NE, lhs, rhs, "tmpcmp");
         let b = self.builder.build_int_cast(cmp, i64_type, "tmpbool");
-        Ok(self.builder.build_int_neg(b, ""))
+        Ok(BasicValueEnum::IntValue(self.builder.build_int_neg(b, "")))
       }
       AST::Lt(n, m) => {
-        let lhs = self.gen_expr(*n, vars)?;
-        let rhs = self.gen_expr(*m, vars)?;
+        let lhs = self.gen_expr_into_int_value(*n, vars)?;
+        let rhs = self.gen_expr_into_int_value(*m, vars)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::ULT, lhs, rhs, "tmpcmp");
         let b = self.builder.build_int_cast(cmp, i64_type, "tmpbool");
-        Ok(self.builder.build_int_neg(b, ""))
+        Ok(BasicValueEnum::IntValue(self.builder.build_int_neg(b, "")))
       }
       AST::Le(n, m) => {
-        let lhs = self.gen_expr(*n, vars)?;
-        let rhs = self.gen_expr(*m, vars)?;
+        let lhs = self.gen_expr_into_int_value(*n, vars)?;
+        let rhs = self.gen_expr_into_int_value(*m, vars)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::ULE, lhs, rhs, "tmpcmp");
         let b = self.builder.build_int_cast(cmp, i64_type, "tmpbool");
-        Ok(self.builder.build_int_neg(b, ""))
+        Ok(BasicValueEnum::IntValue(self.builder.build_int_neg(b, "")))
       }
       AST::Add(n, m) => {
-        let lhs = self.gen_expr(*n, vars)?;
-        let rhs = self.gen_expr(*m, vars)?;
-        Ok(self.builder.build_int_add(lhs, rhs, "tmpadd"))
+        let lhs = self.gen_expr_into_int_value(*n, vars)?;
+        let rhs = self.gen_expr_into_int_value(*m, vars)?;
+        Ok(BasicValueEnum::IntValue(
+          self.builder.build_int_add(lhs, rhs, "tmpadd"),
+        ))
       }
       AST::Sub(n, m) => {
-        let lhs = self.gen_expr(*n, vars)?;
-        let rhs = self.gen_expr(*m, vars)?;
-        Ok(self.builder.build_int_sub(lhs, rhs, "tmpsub"))
+        let lhs = self.gen_expr_into_int_value(*n, vars)?;
+        let rhs = self.gen_expr_into_int_value(*m, vars)?;
+        Ok(BasicValueEnum::IntValue(
+          self.builder.build_int_sub(lhs, rhs, "tmpsub"),
+        ))
       }
       AST::Mul(n, m) => {
-        let lhs = self.gen_expr(*n, vars)?;
-        let rhs = self.gen_expr(*m, vars)?;
-        Ok(self.builder.build_int_mul(lhs, rhs, "tmpmul"))
+        let lhs = self.gen_expr_into_int_value(*n, vars)?;
+        let rhs = self.gen_expr_into_int_value(*m, vars)?;
+        Ok(BasicValueEnum::IntValue(
+          self.builder.build_int_mul(lhs, rhs, "tmpmul"),
+        ))
       }
       AST::Div(n, m) => {
-        let lhs = self.gen_expr(*n, vars)?;
-        let rhs = self.gen_expr(*m, vars)?;
-        Ok(self.builder.build_int_signed_div(lhs, rhs, "tmpdiv"))
+        let lhs = self.gen_expr_into_int_value(*n, vars)?;
+        let rhs = self.gen_expr_into_int_value(*m, vars)?;
+        Ok(BasicValueEnum::IntValue(
+          self.builder.build_int_signed_div(lhs, rhs, "tmpdiv"),
+        ))
       }
       AST::Ident(name) => match vars.get(&name) {
-        Some(var) => Ok(self.builder.build_load(*var, &name).into_int_value()),
+        Some(var) => Ok(BasicValueEnum::PointerValue(*var)),
         None => Err("variable not defined"),
       },
-      AST::Num(n) => Ok(i64_type.const_int(n, false)),
+      AST::Num(n) => Ok(BasicValueEnum::IntValue(i64_type.const_int(n, false))),
     }
   }
 }
