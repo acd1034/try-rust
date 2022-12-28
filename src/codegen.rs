@@ -5,7 +5,7 @@ use inkwell::context::Context;
 use inkwell::module::Module;
 use std::collections::HashMap;
 
-use inkwell::values::{BasicValueEnum, IntValue, PointerValue};
+use inkwell::values::{BasicValue, BasicValueEnum, IntValue, PointerValue};
 use inkwell::IntPredicate;
 
 pub struct CodeGen<'ctx> {
@@ -109,7 +109,7 @@ impl<'ctx> CodeGen<'ctx> {
             None => {
               let alloca = self.create_entry_block_alloca(name, vars);
               self.builder.build_store(alloca, rhs);
-              Ok(BasicValueEnum::PointerValue(alloca))
+              Ok(alloca.as_basic_value_enum())
             }
           },
           _ => {
@@ -117,7 +117,7 @@ impl<'ctx> CodeGen<'ctx> {
             if lhs.is_pointer_value() {
               let i64_ptr_value = lhs.into_pointer_value();
               self.builder.build_store(i64_ptr_value, rhs);
-              Ok(BasicValueEnum::PointerValue(i64_ptr_value))
+              Ok(i64_ptr_value.as_basic_value_enum())
             } else {
               Err("unexpected rvalue, expecting lvalue")
             }
@@ -130,8 +130,8 @@ impl<'ctx> CodeGen<'ctx> {
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::EQ, lhs, rhs, "tmpcmp");
-        let b = self.builder.build_int_cast(cmp, i64_type, "tmpbool");
-        Ok(BasicValueEnum::IntValue(self.builder.build_int_neg(b, "")))
+        let b = self.builder.build_int_cast(cmp, i64_type, "tmpcast");
+        Ok(self.builder.build_int_neg(b, "").as_basic_value_enum())
       }
       AST::Ne(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n, vars)?;
@@ -139,8 +139,8 @@ impl<'ctx> CodeGen<'ctx> {
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::NE, lhs, rhs, "tmpcmp");
-        let b = self.builder.build_int_cast(cmp, i64_type, "tmpbool");
-        Ok(BasicValueEnum::IntValue(self.builder.build_int_neg(b, "")))
+        let b = self.builder.build_int_cast(cmp, i64_type, "tmpcast");
+        Ok(self.builder.build_int_neg(b, "").as_basic_value_enum())
       }
       AST::Lt(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n, vars)?;
@@ -148,8 +148,8 @@ impl<'ctx> CodeGen<'ctx> {
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::ULT, lhs, rhs, "tmpcmp");
-        let b = self.builder.build_int_cast(cmp, i64_type, "tmpbool");
-        Ok(BasicValueEnum::IntValue(self.builder.build_int_neg(b, "")))
+        let b = self.builder.build_int_cast(cmp, i64_type, "tmpcast");
+        Ok(self.builder.build_int_neg(b, "").as_basic_value_enum())
       }
       AST::Le(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n, vars)?;
@@ -157,42 +157,54 @@ impl<'ctx> CodeGen<'ctx> {
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::ULE, lhs, rhs, "tmpcmp");
-        let b = self.builder.build_int_cast(cmp, i64_type, "tmpbool");
-        Ok(BasicValueEnum::IntValue(self.builder.build_int_neg(b, "")))
+        let b = self.builder.build_int_cast(cmp, i64_type, "tmpcast");
+        Ok(self.builder.build_int_neg(b, "").as_basic_value_enum())
       }
       AST::Add(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n, vars)?;
         let rhs = self.gen_expr_into_int_value(*m, vars)?;
-        Ok(BasicValueEnum::IntValue(
-          self.builder.build_int_add(lhs, rhs, "tmpadd"),
-        ))
+        Ok(
+          self
+            .builder
+            .build_int_add(lhs, rhs, "tmpadd")
+            .as_basic_value_enum(),
+        )
       }
       AST::Sub(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n, vars)?;
         let rhs = self.gen_expr_into_int_value(*m, vars)?;
-        Ok(BasicValueEnum::IntValue(
-          self.builder.build_int_sub(lhs, rhs, "tmpsub"),
-        ))
+        Ok(
+          self
+            .builder
+            .build_int_sub(lhs, rhs, "tmpsub")
+            .as_basic_value_enum(),
+        )
       }
       AST::Mul(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n, vars)?;
         let rhs = self.gen_expr_into_int_value(*m, vars)?;
-        Ok(BasicValueEnum::IntValue(
-          self.builder.build_int_mul(lhs, rhs, "tmpmul"),
-        ))
+        Ok(
+          self
+            .builder
+            .build_int_mul(lhs, rhs, "tmpmul")
+            .as_basic_value_enum(),
+        )
       }
       AST::Div(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n, vars)?;
         let rhs = self.gen_expr_into_int_value(*m, vars)?;
-        Ok(BasicValueEnum::IntValue(
-          self.builder.build_int_signed_div(lhs, rhs, "tmpdiv"),
-        ))
+        Ok(
+          self
+            .builder
+            .build_int_signed_div(lhs, rhs, "tmpdiv")
+            .as_basic_value_enum(),
+        )
       }
       AST::Ident(name) => match vars.get(&name) {
-        Some(var) => Ok(BasicValueEnum::PointerValue(*var)),
+        Some(var) => Ok(var.as_basic_value_enum()),
         None => Err("variable not defined"),
       },
-      AST::Num(n) => Ok(BasicValueEnum::IntValue(i64_type.const_int(n, false))),
+      AST::Num(n) => Ok(i64_type.const_int(n, false).as_basic_value_enum()),
     }
   }
 }
