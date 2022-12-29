@@ -6,15 +6,14 @@ use tokenize::Expected;
 
 fn compile(s: &str) -> Expected<String> {
   let it = tokenize::Tokenizer::new(s);
-  let ast = parse::parse(it)?;
+  let functions = parse::parse(it)?;
 
   let context = Context::create();
   let codegen = codegen::CodeGen {
     context: &context,
-    module: context.create_module(""),
-    builder: context.create_builder(),
+    module: context.create_module("mod"),
   };
-  codegen.codegen(ast)
+  codegen.codegen(functions)
 }
 
 fn main() -> Expected<()> {

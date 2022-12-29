@@ -5,42 +5,54 @@ use inkwell::context::Context;
 use inkwell::module::Module;
 use std::collections::HashMap;
 
-use inkwell::values::{BasicValue, BasicValueEnum, IntValue, PointerValue};
+use inkwell::values::*;
 use inkwell::IntPredicate;
 
 pub struct CodeGen<'ctx> {
   pub context: &'ctx Context,
   pub module: Module<'ctx>,
-  pub builder: Builder<'ctx>,
-  // variables: HashMap<String, PointerValue<'ctx>>,
 }
 
 impl<'ctx> CodeGen<'ctx> {
   pub fn codegen(&self, functions: Vec<Function>) -> Expected<String> {
     for function in functions {
-      self.gen_function(function)?;
+      let i64_type = self.context.i64_type();
+      let fn_type = i64_type.fn_type(&[], false);
+      let fn_value = self.module.add_function(&function.name, fn_type, None);
+      let entry_block = self.context.append_basic_block(fn_value, "entry");
+      let builder = self.context.create_builder();
+      builder.position_at_end(entry_block);
+
+      GenFunction {
+        context: self.context,
+        fn_value,
+        builder,
+      }
+      .gen_function(function.body)?;
     }
     Ok(self.module.to_string())
   }
+}
 
-  fn gen_function(&self, function: Function) -> Expected<()> {
-    let i64_type = self.context.i64_type();
-    let fn_type = i64_type.fn_type(&[], false);
-    let fn_value = self.module.add_function(&function.name, fn_type, None);
+pub struct GenFunction<'ctx> {
+  pub context: &'ctx Context,
+  pub fn_value: FunctionValue<'ctx>,
+  pub builder: Builder<'ctx>,
+}
+
+impl<'ctx> GenFunction<'ctx> {
+  fn gen_function(&self, stmts: Vec<Stmt>) -> Expected<()> {
     let mut vars: HashMap<String, PointerValue<'ctx>> = HashMap::new();
 
-    let entry_block = self.context.append_basic_block(fn_value, "entry");
-    self.builder.position_at_end(entry_block);
-
-    for stmt in function.body {
+    for stmt in stmts {
       self.gen_statement(stmt, &mut vars)?;
     }
 
-    if fn_value.verify(true) {
+    if self.fn_value.verify(true) {
       Ok(())
     } else {
       unsafe {
-        fn_value.delete();
+        self.fn_value.delete();
       }
       Err("postprocess: failed to verify function")
     }
@@ -50,17 +62,18 @@ impl<'ctx> CodeGen<'ctx> {
     &self,
     stmt: Stmt,
     vars: &mut HashMap<String, PointerValue<'ctx>>,
-  ) -> Expected<()> {
+  ) -> Expected<AnyValueEnum> {
     match stmt {
       Stmt::Return(expr) => {
         let i64_value = self.gen_expr_into_int_value(expr, vars)?;
-        self.builder.build_return(Some(&i64_value));
-        Ok(())
+        Ok(
+          self
+            .builder
+            .build_return(Some(&i64_value))
+            .as_any_value_enum(),
+        )
       }
-      Stmt::Expr(expr) => {
-        self.gen_expr(expr, vars)?;
-        Ok(())
-      }
+      Stmt::Expr(expr) => Ok(self.gen_expr(expr, vars)?.as_any_value_enum()),
     }
   }
 
@@ -70,8 +83,15 @@ impl<'ctx> CodeGen<'ctx> {
     name: String,
     vars: &mut HashMap<String, PointerValue<'ctx>>,
   ) -> PointerValue<'ctx> {
+    let builder = self.context.create_builder();
+    let entry_block = self.fn_value.get_first_basic_block().unwrap();
+    match entry_block.get_first_instruction() {
+      Some(inst) => builder.position_before(&inst),
+      None => builder.position_at_end(entry_block),
+    }
+
     let i64_type = self.context.i64_type();
-    let alloca = self.builder.build_alloca(i64_type, &name);
+    let alloca = builder.build_alloca(i64_type, &name);
     vars.insert(name, alloca);
     alloca
   }
