@@ -8,6 +8,7 @@ pub struct Function {
 
 #[derive(Debug)]
 pub enum Stmt {
+  Block(Vec<Stmt>),
   IfElse(AST, Box<Stmt>, Option<Box<Stmt>>),
   Return(AST),
   Expr(AST),
@@ -76,7 +77,8 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
 /**
  * program    = function* eof
  * function   = ident "(" ")" "{" statement* "}"
- * statement  = "if" "(" expr ")" statement ("else" statement)?
+ * statement  = "{" statement* "}"
+ *            | "if" "(" expr ")" statement ("else" statement)?
  *            | "while" "(" expr ")" statement
  *            | "return" expr ";"
  *            | expr ";"
@@ -112,12 +114,19 @@ fn parse_function(it: &mut Tokenizer) -> Expected<Function> {
   Ok(Function { name, body })
 }
 
-// statement  = "if" "(" expr ")" statement ("else" statement)?
+// statement  = "{" statement* "}"
+//            | "if" "(" expr ")" statement ("else" statement)?
 //            | "while" "(" expr ")" statement
 //            | "return" expr ";"
 //            | expr ";"
 fn parse_statement(it: &mut Tokenizer) -> Expected<Stmt> {
-  if consume_keyword(it, "if")? {
+  if consume(it, "{")? {
+    let mut stmts = Vec::new();
+    while !consume(it, "}")? {
+      stmts.push(parse_statement(it)?);
+    }
+    Ok(Stmt::Block(stmts))
+  } else if consume_keyword(it, "if")? {
     expect(it, "(")?;
     let cond = parse_expr(it)?;
     expect(it, ")")?;
