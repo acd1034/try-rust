@@ -62,18 +62,56 @@ impl<'ctx> GenFunction<'ctx> {
     &self,
     stmt: Stmt,
     vars: &mut HashMap<String, PointerValue<'ctx>>,
-  ) -> Expected<AnyValueEnum> {
+  ) -> Expected<()> {
+    let i64_type = self.context.i64_type();
     match stmt {
+      Stmt::IfElse(cond, then_stmt, else_stmt) => {
+        let cond = self.gen_expr_into_int_value(cond, vars)?;
+        let zero = i64_type.const_int(0, false);
+        let cond = self
+          .builder
+          .build_int_compare(IntPredicate::NE, cond, zero, "cond");
+
+        let then_block = self.context.append_basic_block(self.fn_value, "then");
+        let else_block = self.context.append_basic_block(self.fn_value, "else");
+        let cont_block = if else_stmt.is_some() {
+          self.context.append_basic_block(self.fn_value, "cont")
+        } else {
+          else_block
+        };
+        self
+          .builder
+          .build_conditional_branch(cond, then_block, else_block);
+
+        self.builder.position_at_end(then_block);
+        self.gen_statement(*then_stmt, vars)?;
+        let then_block = self.builder.get_insert_block().unwrap(); // TODO: necessary?
+        if then_block.get_terminator().is_none() {
+          self.builder.build_unconditional_branch(cont_block);
+        }
+
+        self.builder.position_at_end(else_block);
+        if let Some(else_stmt) = else_stmt {
+          self.gen_statement(*else_stmt, vars)?;
+          let else_block = self.builder.get_insert_block().unwrap(); // TODO: necessary?
+          if else_block.get_terminator().is_none() {
+            self.builder.build_unconditional_branch(cont_block);
+          }
+        }
+
+        self.builder.position_at_end(cont_block);
+        Ok(())
+        // Err("unimplemented!")
+      }
       Stmt::Return(expr) => {
         let i64_value = self.gen_expr_into_int_value(expr, vars)?;
-        Ok(
-          self
-            .builder
-            .build_return(Some(&i64_value))
-            .as_any_value_enum(),
-        )
+        self.builder.build_return(Some(&i64_value));
+        Ok(())
       }
-      Stmt::Expr(expr) => Ok(self.gen_expr(expr, vars)?.as_any_value_enum()),
+      Stmt::Expr(expr) => {
+        self.gen_expr(expr, vars)?;
+        Ok(())
+      }
     }
   }
 

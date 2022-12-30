@@ -8,6 +8,7 @@ pub struct Function {
 
 #[derive(Debug)]
 pub enum Stmt {
+  IfElse(AST, Box<Stmt>, Option<Box<Stmt>>),
   Return(AST),
   Expr(AST),
 }
@@ -75,7 +76,10 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
 /**
  * program    = function* eof
  * function   = ident "(" ")" "{" statement* "}"
- * statement  = "return"? expr ";"
+ * statement  = "if" "(" expr ")" statement ("else" statement)?
+ *            | "while" "(" expr ")" statement
+ *            | "return" expr ";"
+ *            | expr ";"
  * expr       = assign
  * assign     = equality ("=" assign)?
  * equality   = relational ("==" relational | "!=" relational)*
@@ -108,9 +112,23 @@ fn parse_function(it: &mut Tokenizer) -> Expected<Function> {
   Ok(Function { name, body })
 }
 
-// statement  = "return"? expr ";"
+// statement  = "if" "(" expr ")" statement ("else" statement)?
+//            | "while" "(" expr ")" statement
+//            | "return" expr ";"
+//            | expr ";"
 fn parse_statement(it: &mut Tokenizer) -> Expected<Stmt> {
-  if consume_keyword(it, "return")? {
+  if consume_keyword(it, "if")? {
+    expect(it, "(")?;
+    let cond = parse_expr(it)?;
+    expect(it, ")")?;
+    let then_stmt = parse_statement(it)?;
+    let else_stmt = if consume_keyword(it, "else")? {
+      Some(Box::new(parse_statement(it)?))
+    } else {
+      None
+    };
+    Ok(Stmt::IfElse(cond, Box::new(then_stmt), else_stmt))
+  } else if consume_keyword(it, "return")? {
     let n = parse_expr(it)?;
     expect(it, ";")?;
     Ok(Stmt::Return(n))

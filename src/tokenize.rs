@@ -10,6 +10,7 @@ pub enum Token<'a> {
 }
 
 fn tokenize<'a>(s: &'a str) -> Expected<(Token, &'a str)> {
+  static KEYWORDS: [&str; 3] = ["return", "if", "else"];
   if s.is_empty() {
     Ok((Token::Eof, s))
   } else if s.starts_with(|c: char| c.is_ascii_whitespace()) {
@@ -21,7 +22,7 @@ fn tokenize<'a>(s: &'a str) -> Expected<(Token, &'a str)> {
     let pos = s
       .find(|c: char| c != '_' && !c.is_ascii_alphabetic() && !c.is_ascii_digit())
       .unwrap_or(s.len());
-    if &s[..pos] == "return" {
+    if KEYWORDS.contains(&&s[..pos]) {
       Ok((Token::Keyword(&s[..pos]), &s[pos..]))
     } else {
       Ok((Token::Ident(&s[..pos]), &s[pos..]))

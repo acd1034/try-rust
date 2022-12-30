@@ -2,6 +2,7 @@
 assert() {
   expected="$1"
   input="$2"
+  echo -n "$input => "
 
   ./target/debug/try-rust "$input" > tmp.ll
   /opt/homebrew/opt/llvm@12/bin/clang -o tmp tmp.ll
@@ -9,16 +10,18 @@ assert() {
   actual="$?"
 
   if [ "$actual" = "$expected" ]; then
-    echo "$input => $actual"
+    echo "$actual"
   else
-    echo "$input => unexpected $actual, expecting $expected"
+    echo "unexpected $actual, expecting $expected"
     exit 1
   fi
 }
 assert_fail() {
   input="$1"
   echo -n "$input => "
+
   ./target/debug/try-rust "$input" > /dev/null
+
   if [ $? -eq 0 ]; then
     echo "Error: unexpected success in compiling"
     exit 1
@@ -88,3 +91,12 @@ assert 1 'main() { return 1; 2; 3; }'
 assert 2 'main() { 1; return 2; 3; }'
 assert 3 'main() { 1; 2; return 3; }'
 assert 6 'sub() { return 4; } main() { a=b=3; return a+b; }'
+# if
+assert 1 'main() { x=0; if (1) x=1; return x; }'
+assert 1 'main() { x=0; if (1) x=1; else x=2; return x; }'
+assert 3 'main() { if (0) return 2; return 3; }'
+assert 3 'main() { if (1-1) return 2; return 3; }'
+assert 2 'main() { if (1) return 2; return 3; }'
+assert 2 'main() { if (2-1) return 2; return 3; }'
+# assert 4 'main() { if (0) { 1; 2; return 3; } else { return 4; } }'
+# assert 3 'main() { if (1) { 1; 2; return 3; } else { return 4; } }'
