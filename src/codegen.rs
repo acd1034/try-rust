@@ -125,7 +125,10 @@ impl<'ctx> GenFunction<'ctx> {
         let rhs = self.gen_expr_into_int_value(*m, vars)?;
         match *n {
           AST::Ident(name) => match vars.get(&name) {
-            Some(_var) => Err("variable already defined"),
+            Some(&var) => {
+              self.builder.build_store(var, rhs);
+              Ok(var.as_basic_value_enum())
+            }
             None => {
               let alloca = self.create_entry_block_alloca(name, vars);
               self.builder.build_store(alloca, rhs);
