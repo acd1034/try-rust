@@ -8,9 +8,9 @@ pub struct Function {
 
 #[derive(Debug)]
 pub enum Stmt {
-  Block(Vec<Stmt>),
   IfElse(AST, Box<Stmt>, Option<Box<Stmt>>),
   Return(AST),
+  Block(Vec<Stmt>),
   Expr(AST),
 }
 
@@ -77,10 +77,11 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
 /**
  * program    = function* eof
  * function   = ident "(" ")" "{" statement* "}"
- * statement  = "{" statement* "}"
- *            | "if" "(" expr ")" statement ("else" statement)?
+ * statement  = "if" "(" expr ")" statement ("else" statement)?
  *            | "while" "(" expr ")" statement
  *            | "return" expr ";"
+ *            | "{" statement* "}"
+ *            | ";"
  *            | expr ";"
  * expr       = assign
  * assign     = equality ("=" assign)?
@@ -114,19 +115,14 @@ fn parse_function(it: &mut Tokenizer) -> Expected<Function> {
   Ok(Function { name, body })
 }
 
-// statement  = "{" statement* "}"
-//            | "if" "(" expr ")" statement ("else" statement)?
+// statement  = "if" "(" expr ")" statement ("else" statement)?
 //            | "while" "(" expr ")" statement
 //            | "return" expr ";"
+//            | "{" statement* "}"
+//            | ";"
 //            | expr ";"
 fn parse_statement(it: &mut Tokenizer) -> Expected<Stmt> {
-  if consume(it, "{")? {
-    let mut stmts = Vec::new();
-    while !consume(it, "}")? {
-      stmts.push(parse_statement(it)?);
-    }
-    Ok(Stmt::Block(stmts))
-  } else if consume_keyword(it, "if")? {
+  if consume_keyword(it, "if")? {
     expect(it, "(")?;
     let cond = parse_expr(it)?;
     expect(it, ")")?;
@@ -141,6 +137,14 @@ fn parse_statement(it: &mut Tokenizer) -> Expected<Stmt> {
     let n = parse_expr(it)?;
     expect(it, ";")?;
     Ok(Stmt::Return(n))
+  } else if consume(it, "{")? {
+    let mut stmts = Vec::new();
+    while !consume(it, "}")? {
+      stmts.push(parse_statement(it)?);
+    }
+    Ok(Stmt::Block(stmts))
+  } else if consume(it, ";")? {
+    Ok(Stmt::Block(Vec::new()))
   } else {
     let n = parse_expr(it)?;
     expect(it, ";")?;

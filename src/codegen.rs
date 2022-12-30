@@ -65,12 +65,6 @@ impl<'ctx> GenFunction<'ctx> {
   ) -> Expected<()> {
     let i64_type = self.context.i64_type();
     match stmt {
-      Stmt::Block(stmts) => {
-        for stmt in stmts {
-          self.gen_statement(stmt, vars)?;
-        }
-        Ok(())
-      }
       Stmt::IfElse(cond, then_stmt, else_stmt) => {
         let cond = self.gen_expr_into_int_value(cond, vars)?;
         let zero = i64_type.const_int(0, false);
@@ -117,11 +111,16 @@ impl<'ctx> GenFunction<'ctx> {
           self.builder.position_at_end(else_block);
           Ok(())
         }
-        // Err("unimplemented!")
       }
       Stmt::Return(expr) => {
         let i64_value = self.gen_expr_into_int_value(expr, vars)?;
         self.builder.build_return(Some(&i64_value));
+        Ok(())
+      }
+      Stmt::Block(stmts) => {
+        for stmt in stmts {
+          self.gen_statement(stmt, vars)?;
+        }
         Ok(())
       }
       Stmt::Expr(expr) => {

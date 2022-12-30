@@ -93,6 +93,8 @@ assert 3 'main() { 1; 2; return 3; }'
 assert 6 'sub() { return 4; } main() { a=b=3; return a+b; }'
 # block
 assert 3 'main() { {1; {2;} return 3;} }'
+# null
+assert 5 'main() { ;;; return 5; }'
 # if
 assert 1 'main() { x=0; if (1) x=1; return x; }'
 assert 1 'main() { x=0; if (1) x=1; else x=2; return x; }'
