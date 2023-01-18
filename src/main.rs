@@ -19,7 +19,7 @@ fn compile(s: &str) -> Expected<String> {
 fn main() -> Expected<()> {
   let arg = std::env::args()
     .nth(1)
-    .ok_or("preprocess: invalid number of arguments")?;
+    .ok_or("main: invalid number of arguments")?;
   let ir = compile(&arg)?;
   println!("{}", ir);
   Ok(())

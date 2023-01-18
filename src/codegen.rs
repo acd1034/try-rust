@@ -54,7 +54,7 @@ impl<'ctx> GenFunction<'ctx> {
       unsafe {
         self.fn_value.delete();
       }
-      Err("postprocess: failed to verify function")
+      Err("gen_function: failed to verify function")
     }
   }
 
