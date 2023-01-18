@@ -5,7 +5,7 @@ assert() {
   echo -n "$input => "
 
   ./target/debug/try-rust "$input" > tmp.ll
-  /opt/homebrew/opt/llvm@12/bin/clang -o tmp tmp.ll
+  $LLVM_SYS_120_PREFIX/bin/clang -o tmp tmp.ll
   ./tmp
   actual="$?"
 
@@ -28,8 +28,7 @@ assert_fail() {
   fi
 }
 
-LLVM_SYS_120_PREFIX=/opt/homebrew/opt/llvm@12 cargo build
-# LLVM_SYS_120_PREFIX=/opt/homebrew/opt/llvm@12 cargo --explain E0499 E0502
+cargo build
 if [ $? -ne 0 ]; then
   exit 1
 fi
