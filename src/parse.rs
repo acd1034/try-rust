@@ -126,13 +126,13 @@ fn parse_statement(it: &mut Tokenizer) -> Expected<Stmt> {
     expect(it, "(")?;
     let cond = parse_expr(it)?;
     expect(it, ")")?;
-    let then_stmt = parse_statement(it)?;
+    let then_stmt = Box::new(parse_statement(it)?);
     let else_stmt = if consume_keyword(it, "else")? {
       Some(Box::new(parse_statement(it)?))
     } else {
       None
     };
-    Ok(Stmt::IfElse(cond, Box::new(then_stmt), else_stmt))
+    Ok(Stmt::IfElse(cond, then_stmt, else_stmt))
   } else if consume_keyword(it, "for")? {
     expect(it, "(")?;
     let n1 = parse_expr(it).ok();

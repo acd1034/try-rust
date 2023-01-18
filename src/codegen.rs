@@ -66,19 +66,29 @@ impl<'ctx> GenFunction<'ctx> {
     let i64_type = self.context.i64_type();
     match stmt {
       Stmt::IfElse(cond, then_stmt, else_stmt) => {
+        /* `if (A) B else C`
+         *   A != 0 ? goto then : goto else;
+         * then:
+         *   B;
+         *   goto cont;
+         * else:
+         *   C;
+         * cont:
+         */
+        let then_block = self.context.append_basic_block(self.fn_value, "then");
+        let else_block = self.context.append_basic_block(self.fn_value, "else");
+
         let cond = self.gen_expr_into_int_value(cond, vars)?;
         let zero = i64_type.const_int(0, false);
         let cond = self
           .builder
           .build_int_compare(IntPredicate::NE, cond, zero, "cond");
-
-        let then_block = self.context.append_basic_block(self.fn_value, "then");
-        let else_block = self.context.append_basic_block(self.fn_value, "else");
         self
           .builder
           .build_conditional_branch(cond, then_block, else_block);
 
         if let Some(else_stmt) = else_stmt {
+          // then:
           self.builder.position_at_end(then_block);
           self.gen_statement(*then_stmt, vars)?;
           let cont_block = if then_block.get_terminator().is_none() {
@@ -89,6 +99,7 @@ impl<'ctx> GenFunction<'ctx> {
             None
           };
 
+          // else:
           self.builder.position_at_end(else_block);
           self.gen_statement(*else_stmt, vars)?;
           let cont_block = if else_block.get_terminator().is_none() {
@@ -99,21 +110,25 @@ impl<'ctx> GenFunction<'ctx> {
           } else {
             else_block
           };
+
+          // cont:
           self.builder.position_at_end(cont_block);
           Ok(())
         } else {
+          // then:
           self.builder.position_at_end(then_block);
           self.gen_statement(*then_stmt, vars)?;
           if then_block.get_terminator().is_none() {
             self.builder.build_unconditional_branch(else_block);
           }
 
+          // else:
           self.builder.position_at_end(else_block);
           Ok(())
         }
       }
       Stmt::For(init, cond, inc, stmt) => {
-        /* <for (A; B; C) D>
+        /* `for (A; B; C) D`
          *   A;
          *   goto begin;
          * begin:
