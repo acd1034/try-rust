@@ -5,7 +5,7 @@ assert() {
   echo -n "$input => "
 
   ./target/debug/try-rust "$input" > tmp.ll
-  $LLVM_SYS_120_PREFIX/bin/clang -o tmp tmp.ll
+  $LLVM_SYS_120_PREFIX/bin/clang -o tmp tmp.ll -Wno-override-module
   ./tmp
   actual="$?"
 
