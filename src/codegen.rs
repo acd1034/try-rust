@@ -112,6 +112,56 @@ impl<'ctx> GenFunction<'ctx> {
           Ok(())
         }
       }
+      Stmt::For(init, cond, inc, stmt) => {
+        /* <for (A; B; C) D>
+         *   A;
+         *   goto begin;
+         * begin:
+         *   B != 0 ? goto body : goto end;
+         * body:
+         *   D;
+         *   C;
+         *   goto begin;
+         * end:
+         */
+        let begin_block = self.context.append_basic_block(self.fn_value, "begin");
+        let body_block = self.context.append_basic_block(self.fn_value, "body");
+        let end_block = self.context.append_basic_block(self.fn_value, "end");
+
+        if let Some(expr) = init {
+          self.gen_expr(expr, vars)?;
+        }
+        self.builder.build_unconditional_branch(begin_block);
+
+        // begin:
+        self.builder.position_at_end(begin_block);
+        if let Some(expr) = cond {
+          let cond = self.gen_expr_into_int_value(expr, vars)?;
+          let zero = i64_type.const_int(0, false);
+          let cond = self
+            .builder
+            .build_int_compare(IntPredicate::NE, cond, zero, "cond");
+          self
+            .builder
+            .build_conditional_branch(cond, body_block, end_block);
+        } else {
+          self.builder.build_unconditional_branch(body_block);
+        }
+
+        // body:
+        self.builder.position_at_end(body_block);
+        self.gen_statement(*stmt, vars)?;
+        if let Some(expr) = inc {
+          self.gen_expr(expr, vars)?;
+        }
+        if body_block.get_terminator().is_none() {
+          self.builder.build_unconditional_branch(begin_block);
+        }
+
+        // end:
+        self.builder.position_at_end(end_block);
+        Ok(())
+      }
       Stmt::Return(expr) => {
         let i64_value = self.gen_expr_into_int_value(expr, vars)?;
         self.builder.build_return(Some(&i64_value));

@@ -110,3 +110,6 @@ assert 3 'main() { if (1) { 1; 2; return 3; } else { return 4; } }'
 assert 1 'main() { if (1) if (1) return 1; else return 2; return 3; }'
 assert 2 'main() { if (1) if (0) return 1; else return 2; return 3; }'
 assert 3 'main() { if (0) if (1) return 1; else return 2; return 3; }'
+# for
+assert 3 'main() { for (;;) {return 3;} return 5; }'
+assert 55 'main() { i=0; j=0; for (i=0; i<=10; i=i+1) j=i+j; return j; }'
