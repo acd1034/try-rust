@@ -395,12 +395,16 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
             .as_basic_value_enum(),
         )
       }
-      AST::Call(name) => {
+      AST::Call(name, args) => {
         if let Some(callee) = self.module.get_function(&name) {
+          let args = args
+            .into_iter()
+            .map(|expr| self.gen_expr_load_if_needed(expr, vars).map(|x| x.into()))
+            .collect::<Result<Vec<BasicMetadataValueEnum>, _>>()?;
           Ok(
             self
               .builder
-              .build_call(callee, &[], "tmpcall")
+              .build_call(callee, &args[..], "tmpcall")
               .try_as_basic_value()
               .unwrap_left(),
           )
