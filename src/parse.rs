@@ -1,9 +1,9 @@
 use crate::tokenize::{Expected, Token, Tokenizer};
 
 #[derive(Debug)]
-pub struct Function {
-  pub name: String,
-  pub body: Vec<Stmt>,
+pub enum Function {
+  Function(String, Vec<Stmt>),
+  Prototype(String),
 }
 
 #[derive(Debug)]
@@ -78,6 +78,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
 
 /* program    = function* eof
  * function   = ident "(" ")" "{" statement* "}"
+ *            | ident "(" ")" ";"
  * statement  = "if" "(" expr ")" statement ("else" statement)?
  *            | "for" "(" expr? ";" expr? ";" expr? ")" statement
  *            | "return" expr ";"
@@ -104,16 +105,21 @@ pub fn parse(mut it: Tokenizer) -> Expected<Vec<Function>> {
 }
 
 // function   = ident "(" ")" "{" statement* "}"
+//            | ident "(" ")" ";"
 fn parse_function(it: &mut Tokenizer) -> Expected<Function> {
   let name = expect_ident(it)?;
   expect(it, "(")?;
   expect(it, ")")?;
-  expect(it, "{")?;
-  let mut body = Vec::new();
-  while !consume(it, "}")? {
-    body.push(parse_statement(it)?);
+  if consume(it, "{")? {
+    let mut body = Vec::new();
+    while !consume(it, "}")? {
+      body.push(parse_statement(it)?);
+    }
+    Ok(Function::Function(name, body))
+  } else {
+    expect(it, ";")?;
+    Ok(Function::Prototype(name))
   }
-  Ok(Function { name, body })
 }
 
 // statement  = "if" "(" expr ")" statement ("else" statement)?

@@ -1,12 +1,17 @@
 #!/bin/bash
 # usage: LLVM_SYS_120_PREFIX=/opt/homebrew/opt/llvm@12 ./test.sh
+cat <<EOF | $LLVM_SYS_120_PREFIX/bin/clang -xc -c -o tmp2.o -
+int ret3() { return 3; }
+int ret5() { return 5; }
+EOF
+
 assert() {
   expected="$1"
   input="$2"
   echo -n "$input => "
 
   ./target/debug/try-rust "$input" > tmp.ll
-  $LLVM_SYS_120_PREFIX/bin/clang -o tmp tmp.ll -Wno-override-module
+  $LLVM_SYS_120_PREFIX/bin/clang -o tmp tmp.ll tmp2.o -Wno-override-module
   ./tmp
   actual="$?"
 
@@ -113,9 +118,13 @@ assert 3 'main() { if (0) if (1) return 1; else return 2; return 3; }'
 # for
 assert 3 'main() { for (;;) {return 3;} return 5; }'
 assert 55 'main() { i=0; j=0; for (i=0; i<=10; i=i+1) j=i+j; return j; }'
-# funcall
-assert 8 'sub() { return 4; } main() { a=b=sub(); return a+b; }'
-assert_fail 'main() { a=b=sub(); return a+b; }'
 # defunc
 assert 6 'sub() { return 4; } main() { a=b=3; return a+b; }'
 assert_fail 'main() { return 4; } main() { a=b=3; return a+b; }'
+# funcall
+assert 8 'sub() { return 4; } main() { a=b=sub(); return a+b; }'
+assert_fail 'main() { a=b=sub(); return a+b; }'
+# prototype
+assert 3 'ret3(); main() { return ret3(); }'
+assert 5 'ret5(); main() { return ret5(); }'
+assert 4 'sub(); sub(); sub() { return 4; } main() { return sub(); }'

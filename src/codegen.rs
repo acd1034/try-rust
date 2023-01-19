@@ -43,29 +43,45 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     }
   }
 
-  fn gen_function(&self, function: Function) -> Expected<()> {
-    if self.module.get_function(&function.name).is_none() {
+  fn check_prototype(&self, name: String) -> Expected<FunctionValue<'ctx>> {
+    if let Some(fn_value) = self.module.get_function(&name) {
+      Ok(fn_value)
+    } else {
       let i64_type = self.context.i64_type();
       let fn_type = i64_type.fn_type(&[], false);
-      let fn_value = self.module.add_function(&function.name, fn_type, None);
-      let entry_block = self.context.append_basic_block(fn_value, "entry");
-      self.builder.position_at_end(entry_block);
-      let mut vars: HashMap<String, PointerValue<'ctx>> = HashMap::new();
+      Ok(self.module.add_function(&name, fn_type, None))
+    }
+  }
 
-      for stmt in function.body {
-        self.gen_statement(stmt, &mut vars)?;
-      }
+  fn gen_function(&self, function: Function) -> Expected<()> {
+    match function {
+      Function::Function(name, body) => {
+        let fn_value = self.check_prototype(name)?;
+        if fn_value.count_basic_blocks() == 0 {
+          let entry_block = self.context.append_basic_block(fn_value, "entry");
+          self.builder.position_at_end(entry_block);
+          let mut vars: HashMap<String, PointerValue<'ctx>> = HashMap::new();
 
-      if fn_value.verify(true) {
-        Ok(())
-      } else {
-        unsafe {
-          fn_value.delete();
+          for stmt in body {
+            self.gen_statement(stmt, &mut vars)?;
+          }
+
+          if fn_value.verify(true) {
+            Ok(())
+          } else {
+            unsafe {
+              fn_value.delete();
+            }
+            Err("gen_function: failed to verify function")
+          }
+        } else {
+          Err("function already defined")
         }
-        Err("gen_function: failed to verify function")
       }
-    } else {
-      Err("function already defined")
+      Function::Prototype(name) => {
+        self.check_prototype(name)?;
+        Ok(())
+      }
     }
   }
 
