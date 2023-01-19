@@ -8,54 +8,70 @@ use std::collections::HashMap;
 use inkwell::values::*;
 use inkwell::IntPredicate;
 
+// Module ⊇ Function ⊇ BasicBlock ⊇ Instruction
 pub struct CodeGen<'ctx> {
-  pub context: &'ctx Context,
-  pub module: Module<'ctx>,
+  context: &'ctx Context,
 }
 
 impl<'ctx> CodeGen<'ctx> {
-  pub fn codegen(&self, functions: Vec<Function>) -> Expected<String> {
-    for function in functions {
-      let i64_type = self.context.i64_type();
-      let fn_type = i64_type.fn_type(&[], false);
-      let fn_value = self.module.add_function(&function.name, fn_type, None);
-      let entry_block = self.context.append_basic_block(fn_value, "entry");
-      let builder = self.context.create_builder();
-      builder.position_at_end(entry_block);
+  pub fn new(context: &'ctx Context) -> CodeGen<'ctx> {
+    CodeGen { context }
+  }
 
-      GenFunction {
-        context: self.context,
-        fn_value,
-        builder,
-      }
-      .gen_function(function.body)?;
+  pub fn codegen(&self, functions: Vec<Function>) -> Expected<String> {
+    let module = self.context.create_module("mod");
+    for function in functions {
+      GenFunction::new(self.context, &module).gen_function(function)?;
     }
-    Ok(self.module.to_string())
+    Ok(module.to_string())
   }
 }
 
-pub struct GenFunction<'ctx> {
-  pub context: &'ctx Context,
-  pub fn_value: FunctionValue<'ctx>,
-  pub builder: Builder<'ctx>,
+struct GenFunction<'a, 'ctx> {
+  context: &'ctx Context,
+  module: &'a Module<'ctx>,
+  builder: Builder<'ctx>,
 }
 
-impl<'ctx> GenFunction<'ctx> {
-  fn gen_function(&self, stmts: Vec<Stmt>) -> Expected<()> {
+impl<'a, 'ctx> GenFunction<'a, 'ctx> {
+  fn new(context: &'ctx Context, module: &'a Module<'ctx>) -> GenFunction<'a, 'ctx> {
+    let builder = context.create_builder();
+    GenFunction {
+      context,
+      module,
+      builder,
+    }
+  }
+
+  fn gen_function(&self, function: Function) -> Expected<()> {
+    let i64_type = self.context.i64_type();
+    let fn_type = i64_type.fn_type(&[], false);
+    let fn_value = self.module.add_function(&function.name, fn_type, None);
+    let entry_block = self.context.append_basic_block(fn_value, "entry");
+    self.builder.position_at_end(entry_block);
     let mut vars: HashMap<String, PointerValue<'ctx>> = HashMap::new();
 
-    for stmt in stmts {
+    for stmt in function.body {
       self.gen_statement(stmt, &mut vars)?;
     }
 
-    if self.fn_value.verify(true) {
+    if fn_value.verify(true) {
       Ok(())
     } else {
       unsafe {
-        self.fn_value.delete();
+        fn_value.delete();
       }
       Err("gen_function: failed to verify function")
     }
+  }
+
+  fn get_function(&self) -> FunctionValue<'ctx> {
+    self
+      .builder
+      .get_insert_block()
+      .unwrap()
+      .get_parent()
+      .unwrap()
   }
 
   fn gen_statement(
@@ -75,8 +91,9 @@ impl<'ctx> GenFunction<'ctx> {
          *   C;
          * cont:
          */
-        let then_block = self.context.append_basic_block(self.fn_value, "then");
-        let else_block = self.context.append_basic_block(self.fn_value, "else");
+        let fn_value = self.get_function();
+        let then_block = self.context.append_basic_block(fn_value, "then");
+        let else_block = self.context.append_basic_block(fn_value, "else");
 
         let cond = self.gen_expr_load_if_needed(cond, vars)?;
         let zero = i64_type.const_int(0, false);
@@ -92,7 +109,7 @@ impl<'ctx> GenFunction<'ctx> {
           self.builder.position_at_end(then_block);
           self.gen_statement(*then_stmt, vars)?;
           let cont_block = if then_block.get_terminator().is_none() {
-            let cont_block = self.context.append_basic_block(self.fn_value, "cont");
+            let cont_block = self.context.append_basic_block(fn_value, "cont");
             self.builder.build_unconditional_branch(cont_block);
             Some(cont_block)
           } else {
@@ -104,7 +121,7 @@ impl<'ctx> GenFunction<'ctx> {
           self.gen_statement(*else_stmt, vars)?;
           let cont_block = if else_block.get_terminator().is_none() {
             let cont_block =
-              cont_block.unwrap_or_else(|| self.context.append_basic_block(self.fn_value, "cont"));
+              cont_block.unwrap_or_else(|| self.context.append_basic_block(fn_value, "cont"));
             self.builder.build_unconditional_branch(cont_block);
             cont_block
           } else {
@@ -139,9 +156,10 @@ impl<'ctx> GenFunction<'ctx> {
          *   goto begin;
          * end:
          */
-        let begin_block = self.context.append_basic_block(self.fn_value, "begin");
-        let body_block = self.context.append_basic_block(self.fn_value, "body");
-        let end_block = self.context.append_basic_block(self.fn_value, "end");
+        let fn_value = self.get_function();
+        let begin_block = self.context.append_basic_block(fn_value, "begin");
+        let body_block = self.context.append_basic_block(fn_value, "body");
+        let end_block = self.context.append_basic_block(fn_value, "end");
 
         if let Some(expr) = init {
           self.gen_expr(expr, vars)?;
@@ -195,14 +213,15 @@ impl<'ctx> GenFunction<'ctx> {
     }
   }
 
-  // TODO: Creates a new stack allocation instruction in the entry block of the function.
+  // Creates a new stack allocation instruction in the entry block of the function.
   fn create_entry_block_alloca(
     &self,
     name: String,
     vars: &mut HashMap<String, PointerValue<'ctx>>,
   ) -> PointerValue<'ctx> {
+    let fn_value = self.get_function();
+    let entry_block = fn_value.get_first_basic_block().unwrap();
     let builder = self.context.create_builder();
-    let entry_block = self.fn_value.get_first_basic_block().unwrap();
     match entry_block.get_first_instruction() {
       Some(inst) => builder.position_before(&inst),
       None => builder.position_at_end(entry_block),

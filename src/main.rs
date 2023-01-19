@@ -9,10 +9,7 @@ fn compile(s: &str) -> Expected<String> {
   let functions = parse::parse(it)?;
 
   let context = Context::create();
-  let codegen = codegen::CodeGen {
-    context: &context,
-    module: context.create_module("mod"),
-  };
+  let codegen = codegen::CodeGen::new(&context);
   codegen.codegen(functions)
 }
 
