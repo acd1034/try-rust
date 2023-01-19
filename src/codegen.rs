@@ -44,24 +44,28 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
   }
 
   fn gen_function(&self, function: Function) -> Expected<()> {
-    let i64_type = self.context.i64_type();
-    let fn_type = i64_type.fn_type(&[], false);
-    let fn_value = self.module.add_function(&function.name, fn_type, None);
-    let entry_block = self.context.append_basic_block(fn_value, "entry");
-    self.builder.position_at_end(entry_block);
-    let mut vars: HashMap<String, PointerValue<'ctx>> = HashMap::new();
+    if self.module.get_function(&function.name).is_none() {
+      let i64_type = self.context.i64_type();
+      let fn_type = i64_type.fn_type(&[], false);
+      let fn_value = self.module.add_function(&function.name, fn_type, None);
+      let entry_block = self.context.append_basic_block(fn_value, "entry");
+      self.builder.position_at_end(entry_block);
+      let mut vars: HashMap<String, PointerValue<'ctx>> = HashMap::new();
 
-    for stmt in function.body {
-      self.gen_statement(stmt, &mut vars)?;
-    }
-
-    if fn_value.verify(true) {
-      Ok(())
-    } else {
-      unsafe {
-        fn_value.delete();
+      for stmt in function.body {
+        self.gen_statement(stmt, &mut vars)?;
       }
-      Err("gen_function: failed to verify function")
+
+      if fn_value.verify(true) {
+        Ok(())
+      } else {
+        unsafe {
+          fn_value.delete();
+        }
+        Err("gen_function: failed to verify function")
+      }
+    } else {
+      Err("function already defined")
     }
   }
 
@@ -359,6 +363,19 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
             .build_int_signed_div(lhs, rhs, "tmpdiv")
             .as_basic_value_enum(),
         )
+      }
+      AST::Call(name) => {
+        if let Some(callee) = self.module.get_function(&name) {
+          Ok(
+            self
+              .builder
+              .build_call(callee, &[], "tmpcall")
+              .try_as_basic_value()
+              .unwrap_left(),
+          )
+        } else {
+          Err("function not defined")
+        }
       }
       AST::Ident(name) => match vars.get(&name) {
         Some(var) => Ok(var.as_basic_value_enum()),

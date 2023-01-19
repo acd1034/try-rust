@@ -1,4 +1,5 @@
 #!/bin/bash
+# usage: LLVM_SYS_120_PREFIX=/opt/homebrew/opt/llvm@12 ./test.sh
 assert() {
   expected="$1"
   input="$2"
@@ -89,7 +90,6 @@ assert 8 'main() { foo123=3; bar=5; return foo123+bar; }'
 assert 1 'main() { return 1; 2; 3; }'
 assert 2 'main() { 1; return 2; 3; }'
 assert 3 'main() { 1; 2; return 3; }'
-assert 6 'sub() { return 4; } main() { a=b=3; return a+b; }'
 # block
 assert 3 'main() { {1; {2;} return 3;} }'
 # null
@@ -113,3 +113,9 @@ assert 3 'main() { if (0) if (1) return 1; else return 2; return 3; }'
 # for
 assert 3 'main() { for (;;) {return 3;} return 5; }'
 assert 55 'main() { i=0; j=0; for (i=0; i<=10; i=i+1) j=i+j; return j; }'
+# funcall
+assert 8 'sub() { return 4; } main() { a=b=sub(); return a+b; }'
+assert_fail 'main() { a=b=sub(); return a+b; }'
+# defunc
+assert 6 'sub() { return 4; } main() { a=b=3; return a+b; }'
+assert_fail 'main() { return 4; } main() { a=b=3; return a+b; }'

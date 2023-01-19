@@ -26,6 +26,7 @@ pub enum AST {
   Sub(Box<AST>, Box<AST>),
   Mul(Box<AST>, Box<AST>),
   Div(Box<AST>, Box<AST>),
+  Call(String),
   Ident(String),
   Num(u64),
 }
@@ -90,7 +91,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  * add        = mul ("+" mul | "-" mul)*
  * mul        = unary ("*" unary | "/" unary)*
  * unary      = ("+" | "-")? unary | primary
- * primary    = "(" expr ")" | ident | num
+ * primary    = "(" expr ")" | ident ("(" ")")? | num
  */
 
 // program    = function* eof
@@ -269,7 +270,7 @@ fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
   }
 }
 
-// primary    = "(" expr ")" | ident | num
+// primary    = "(" expr ")" | ident ("(" ")")? | num
 fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
   if consume(it, "(")? {
     let n = parse_expr(it)?;
@@ -277,7 +278,12 @@ fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
     Ok(n)
   } else if let Token::Ident(name) = it.current().unwrap()? {
     it.next();
-    Ok(AST::Ident(name.to_string()))
+    if consume(it, "(")? {
+      expect(it, ")")?;
+      Ok(AST::Call(name.to_string()))
+    } else {
+      Ok(AST::Ident(name.to_string()))
+    }
   } else if let Token::Num(n) = it.current().unwrap()? {
     it.next();
     Ok(AST::Num(n))
