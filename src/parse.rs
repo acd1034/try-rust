@@ -2,8 +2,8 @@ use crate::tokenize::{Expected, Token, Tokenizer};
 
 #[derive(Debug)]
 pub enum Function {
-  Function(String, Vec<Stmt>),
-  Prototype(String),
+  Function(String, Vec<String>, Vec<Stmt>),
+  Prototype(String, Vec<String>),
 }
 
 #[derive(Debug)]
@@ -77,8 +77,9 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
 }
 
 /* program    = function* eof
- * function   = ident "(" ")" "{" statement* "}"
- *            | ident "(" ")" ";"
+ * function   = ident params "{" statement* "}"
+ *            | ident params ";"
+ * params     = "(" (ident ("," ident)*)? ")"
  * statement  = "if" "(" expr ")" statement ("else" statement)?
  *            | "for" "(" expr? ";" expr? ";" expr? ")" statement
  *            | "return" expr ";"
@@ -104,21 +105,36 @@ pub fn parse(mut it: Tokenizer) -> Expected<Vec<Function>> {
   Ok(functions)
 }
 
-// function   = ident "(" ")" "{" statement* "}"
-//            | ident "(" ")" ";"
+// function   = ident params "{" statement* "}"
+//            | ident params ";"
 fn parse_function(it: &mut Tokenizer) -> Expected<Function> {
   let name = expect_ident(it)?;
-  expect(it, "(")?;
-  expect(it, ")")?;
+  let params = parse_params(it)?;
   if consume(it, "{")? {
     let mut body = Vec::new();
     while !consume(it, "}")? {
       body.push(parse_statement(it)?);
     }
-    Ok(Function::Function(name, body))
+    Ok(Function::Function(name, params, body))
   } else {
     expect(it, ";")?;
-    Ok(Function::Prototype(name))
+    Ok(Function::Prototype(name, params))
+  }
+}
+
+// params     = "(" (ident ("," ident)*)? ")"
+fn parse_params(it: &mut Tokenizer) -> Expected<Vec<String>> {
+  expect(it, "(")?;
+  let mut params = Vec::new();
+  if consume(it, ")")? {
+    Ok(params)
+  } else {
+    params.push(expect_ident(it)?);
+    while !consume(it, ")")? {
+      expect(it, ",")?;
+      params.push(expect_ident(it)?);
+    }
+    Ok(params)
   }
 }
 

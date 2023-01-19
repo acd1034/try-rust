@@ -121,6 +121,9 @@ assert 55 'main() { i=0; j=0; for (i=0; i<=10; i=i+1) j=i+j; return j; }'
 # defunc
 assert 6 'sub() { return 4; } main() { a=b=3; return a+b; }'
 assert_fail 'main() { return 4; } main() { a=b=3; return a+b; }'
+assert 0 'sub(a,b,c,d,e,f) { return a+b+c+d+e+f; } main() { return 0; }'
+assert 0 'sub(a); sub(b) { return b; } main() { return 0; }'
+assert_fail 'sub(); sub(a) { return a; } main() { return 0; }'
 # funcall
 assert 8 'sub() { return 4; } main() { a=b=sub(); return a+b; }'
 assert_fail 'main() { a=b=sub(); return a+b; }'

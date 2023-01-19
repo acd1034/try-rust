@@ -43,24 +43,37 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     }
   }
 
-  fn check_prototype(&self, name: String) -> Expected<FunctionValue<'ctx>> {
+  fn check_prototype(&self, name: String, params: &Vec<String>) -> Expected<FunctionValue<'ctx>> {
     if let Some(fn_value) = self.module.get_function(&name) {
-      Ok(fn_value)
+      if params.len() == fn_value.count_params().try_into().unwrap() {
+        Ok(fn_value)
+      } else {
+        Err("number of arguments differs from the previous declaration")
+      }
     } else {
       let i64_type = self.context.i64_type();
-      let fn_type = i64_type.fn_type(&[], false);
+      let param_types: Vec<_> = params.iter().map(|_| i64_type.into()).collect();
+      let fn_type = i64_type.fn_type(&param_types[..], false);
       Ok(self.module.add_function(&name, fn_type, None))
     }
   }
 
   fn gen_function(&self, function: Function) -> Expected<()> {
     match function {
-      Function::Function(name, body) => {
-        let fn_value = self.check_prototype(name)?;
+      Function::Function(name, params, body) => {
+        let fn_value = self.check_prototype(name, &params)?;
         if fn_value.count_basic_blocks() == 0 {
           let entry_block = self.context.append_basic_block(fn_value, "entry");
           self.builder.position_at_end(entry_block);
           let mut vars: HashMap<String, PointerValue<'ctx>> = HashMap::new();
+          for (name, var) in std::iter::zip(params, fn_value.get_param_iter()) {
+            if vars.get(&name).is_none() {
+              let alloca = self.create_entry_block_alloca(name, &mut vars);
+              self.builder.build_store(alloca, var.into_int_value());
+            } else {
+              return Err("function parameter already defined");
+            }
+          }
 
           for stmt in body {
             self.gen_statement(stmt, &mut vars)?;
@@ -69,6 +82,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           if fn_value.verify(true) {
             Ok(())
           } else {
+            // TODO: 前方宣言後の定義ならば定義のみ消す
+            // 前方宣言なしの定義ならば宣言ごと消す
             unsafe {
               fn_value.delete();
             }
@@ -78,8 +93,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           Err("function already defined")
         }
       }
-      Function::Prototype(name) => {
-        self.check_prototype(name)?;
+      Function::Prototype(name, params) => {
+        self.check_prototype(name, &params)?;
         Ok(())
       }
     }
