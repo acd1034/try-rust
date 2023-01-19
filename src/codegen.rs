@@ -85,7 +85,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     }
   }
 
-  fn get_function(&self) -> FunctionValue<'ctx> {
+  fn get_current_function(&self) -> FunctionValue<'ctx> {
     self
       .builder
       .get_insert_block()
@@ -111,7 +111,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
          *   C;
          * cont:
          */
-        let fn_value = self.get_function();
+        let fn_value = self.get_current_function();
         let then_block = self.context.append_basic_block(fn_value, "then");
         let else_block = self.context.append_basic_block(fn_value, "else");
 
@@ -176,7 +176,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
          *   goto begin;
          * end:
          */
-        let fn_value = self.get_function();
+        let fn_value = self.get_current_function();
         let begin_block = self.context.append_basic_block(fn_value, "begin");
         let body_block = self.context.append_basic_block(fn_value, "body");
         let end_block = self.context.append_basic_block(fn_value, "end");
@@ -239,7 +239,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     name: String,
     vars: &mut HashMap<String, PointerValue<'ctx>>,
   ) -> PointerValue<'ctx> {
-    let fn_value = self.get_function();
+    let fn_value = self.get_current_function();
     let entry_block = fn_value.get_first_basic_block().unwrap();
     let builder = self.context.create_builder();
     match entry_block.get_first_instruction() {
