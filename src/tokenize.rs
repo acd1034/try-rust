@@ -31,7 +31,7 @@ fn tokenize<'a>(s: &'a str) -> Expected<(Token, &'a str)> {
     let pos = s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
     let num = s[..pos]
       .parse::<u64>()
-      .map_err(|_| "Failed to read integer")?;
+      .map_err(|_| "failed to read integer")?;
     Ok((Token::Num(num), &s[pos..]))
   } else if s.starts_with(|c: char| c.is_ascii_punctuation()) {
     if s.len() < 2 {

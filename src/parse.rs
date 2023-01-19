@@ -275,21 +275,13 @@ fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
     let n = parse_expr(it)?;
     expect(it, ")")?;
     Ok(n)
+  } else if let Token::Ident(name) = it.current().unwrap()? {
+    it.next();
+    Ok(AST::Ident(name.to_string()))
+  } else if let Token::Num(n) = it.current().unwrap()? {
+    it.next();
+    Ok(AST::Num(n))
   } else {
-    parse_ident_or_num(it)
-  }
-}
-
-fn parse_ident_or_num(it: &mut Tokenizer) -> Expected<AST> {
-  match it.current().unwrap()? {
-    Token::Ident(name) => {
-      it.next();
-      Ok(AST::Ident(name.to_string()))
-    }
-    Token::Num(n) => {
-      it.next();
-      Ok(AST::Num(n))
-    }
-    _ => Err("unexpected token, expecting identifier or number"),
+    Err("unexpected token, expecting `(`, identifier or number")
   }
 }
