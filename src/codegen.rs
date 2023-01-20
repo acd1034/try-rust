@@ -130,7 +130,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         let then_block = self.context.append_basic_block(fn_value, "then");
         let else_block = self.context.append_basic_block(fn_value, "else");
 
-        let cond = self.gen_expr_load_if_needed(cond, vars)?;
+        let cond = self.gen_expr_into_int_value(cond, vars)?;
         let zero = i64_type.const_int(0, false);
         let cond = self
           .builder
@@ -204,7 +204,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         // begin:
         self.builder.position_at_end(begin_block);
         if let Some(expr) = cond {
-          let cond = self.gen_expr_load_if_needed(expr, vars)?;
+          let cond = self.gen_expr_into_int_value(expr, vars)?;
           let zero = i64_type.const_int(0, false);
           let cond = self
             .builder
@@ -231,7 +231,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(())
       }
       Stmt::Return(expr) => {
-        let i64_value = self.gen_expr_load_if_needed(expr, vars)?;
+        let i64_value = self.gen_expr_into_int_value(expr, vars)?;
         self.builder.build_return(Some(&i64_value));
         Ok(())
       }
@@ -268,7 +268,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     alloca
   }
 
-  fn gen_expr_load_if_needed(
+  fn gen_expr_into_int_value(
     &self,
     expr: AST,
     vars: &mut HashMap<String, PointerValue<'ctx>>,
@@ -288,7 +288,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
   ) -> Expected<PointerValue<'ctx>> {
     match expr {
       AST::Assign(n, m) => {
-        let rhs = self.gen_expr_load_if_needed(*m, vars)?;
+        let rhs = self.gen_expr_into_int_value(*m, vars)?;
         let lhs = if let AST::Ident(name) = *n {
           if let Some(&var) = vars.get(&name) {
             var
@@ -322,8 +322,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(res)
       }
       AST::Eq(n, m) => {
-        let lhs = self.gen_expr_load_if_needed(*n, vars)?;
-        let rhs = self.gen_expr_load_if_needed(*m, vars)?;
+        let lhs = self.gen_expr_into_int_value(*n, vars)?;
+        let rhs = self.gen_expr_into_int_value(*m, vars)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::EQ, lhs, rhs, "tmpcmp");
@@ -331,8 +331,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(self.builder.build_int_neg(b, "").as_basic_value_enum())
       }
       AST::Ne(n, m) => {
-        let lhs = self.gen_expr_load_if_needed(*n, vars)?;
-        let rhs = self.gen_expr_load_if_needed(*m, vars)?;
+        let lhs = self.gen_expr_into_int_value(*n, vars)?;
+        let rhs = self.gen_expr_into_int_value(*m, vars)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::NE, lhs, rhs, "tmpcmp");
@@ -340,8 +340,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(self.builder.build_int_neg(b, "").as_basic_value_enum())
       }
       AST::Lt(n, m) => {
-        let lhs = self.gen_expr_load_if_needed(*n, vars)?;
-        let rhs = self.gen_expr_load_if_needed(*m, vars)?;
+        let lhs = self.gen_expr_into_int_value(*n, vars)?;
+        let rhs = self.gen_expr_into_int_value(*m, vars)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::ULT, lhs, rhs, "tmpcmp");
@@ -349,8 +349,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(self.builder.build_int_neg(b, "").as_basic_value_enum())
       }
       AST::Le(n, m) => {
-        let lhs = self.gen_expr_load_if_needed(*n, vars)?;
-        let rhs = self.gen_expr_load_if_needed(*m, vars)?;
+        let lhs = self.gen_expr_into_int_value(*n, vars)?;
+        let rhs = self.gen_expr_into_int_value(*m, vars)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::ULE, lhs, rhs, "tmpcmp");
@@ -358,8 +358,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(self.builder.build_int_neg(b, "").as_basic_value_enum())
       }
       AST::Add(n, m) => {
-        let lhs = self.gen_expr_load_if_needed(*n, vars)?;
-        let rhs = self.gen_expr_load_if_needed(*m, vars)?;
+        let lhs = self.gen_expr_into_int_value(*n, vars)?;
+        let rhs = self.gen_expr_into_int_value(*m, vars)?;
         let res = self
           .builder
           .build_int_add(lhs, rhs, "tmpadd")
@@ -367,8 +367,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(res)
       }
       AST::Sub(n, m) => {
-        let lhs = self.gen_expr_load_if_needed(*n, vars)?;
-        let rhs = self.gen_expr_load_if_needed(*m, vars)?;
+        let lhs = self.gen_expr_into_int_value(*n, vars)?;
+        let rhs = self.gen_expr_into_int_value(*m, vars)?;
         let res = self
           .builder
           .build_int_sub(lhs, rhs, "tmpsub")
@@ -376,8 +376,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(res)
       }
       AST::Mul(n, m) => {
-        let lhs = self.gen_expr_load_if_needed(*n, vars)?;
-        let rhs = self.gen_expr_load_if_needed(*m, vars)?;
+        let lhs = self.gen_expr_into_int_value(*n, vars)?;
+        let rhs = self.gen_expr_into_int_value(*m, vars)?;
         let res = self
           .builder
           .build_int_mul(lhs, rhs, "tmpmul")
@@ -385,8 +385,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(res)
       }
       AST::Div(n, m) => {
-        let lhs = self.gen_expr_load_if_needed(*n, vars)?;
-        let rhs = self.gen_expr_load_if_needed(*m, vars)?;
+        let lhs = self.gen_expr_into_int_value(*n, vars)?;
+        let rhs = self.gen_expr_into_int_value(*m, vars)?;
         let res = self
           .builder
           .build_int_signed_div(lhs, rhs, "tmpdiv")
@@ -397,7 +397,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         if let Some(callee) = self.module.get_function(&name) {
           let args = args
             .into_iter()
-            .map(|expr| self.gen_expr_load_if_needed(expr, vars).map(|x| x.into()))
+            .map(|expr| self.gen_expr_into_int_value(expr, vars).map(|x| x.into()))
             .collect::<Result<Vec<BasicMetadataValueEnum>, _>>()?;
           let res = self
             .builder
