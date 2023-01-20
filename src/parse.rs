@@ -26,6 +26,8 @@ pub enum AST {
   Sub(Box<AST>, Box<AST>),
   Mul(Box<AST>, Box<AST>),
   Div(Box<AST>, Box<AST>),
+  Addr(Box<AST>),
+  Deref(Box<AST>),
   Call(String, Vec<AST>),
   Ident(String),
   Num(u64),
@@ -92,7 +94,8 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  * relational = add ("<" add | "<=" add | ">" add | ">=" add)*
  * add        = mul ("+" mul | "-" mul)*
  * mul        = unary ("*" unary | "/" unary)*
- * unary      = ("+" | "-")? unary | primary
+ * unary      = ("+" | "-" | "&" | "*")? unary
+ *            | primary
  * primary    = "(" expr ")" | ident ("(" args)? | num
  * args       = (expr ("," expr)*)? ")"
  */
@@ -280,7 +283,8 @@ fn parse_mul_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   }
 }
 
-// unary      = ("+" | "-")? unary | primary
+// unary      = ("+" | "-" | "&" | "*")? unary
+//            | primary
 fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
   if consume(it, "+")? {
     parse_unary(it)
@@ -288,6 +292,12 @@ fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
     let n = AST::Num(0);
     let m = parse_unary(it)?;
     Ok(AST::Sub(Box::new(n), Box::new(m)))
+  } else if consume(it, "&")? {
+    let n = parse_unary(it)?;
+    Ok(AST::Addr(Box::new(n)))
+  } else if consume(it, "*")? {
+    let n = parse_unary(it)?;
+    Ok(AST::Deref(Box::new(n)))
   } else {
     parse_primary(it)
   }

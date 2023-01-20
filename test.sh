@@ -42,6 +42,12 @@ fi
 # TODO:
 # assert 0 'main() { return 0; return 1; }'
 # assert 0 'main() { a = 0; return a; a = 1; }'
+# assert 3 'main() { x=3; y=&x; z=&y; return **z; }'
+# assert 5 'main() { x=3; y=&x; *y=5; return x; }'
+# assert 5 'main() { x=3; y=5; return *(&x+8); }'
+# assert 3 'main() { x=3; y=5; return *(&y-8); }'
+# assert 7 'main() { x=3; y=5; *(&x+8)=7; return y; }'
+# assert 7 'main() { x=3; y=5; *(&y-8)=7; return x; }'
 # num
 assert 0 'main() { return 0; }'
 assert 42 'main() { return 42; }'
@@ -136,3 +142,5 @@ assert 4 'sub(); sub(); sub() { return 4; } main() { return sub(); }'
 assert 0 'sub(a); sub(b) { return b; } main() { return 0; }'
 assert_fail 'sub(); sub(a) { return a; } main() { return 0; }'
 assert 21 'sub(a,b,c,d,e,f); sub(g,h,i,j,k,l) { return g+h+i+j+k+l; } main() { return sub(1,2,3,4,5,6); }'
+# addr & deref
+assert 3 'main() { x=3; return *&x; }'

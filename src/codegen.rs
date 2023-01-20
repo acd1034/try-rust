@@ -272,7 +272,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     &self,
     expr: AST,
     vars: &mut HashMap<String, PointerValue<'ctx>>,
-  ) -> Expected<IntValue> {
+  ) -> Expected<IntValue<'ctx>> {
     let value = self.gen_expr(expr, vars)?;
     if value.is_int_value() {
       Ok(value.into_int_value())
@@ -301,6 +301,14 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         self.builder.build_store(lhs, rhs);
         Ok(lhs)
       }
+      AST::Deref(n) => {
+        let ptr = self.gen_expr(*n, vars)?;
+        if ptr.is_pointer_value() {
+          Ok(ptr.into_pointer_value())
+        } else {
+          Err("cannot dereference int value")
+        }
+      }
       AST::Ident(name) => match vars.get(&name) {
         Some(&var) => Ok(var),
         None => Err("variable not defined"),
@@ -313,7 +321,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     &self,
     expr: AST,
     vars: &mut HashMap<String, PointerValue<'ctx>>,
-  ) -> Expected<BasicValueEnum> {
+  ) -> Expected<BasicValueEnum<'ctx>> {
     let i64_type = self.context.i64_type();
     match expr {
       AST::Assign(n, m) => {
@@ -391,6 +399,15 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           .builder
           .build_int_signed_div(lhs, rhs, "tmpdiv")
           .as_basic_value_enum();
+        Ok(res)
+      }
+      AST::Addr(n) => {
+        let var = self.gen_addr(*n, vars)?;
+        Ok(var.as_basic_value_enum())
+      }
+      AST::Deref(n) => {
+        let var = self.gen_addr(AST::Deref(n), vars)?;
+        let res = self.builder.build_load(var, "tmpload");
         Ok(res)
       }
       AST::Call(name, args) => {
