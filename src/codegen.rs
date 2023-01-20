@@ -274,15 +274,38 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     vars: &mut HashMap<String, PointerValue<'ctx>>,
   ) -> Expected<IntValue> {
     let value = self.gen_expr(expr, vars)?;
-    if value.is_pointer_value() {
-      Ok(
-        self
-          .builder
-          .build_load(value.into_pointer_value(), "tmpload")
-          .into_int_value(),
-      )
-    } else {
+    if value.is_int_value() {
       Ok(value.into_int_value())
+    } else {
+      Err("unexpected type in expression, expecting int type")
+    }
+  }
+
+  fn gen_addr(
+    &self,
+    expr: AST,
+    vars: &mut HashMap<String, PointerValue<'ctx>>,
+  ) -> Expected<PointerValue<'ctx>> {
+    match expr {
+      AST::Assign(n, m) => {
+        let rhs = self.gen_expr_load_if_needed(*m, vars)?;
+        let lhs = if let AST::Ident(name) = *n {
+          if let Some(&var) = vars.get(&name) {
+            var
+          } else {
+            self.create_entry_block_alloca(name, vars)
+          }
+        } else {
+          self.gen_addr(*n, vars)?
+        };
+        self.builder.build_store(lhs, rhs);
+        Ok(lhs)
+      }
+      AST::Ident(name) => match vars.get(&name) {
+        Some(&var) => Ok(var),
+        None => Err("variable not defined"),
+      },
+      _ => Err("cannot obtain the address of lvalue"),
     }
   }
 
@@ -294,30 +317,9 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     let i64_type = self.context.i64_type();
     match expr {
       AST::Assign(n, m) => {
-        let rhs = self.gen_expr_load_if_needed(*m, vars)?;
-        match *n {
-          AST::Ident(name) => match vars.get(&name) {
-            Some(&var) => {
-              self.builder.build_store(var, rhs);
-              Ok(var.as_basic_value_enum())
-            }
-            None => {
-              let alloca = self.create_entry_block_alloca(name, vars);
-              self.builder.build_store(alloca, rhs);
-              Ok(alloca.as_basic_value_enum())
-            }
-          },
-          _ => {
-            let lhs = self.gen_expr(*n, vars)?;
-            if lhs.is_pointer_value() {
-              let i64_ptr_value = lhs.into_pointer_value();
-              self.builder.build_store(i64_ptr_value, rhs);
-              Ok(i64_ptr_value.as_basic_value_enum())
-            } else {
-              Err("unexpected rvalue, expecting lvalue")
-            }
-          }
-        }
+        let var = self.gen_addr(AST::Assign(n, m), vars)?;
+        let res = self.builder.build_load(var, "tmpload");
+        Ok(res)
       }
       AST::Eq(n, m) => {
         let lhs = self.gen_expr_load_if_needed(*n, vars)?;
@@ -407,10 +409,11 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           Err("function not defined")
         }
       }
-      AST::Ident(name) => match vars.get(&name) {
-        Some(var) => Ok(var.as_basic_value_enum()),
-        None => Err("variable not defined"),
-      },
+      AST::Ident(name) => {
+        let var = self.gen_addr(AST::Ident(name), vars)?;
+        let res = self.builder.build_load(var, "tmpload");
+        Ok(res)
+      }
       AST::Num(n) => Ok(i64_type.const_int(n, false).as_basic_value_enum()),
     }
   }
