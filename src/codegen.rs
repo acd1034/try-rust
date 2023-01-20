@@ -358,42 +358,38 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
       AST::Add(n, m) => {
         let lhs = self.gen_expr_load_if_needed(*n, vars)?;
         let rhs = self.gen_expr_load_if_needed(*m, vars)?;
-        Ok(
-          self
-            .builder
-            .build_int_add(lhs, rhs, "tmpadd")
-            .as_basic_value_enum(),
-        )
+        let res = self
+          .builder
+          .build_int_add(lhs, rhs, "tmpadd")
+          .as_basic_value_enum();
+        Ok(res)
       }
       AST::Sub(n, m) => {
         let lhs = self.gen_expr_load_if_needed(*n, vars)?;
         let rhs = self.gen_expr_load_if_needed(*m, vars)?;
-        Ok(
-          self
-            .builder
-            .build_int_sub(lhs, rhs, "tmpsub")
-            .as_basic_value_enum(),
-        )
+        let res = self
+          .builder
+          .build_int_sub(lhs, rhs, "tmpsub")
+          .as_basic_value_enum();
+        Ok(res)
       }
       AST::Mul(n, m) => {
         let lhs = self.gen_expr_load_if_needed(*n, vars)?;
         let rhs = self.gen_expr_load_if_needed(*m, vars)?;
-        Ok(
-          self
-            .builder
-            .build_int_mul(lhs, rhs, "tmpmul")
-            .as_basic_value_enum(),
-        )
+        let res = self
+          .builder
+          .build_int_mul(lhs, rhs, "tmpmul")
+          .as_basic_value_enum();
+        Ok(res)
       }
       AST::Div(n, m) => {
         let lhs = self.gen_expr_load_if_needed(*n, vars)?;
         let rhs = self.gen_expr_load_if_needed(*m, vars)?;
-        Ok(
-          self
-            .builder
-            .build_int_signed_div(lhs, rhs, "tmpdiv")
-            .as_basic_value_enum(),
-        )
+        let res = self
+          .builder
+          .build_int_signed_div(lhs, rhs, "tmpdiv")
+          .as_basic_value_enum();
+        Ok(res)
       }
       AST::Call(name, args) => {
         if let Some(callee) = self.module.get_function(&name) {
@@ -401,13 +397,12 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
             .into_iter()
             .map(|expr| self.gen_expr_load_if_needed(expr, vars).map(|x| x.into()))
             .collect::<Result<Vec<BasicMetadataValueEnum>, _>>()?;
-          Ok(
-            self
-              .builder
-              .build_call(callee, &args[..], "tmpcall")
-              .try_as_basic_value()
-              .unwrap_left(),
-          )
+          let res = self
+            .builder
+            .build_call(callee, &args[..], "tmpcall")
+            .try_as_basic_value()
+            .unwrap_left();
+          Ok(res)
         } else {
           Err("function not defined")
         }
