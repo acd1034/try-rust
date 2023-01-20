@@ -5,7 +5,7 @@ use inkwell::context::Context;
 use inkwell::module::Module;
 use std::collections::HashMap;
 
-use inkwell::types::BasicTypeEnum;
+use inkwell::types::*;
 use inkwell::values::*;
 use inkwell::IntPredicate;
 
@@ -292,10 +292,14 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         let rhs = self.gen_expr(*m, vars)?;
         let lhs = if let AST::Ident(name) = *n {
           if let Some(&var) = vars.get(&name) {
-            var
+            if var.get_type().get_element_type() == rhs.get_type().as_any_type_enum() {
+              Ok(var)
+            } else {
+              Err("mismatched types between lhs and rhs of assignment")
+            }
           } else {
-            self.create_entry_block_alloca(rhs.get_type(), name, vars)
-          }
+            Ok(self.create_entry_block_alloca(rhs.get_type(), name, vars))
+          }?
         } else {
           self.gen_addr(*n, vars)?
         };
