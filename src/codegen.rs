@@ -324,11 +324,6 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
   ) -> Expected<BasicValueEnum<'ctx>> {
     let i64_type = self.context.i64_type();
     match expr {
-      AST::Assign(n, m) => {
-        let var = self.gen_addr(AST::Assign(n, m), vars)?;
-        let res = self.builder.build_load(var, "tmpload");
-        Ok(res)
-      }
       AST::Eq(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n, vars)?;
         let rhs = self.gen_expr_into_int_value(*m, vars)?;
@@ -405,11 +400,6 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         let var = self.gen_addr(*n, vars)?;
         Ok(var.as_basic_value_enum())
       }
-      AST::Deref(n) => {
-        let var = self.gen_addr(AST::Deref(n), vars)?;
-        let res = self.builder.build_load(var, "tmpload");
-        Ok(res)
-      }
       AST::Call(name, args) => {
         if let Some(callee) = self.module.get_function(&name) {
           let args = args
@@ -426,12 +416,12 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           Err("function not defined")
         }
       }
-      AST::Ident(name) => {
-        let var = self.gen_addr(AST::Ident(name), vars)?;
+      AST::Num(n) => Ok(i64_type.const_int(n, false).as_basic_value_enum()),
+      expr /* AST::Assign, AST::Deref, AST::Ident */ => {
+        let var = self.gen_addr(expr, vars)?;
         let res = self.builder.build_load(var, "tmpload");
         Ok(res)
       }
-      AST::Num(n) => Ok(i64_type.const_int(n, false).as_basic_value_enum()),
     }
   }
 }
