@@ -1,6 +1,6 @@
-compilation_unit = import_stmts
-    top_defs
-    <EOF>
+// https://github.com/aamine/cbc/blob/f339ad28bc826ddcaabfdafa3a84bc539a80f4d1/net/loveruby/cflat/parser/Parser.jj
+// clang-format off
+compilation_unit = import_stmts top_defs <EOF>
 import_stmts = import_stmt*
 import_stmt = name ("." name)* ";"
 name = <IDENT>
@@ -13,6 +13,7 @@ top_def = LOOKAHEAD(storage typeref <IDENT> "(") defun
         | typedef
 defvars = storage type name ("=" expr)? ("," name ("=" expr)?)* ";"
 storage = <STATIC>?
+defconst = <CONST> type name "=" expr ";"
 defun = storage typeref name "(" params ")" block
 params = LOOKAHEAD(<VOID> ")") <VOID>
        | fixedparams ("," "...")?

@@ -24,3 +24,18 @@ fn open_and_parse_file(file_name: &str) -> Result<i32, CliError> {
   let num: i32 = contents.trim().parse()?;
   Ok(num)
 }
+
+enum Message {
+  Quit,
+  Write(String),
+  Move { x: i32, y: i32 },
+}
+
+fn print_msg() {
+  let m = Message::Move { x: 0, y: 1 };
+  match m {
+    Message::Quit => println!("Quit!"),
+    Message::Write(s) => println!("Write: {}", s),
+    Message::Move { x, y } => println!("Move: ({}, {})", x, y),
+  }
+}
