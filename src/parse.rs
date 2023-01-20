@@ -78,29 +78,32 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
   }
 }
 
-/* program    = function* eof
- * function   = ident params "{" statement* "}"
- *            | ident params ";"
- * params     = "(" (ident ("," ident)*)? ")"
- * statement  = "if" "(" expr ")" statement ("else" statement)?
- *            | "for" "(" expr? ";" expr? ";" expr? ")" statement
- *            | "return" expr ";"
- *            | "{" statement* "}"
- *            | ";"
- *            | expr ";"
- * expr       = assign
- * assign     = equality ("=" assign)?
- * equality   = relational ("==" relational | "!=" relational)*
- * relational = add ("<" add | "<=" add | ">" add | ">=" add)*
- * add        = mul ("+" mul | "-" mul)*
- * mul        = unary ("*" unary | "/" unary)*
- * unary      = ("+" | "-" | "&" | "*")? unary
- *            | primary
- * primary    = "(" expr ")" | ident ("(" args)? | num
- * args       = (expr ("," expr)*)? ")"
+/* program     = function* eof
+ * function    = ident func_params "{" statement* "}"
+ *             | ident func_params ";"
+ * func_params = "(" (ident ("," ident)*)? ")"
+ * statement   = "if" "(" expr ")" statement ("else" statement)?
+ *             | "for" "(" expr? ";" expr? ";" expr? ")" statement
+ *             | "return" expr ";"
+ *             | "{" statement* "}"
+ *             | ";"
+ *             | expr ";"
+ * expr        = assign
+ * assign      = equality ("=" assign)?
+ * equality    = relational ("==" relational | "!=" relational)*
+ * relational  = add ("<" add | "<=" add | ">" add | ">=" add)*
+ * add         = mul ("+" mul | "-" mul)*
+ * mul         = unary ("*" unary | "/" unary)*
+ * unary       = ("+" | "-" | "&" | "*") unary
+ *             | primary
+ * primary     = "(" expr ")"
+ *             | ident "(" func_args
+ *             | ident
+ *             | num
+ * func_args   = (expr ("," expr)*)? ")"
  */
 
-// program    = function* eof
+// program     = function* eof
 pub fn parse(mut it: Tokenizer) -> Expected<Vec<Function>> {
   let mut functions = Vec::new();
   while !consume_eof(&mut it)? {
@@ -109,11 +112,11 @@ pub fn parse(mut it: Tokenizer) -> Expected<Vec<Function>> {
   Ok(functions)
 }
 
-// function   = ident params "{" statement* "}"
-//            | ident params ";"
+// function    = ident func_params "{" statement* "}"
+//             | ident func_params ";"
 fn parse_function(it: &mut Tokenizer) -> Expected<Function> {
   let name = expect_ident(it)?;
-  let params = parse_params(it)?;
+  let params = parse_func_params(it)?;
   if consume(it, "{")? {
     let mut body = Vec::new();
     while !consume(it, "}")? {
@@ -126,8 +129,8 @@ fn parse_function(it: &mut Tokenizer) -> Expected<Function> {
   }
 }
 
-// params     = "(" (ident ("," ident)*)? ")"
-fn parse_params(it: &mut Tokenizer) -> Expected<Vec<String>> {
+// func_params = "(" (ident ("," ident)*)? ")"
+fn parse_func_params(it: &mut Tokenizer) -> Expected<Vec<String>> {
   expect(it, "(")?;
   let mut params = Vec::new();
   if consume(it, ")")? {
@@ -142,12 +145,12 @@ fn parse_params(it: &mut Tokenizer) -> Expected<Vec<String>> {
   }
 }
 
-// statement  = "if" "(" expr ")" statement ("else" statement)?
-//            | "for" "(" expr? ";" expr? ";" expr? ")" statement
-//            | "return" expr ";"
-//            | "{" statement* "}"
-//            | ";"
-//            | expr ";"
+// statement   = "if" "(" expr ")" statement ("else" statement)?
+//             | "for" "(" expr? ";" expr? ";" expr? ")" statement
+//             | "return" expr ";"
+//             | "{" statement* "}"
+//             | ";"
+//             | expr ";"
 fn parse_statement(it: &mut Tokenizer) -> Expected<Stmt> {
   if consume_keyword(it, "if")? {
     expect(it, "(")?;
@@ -189,12 +192,12 @@ fn parse_statement(it: &mut Tokenizer) -> Expected<Stmt> {
   }
 }
 
-// expr       = assign
+// expr        = assign
 fn parse_expr(it: &mut Tokenizer) -> Expected<AST> {
   parse_assign(it)
 }
 
-// assign     = equality ("=" assign)?
+// assign      = equality ("=" assign)?
 fn parse_assign(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_equality(it)?;
   if consume(it, "=")? {
@@ -205,7 +208,7 @@ fn parse_assign(it: &mut Tokenizer) -> Expected<AST> {
   }
 }
 
-// equality   = relational ("==" relational | "!=" relational)*
+// equality    = relational ("==" relational | "!=" relational)*
 fn parse_equality(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_relational(it)?;
   parse_equality_impl(it, n)
@@ -223,7 +226,7 @@ fn parse_equality_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   }
 }
 
-// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+// relational  = add ("<" add | "<=" add | ">" add | ">=" add)*
 fn parse_relational(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_add(it)?;
   parse_relational_impl(it, n)
@@ -247,7 +250,7 @@ fn parse_relational_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   }
 }
 
-// add        = mul ("+" mul | "-" mul)*
+// add         = mul ("+" mul | "-" mul)*
 fn parse_add(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_mul(it)?;
   parse_add_impl(it, n)
@@ -265,7 +268,7 @@ fn parse_add_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   }
 }
 
-// mul        = unary ("*" unary | "/" unary)*
+// mul         = unary ("*" unary | "/" unary)*
 fn parse_mul(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_unary(it)?;
   parse_mul_impl(it, n)
@@ -283,8 +286,8 @@ fn parse_mul_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   }
 }
 
-// unary      = ("+" | "-" | "&" | "*")? unary
-//            | primary
+// unary       = ("+" | "-" | "&" | "*")? unary
+//             | primary
 fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
   if consume(it, "+")? {
     parse_unary(it)
@@ -303,7 +306,10 @@ fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
   }
 }
 
-// primary    = "(" expr ")" | ident ("(" args)? | num
+// primary     = "(" expr ")"
+//             | ident "(" func_args
+//             | ident
+//             | num
 fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
   if consume(it, "(")? {
     let n = parse_expr(it)?;
@@ -312,7 +318,7 @@ fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
   } else if let Token::Ident(name) = it.current().unwrap()? {
     it.next();
     if consume(it, "(")? {
-      let args = parse_args(it)?;
+      let args = parse_func_args(it)?;
       Ok(AST::Call(name.to_string(), args))
     } else {
       Ok(AST::Ident(name.to_string()))
@@ -325,8 +331,8 @@ fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
   }
 }
 
-// args       = (expr ("," expr)*)? ")"
-fn parse_args(it: &mut Tokenizer) -> Expected<Vec<AST>> {
+// func_args   = (expr ("," expr)*)? ")"
+fn parse_func_args(it: &mut Tokenizer) -> Expected<Vec<AST>> {
   let mut args = Vec::new();
   if consume(it, ")")? {
     Ok(args)
