@@ -39,6 +39,9 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# TODO:
+# assert 0 'main() { return 0; return 1; }'
+# assert 0 'main() { a = 0; return a; a = 1; }'
 # num
 assert 0 'main() { return 0; }'
 assert 42 'main() { return 42; }'
@@ -81,13 +84,13 @@ assert 0 'main() { return 42!=42; }'
 assert 42 'main() { return foo123=42; }'
 assert 42 'main() { return _123=42; }'
 assert 2 'main() { return a=a=2; }'
+assert 2 'main() { return (x=1)=2; }'
 assert_fail 'main() { return 1=2; }'
 # statements
 assert 3 'main() { 1; 2; return 3; }'
 assert 8 'main() { a=3; b=5; return a+b; }'
 assert 6 'main() { a=3; b=a; return a+b; }'
 assert 6 'main() { a=b=3; return a+b; }'
-assert 2 'main() { (x=1)=2; return x; }'
 assert 2 'main() { x=1; x=2; return x; }'
 assert 3 'main() { foo=3; return foo; }'
 assert 8 'main() { foo123=3; bar=5; return foo123+bar; }'
