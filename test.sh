@@ -144,3 +144,7 @@ assert_fail 'sub(); sub(a) { return a; } main() { return 0; }'
 assert 21 'sub(a,b,c,d,e,f); sub(g,h,i,j,k,l) { return g+h+i+j+k+l; } main() { return sub(1,2,3,4,5,6); }'
 # addr & deref
 assert 3 'main() { x=3; return *&x; }'
+assert 3 'main() { x=3; y=&x; z=&y; return **z; }'
+assert 5 'main() { x=3; y=&x; *y=5; return x; }'
+assert_fail 'main() { x=3; &-x; return x; }'
+assert_fail 'main() { x=3; *x; return x; }'

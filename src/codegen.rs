@@ -5,6 +5,7 @@ use inkwell::context::Context;
 use inkwell::module::Module;
 use std::collections::HashMap;
 
+use inkwell::types::BasicTypeEnum;
 use inkwell::values::*;
 use inkwell::IntPredicate;
 
@@ -61,6 +62,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
   // Creates a new stack allocation instruction in the entry block of the function.
   fn create_entry_block_alloca(
     &self,
+    ty: BasicTypeEnum<'ctx>,
     name: String,
     vars: &mut HashMap<String, PointerValue<'ctx>>,
   ) -> PointerValue<'ctx> {
@@ -72,8 +74,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
       None => builder.position_at_end(entry_block),
     }
 
-    let i64_type = self.context.i64_type();
-    let alloca = builder.build_alloca(i64_type, &name);
+    let alloca = builder.build_alloca(ty, &name);
     vars.insert(name, alloca);
     alloca
   }
@@ -88,7 +89,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           let mut vars: HashMap<String, PointerValue<'ctx>> = HashMap::new();
           for (name, var) in std::iter::zip(params, fn_value.get_param_iter()) {
             if vars.get(&name).is_none() {
-              let alloca = self.create_entry_block_alloca(name, &mut vars);
+              let alloca = self.create_entry_block_alloca(var.get_type(), name, &mut vars);
               self.builder.build_store(alloca, var.into_int_value());
             } else {
               return Err("function parameter already defined");
@@ -288,12 +289,12 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
   ) -> Expected<PointerValue<'ctx>> {
     match expr {
       AST::Assign(n, m) => {
-        let rhs = self.gen_expr_into_int_value(*m, vars)?;
+        let rhs = self.gen_expr(*m, vars)?;
         let lhs = if let AST::Ident(name) = *n {
           if let Some(&var) = vars.get(&name) {
             var
           } else {
-            self.create_entry_block_alloca(name, vars)
+            self.create_entry_block_alloca(rhs.get_type(), name, vars)
           }
         } else {
           self.gen_addr(*n, vars)?
