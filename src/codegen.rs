@@ -43,8 +43,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     }
   }
 
-  fn check_prototype(&self, name: String, params: &Vec<String>) -> Expected<FunctionValue<'ctx>> {
-    if let Some(fn_value) = self.module.get_function(&name) {
+  fn check_prototype(&self, name: &str, params: &Vec<String>) -> Expected<FunctionValue<'ctx>> {
+    if let Some(fn_value) = self.module.get_function(name) {
       if params.len() == fn_value.count_params().try_into().unwrap() {
         Ok(fn_value)
       } else {
@@ -54,14 +54,34 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
       let i64_type = self.context.i64_type();
       let param_types: Vec<_> = params.iter().map(|_| i64_type.into()).collect();
       let fn_type = i64_type.fn_type(&param_types[..], false);
-      Ok(self.module.add_function(&name, fn_type, None))
+      Ok(self.module.add_function(name, fn_type, None))
     }
+  }
+
+  // Creates a new stack allocation instruction in the entry block of the function.
+  fn create_entry_block_alloca(
+    &self,
+    name: String,
+    vars: &mut HashMap<String, PointerValue<'ctx>>,
+  ) -> PointerValue<'ctx> {
+    let fn_value = self.get_current_function();
+    let entry_block = fn_value.get_first_basic_block().unwrap();
+    let builder = self.context.create_builder();
+    match entry_block.get_first_instruction() {
+      Some(inst) => builder.position_before(&inst),
+      None => builder.position_at_end(entry_block),
+    }
+
+    let i64_type = self.context.i64_type();
+    let alloca = builder.build_alloca(i64_type, &name);
+    vars.insert(name, alloca);
+    alloca
   }
 
   fn gen_function(&self, function: Function) -> Expected<()> {
     match function {
       Function::Function(name, params, body) => {
-        let fn_value = self.check_prototype(name, &params)?;
+        let fn_value = self.check_prototype(&name, &params)?;
         if fn_value.count_basic_blocks() == 0 {
           let entry_block = self.context.append_basic_block(fn_value, "entry");
           self.builder.position_at_end(entry_block);
@@ -94,7 +114,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         }
       }
       Function::Prototype(name, params) => {
-        self.check_prototype(name, &params)?;
+        self.check_prototype(&name, &params)?;
         Ok(())
       }
     }
@@ -246,26 +266,6 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(())
       }
     }
-  }
-
-  // Creates a new stack allocation instruction in the entry block of the function.
-  fn create_entry_block_alloca(
-    &self,
-    name: String,
-    vars: &mut HashMap<String, PointerValue<'ctx>>,
-  ) -> PointerValue<'ctx> {
-    let fn_value = self.get_current_function();
-    let entry_block = fn_value.get_first_basic_block().unwrap();
-    let builder = self.context.create_builder();
-    match entry_block.get_first_instruction() {
-      Some(inst) => builder.position_before(&inst),
-      None => builder.position_at_end(entry_block),
-    }
-
-    let i64_type = self.context.i64_type();
-    let alloca = builder.build_alloca(i64_type, &name);
-    vars.insert(name, alloca);
-    alloca
   }
 
   fn gen_expr_into_int_value(
