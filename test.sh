@@ -42,8 +42,8 @@ fi
 # TODO:
 # assert 0 'main() { return 0; return 1; }'
 # assert 0 'main() { a = 0; return a; a = 1; }'
-# assert 3 'main() { x=3; y=&x; z=&y; return **z; }'
-# assert 5 'main() { x=3; y=&x; *y=5; return x; }'
+# assert_fail 'main() { x=3; &+x; return x; }'
+# assert_fail 'main() { a=1; b=2; a=&b; return a; }'
 # assert 5 'main() { x=3; y=5; return *(&x+8); }'
 # assert 3 'main() { x=3; y=5; return *(&y-8); }'
 # assert 7 'main() { x=3; y=5; *(&x+8)=7; return y; }'
@@ -92,6 +92,7 @@ assert 42 'main() { return _123=42; }'
 assert 2 'main() { return a=a=2; }'
 assert 2 'main() { return (x=1)=2; }'
 assert_fail 'main() { return 1=2; }'
+assert_fail 'main() { return a; }'
 # statements
 assert 3 'main() { 1; 2; return 3; }'
 assert 8 'main() { a=3; b=5; return a+b; }'
