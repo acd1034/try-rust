@@ -153,3 +153,5 @@ assert 3 'int sub(int* a) { *a = 3; return 4; } int main() { int x=0; sub(&x); r
 assert 3 'int* sub(int* a) { return a; } int main() { int x=0; *sub(&x) = 3; return x; }'
 assert 3 'int** sub(int** a) { return a; } int main() { int x=3; int* y; *sub(&y) = &x; return *y; }'
 assert_fail 'int sub(int a); int sub(int* b) { return *b; } int main() { return sub(3); }'
+assert_fail 'int sub(int a) { return a; } int main() { int x=0; sub(&x); return x; }'
+assert_fail 'int* sub(int* a) { return a; } int main() { int x=3; int* y; *sub(&y) = &x; return *y; }'

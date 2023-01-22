@@ -447,16 +447,26 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
       }
       AST::Call(name, args) => {
         if let Some(callee) = self.module.get_function(&name) {
+          let stored_param_types = callee.get_type().get_param_types();
           let args = args
             .into_iter()
-            .map(|expr| self.gen_expr(expr, vars).map(|x| x.into()))
-            .collect::<Result<Vec<BasicMetadataValueEnum>, _>>()?;
-          let res = self
-            .builder
-            .build_call(callee, args.as_slice(), "tmpcall")
-            .try_as_basic_value()
-            .unwrap_left();
-          Ok(res)
+            .map(|expr| self.gen_expr(expr, vars))
+            .collect::<Result<Vec<_>, _>>()?;
+          let arg_types: Vec<_> = args.iter().map(|arg| arg.get_type()).collect();
+          if arg_types == stored_param_types {
+            let args: Vec<_> = args
+              .into_iter()
+              .map(|arg| arg.into())
+              .collect();
+            let res = self
+              .builder
+              .build_call(callee, args.as_slice(), "tmpcall")
+              .try_as_basic_value()
+              .unwrap_left();
+            Ok(res)
+          } else {
+            Err("")
+          }
         } else {
           Err("function not defined")
         }
