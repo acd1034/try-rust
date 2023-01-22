@@ -292,8 +292,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(())
       }
       Stmt::Return(expr) => {
-        let i64_value = self.gen_expr_into_int_value(expr, vars)?;
-        self.builder.build_return(Some(&i64_value));
+        let return_value = self.gen_expr(expr, vars)?;
+        self.builder.build_return(Some(&return_value));
         Ok(())
       }
       Stmt::Block(stmts) => {
