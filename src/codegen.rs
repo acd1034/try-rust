@@ -337,10 +337,10 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
 
   fn gen_addr(
     &self,
-    expr: AST,
+    lvalue: AST,
     vars: &mut HashMap<String, PointerValue<'ctx>>,
   ) -> Expected<PointerValue<'ctx>> {
-    match expr {
+    match lvalue {
       AST::Assign(n, m) => {
         let rhs = self.gen_expr(*m, vars)?;
         let lhs = self.gen_addr(*n, vars)?;
@@ -358,7 +358,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Some(&var) => Ok(var),
         None => Err("variable shoube declared before its first use"),
       },
-      _ => Err("cannot obtain the address of lvalue"),
+      _ => Err("cannot obtain address of rvalue"),
     }
   }
 
@@ -465,15 +465,15 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
               .unwrap_left();
             Ok(res)
           } else {
-            Err("")
+            Err("argument types mismatch function parameter types")
           }
         } else {
           Err("function not defined")
         }
       }
       AST::Num(n) => Ok(i64_type.const_int(n, false).as_basic_value_enum()),
-      expr /* AST::Assign, AST::Deref, AST::Ident */ => {
-        let var = self.gen_addr(expr, vars)?;
+      lvalue /* AST::Assign, AST::Deref, AST::Ident */ => {
+        let var = self.gen_addr(lvalue, vars)?;
         let res = self.builder.build_load(var, "tmpload");
         Ok(res)
       }

@@ -5,10 +5,11 @@ int ret3() { return 3; }
 int ret5() { return 5; }
 EOF
 
+ESC=$(printf '\033')
 assert() {
   expected="$1"
   input="$2"
-  echo -n "$input => "
+  echo -en "$ESC[34m$input\n$ESC[m=> "
 
   ./target/debug/try-rust "$input" > tmp.ll
   $LLVM_SYS_120_PREFIX/bin/clang -o tmp tmp.ll tmp2.o -Wno-override-module
@@ -24,7 +25,7 @@ assert() {
 }
 assert_fail() {
   input="$1"
-  echo -n "$input => "
+  echo -en "$ESC[31m$input\n$ESC[m=> "
 
   ./target/debug/try-rust "$input" > /dev/null
 
