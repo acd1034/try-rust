@@ -1,4 +1,4 @@
-use crate::parse::{Function, Stmt, AST};
+use crate::parse::{Function, Stmt, Type, AST};
 use crate::tokenize::Expected;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 use inkwell::types::*;
 use inkwell::values::*;
+use inkwell::AddressSpace;
 use inkwell::IntPredicate;
 
 // Module ⊇ Function ⊇ BasicBlock ⊇ Instruction
@@ -44,17 +45,43 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     }
   }
 
-  fn check_prototype(&self, name: &str, params: &Vec<String>) -> Expected<FunctionValue<'ctx>> {
+  fn into_inkwell_type(&self, ty: &Type) -> BasicTypeEnum<'ctx> {
+    match ty {
+      Type::Int => self.context.i64_type().as_basic_type_enum(),
+      Type::Pointer(ty) => self
+        .into_inkwell_type(&*ty)
+        .ptr_type(AddressSpace::default())
+        .as_basic_type_enum(),
+    }
+  }
+
+  fn check_prototype(
+    &self,
+    ret_ty: Type,
+    name: &str,
+    params: &[(Type, String)],
+  ) -> Expected<FunctionValue<'ctx>> {
     if let Some(fn_value) = self.module.get_function(name) {
-      if params.len() == fn_value.count_params().try_into().unwrap() {
+      let stored_fn_type = fn_value.get_type();
+      let return_type = self.into_inkwell_type(&ret_ty);
+      let param_types: Vec<_> = params
+        .iter()
+        .map(|(ty, _name)| self.into_inkwell_type(ty))
+        .collect();
+      if return_type == stored_fn_type.get_return_type().unwrap()
+        && param_types == stored_fn_type.get_param_types()
+      {
         Ok(fn_value)
       } else {
         Err("number of arguments differs from the previous declaration")
       }
     } else {
-      let i64_type = self.context.i64_type();
-      let param_types: Vec<_> = params.iter().map(|_| i64_type.into()).collect();
-      let fn_type = i64_type.fn_type(&param_types[..], false);
+      let return_type = self.into_inkwell_type(&ret_ty);
+      let param_types: Vec<_> = params
+        .iter()
+        .map(|(ty, _name)| self.into_inkwell_type(ty).into())
+        .collect();
+      let fn_type = return_type.fn_type(param_types.as_slice(), false);
       Ok(self.module.add_function(name, fn_type, None))
     }
   }
@@ -81,13 +108,13 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
 
   fn gen_function(&self, function: Function) -> Expected<()> {
     match function {
-      Function::Function(name, params, body) => {
-        let fn_value = self.check_prototype(&name, &params)?;
+      Function::Function(ret_ty, name, params, body) => {
+        let fn_value = self.check_prototype(ret_ty, &name, params.as_slice())?;
         if fn_value.count_basic_blocks() == 0 {
           let entry_block = self.context.append_basic_block(fn_value, "entry");
           self.builder.position_at_end(entry_block);
           let mut vars: HashMap<String, PointerValue<'ctx>> = HashMap::new();
-          for (name, var) in std::iter::zip(params, fn_value.get_param_iter()) {
+          for ((ty, name), var) in std::iter::zip(params, fn_value.get_param_iter()) {
             if vars.get(&name).is_none() {
               let alloca = self.create_entry_block_alloca(var.get_type(), name, &mut vars);
               self.builder.build_store(alloca, var.into_int_value());
@@ -103,8 +130,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           if fn_value.verify(true) {
             Ok(())
           } else {
-            // TODO: 前方宣言後の定義ならば定義のみ消す
-            // 前方宣言なしの定義ならば宣言ごと消す
+            // TODO: 前方宣言後の定義ならば定義のみ消す。前方宣言なしの定義ならば宣言ごと消す
             unsafe {
               fn_value.delete();
             }
@@ -114,8 +140,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           Err("function already defined")
         }
       }
-      Function::Prototype(name, params) => {
-        self.check_prototype(&name, &params)?;
+      Function::Prototype(ret_ty, name, params) => {
+        self.check_prototype(ret_ty, &name, params.as_slice())?;
         Ok(())
       }
     }
@@ -413,7 +439,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
             .collect::<Result<Vec<BasicMetadataValueEnum>, _>>()?;
           let res = self
             .builder
-            .build_call(callee, &args[..], "tmpcall")
+            .build_call(callee, args.as_slice(), "tmpcall")
             .try_as_basic_value()
             .unwrap_left();
           Ok(res)

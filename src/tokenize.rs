@@ -10,7 +10,7 @@ pub enum Token<'a> {
 }
 
 fn tokenize<'a>(s: &'a str) -> Expected<(Token, &'a str)> {
-  static KEYWORDS: [&str; 4] = ["return", "if", "else", "for"];
+  static KEYWORDS: [&str; 5] = ["return", "if", "else", "for", "int"];
   if s.is_empty() {
     Ok((Token::Eof, s))
   } else if s.starts_with(|c: char| c.is_ascii_whitespace()) {
