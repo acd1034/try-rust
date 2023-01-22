@@ -164,10 +164,14 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
   ) -> Expected<()> {
     let i64_type = self.context.i64_type();
     match stmt {
-      Stmt::Decl(ty, name) => {
+      Stmt::Decl(ty, name, init) => {
         if vars.get(&name).is_none() {
           let var_type = self.into_inkwell_type(ty);
-          self.create_entry_block_alloca(var_type, name, vars);
+          let alloca = self.create_entry_block_alloca(var_type, name, vars);
+          if let Some(expr) = init {
+            let rhs = self.gen_expr(expr, vars)?;
+            self.gen_assign_impl(alloca, rhs)?;
+          }
           Ok(())
         } else {
           Err("variable already defined")
@@ -318,6 +322,19 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     }
   }
 
+  fn gen_assign_impl(
+    &self,
+    lhs: PointerValue<'ctx>,
+    rhs: BasicValueEnum<'ctx>,
+  ) -> Expected<PointerValue<'ctx>> {
+    if lhs.get_type().get_element_type() == rhs.get_type().as_any_type_enum() {
+      self.builder.build_store(lhs, rhs);
+      Ok(lhs)
+    } else {
+      Err("mismatched types between lhs and rhs of assignment")
+    }
+  }
+
   fn gen_addr(
     &self,
     expr: AST,
@@ -327,12 +344,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
       AST::Assign(n, m) => {
         let rhs = self.gen_expr(*m, vars)?;
         let lhs = self.gen_addr(*n, vars)?;
-        if lhs.get_type().get_element_type() == rhs.get_type().as_any_type_enum() {
-          self.builder.build_store(lhs, rhs);
-          Ok(lhs)
-        } else {
-          Err("mismatched types between lhs and rhs of assignment")
-        }
+        self.gen_assign_impl(lhs, rhs)
       }
       AST::Deref(n) => {
         let ptr = self.gen_expr(*n, vars)?;

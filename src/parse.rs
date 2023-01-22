@@ -14,7 +14,7 @@ pub enum Function {
 
 #[derive(Debug)]
 pub enum Stmt {
-  Decl(Type, String),
+  Decl(Type, String, Option<AST>),
   IfElse(AST, Box<Stmt>, Option<Box<Stmt>>),
   For(Option<AST>, Option<AST>, Option<AST>, Box<Stmt>),
   Return(AST),
@@ -93,7 +93,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  * func_params = "(" param (("," param)*)? ")"
  * param       = declspec declarator
  *
- * statement   = declspec declarator ";"
+ * statement   = declspec declarator ("=" expr)? ";"
  *             | "if" "(" expr ")" statement ("else" statement)?
  *             | "for" "(" expr? ";" expr? ";" expr? ")" statement
  *             | "return" expr ";"
@@ -196,7 +196,7 @@ fn parse_param(it: &mut Tokenizer) -> Expected<(Type, String)> {
   parse_declarator(it, ty)
 }
 
-// statement   = declspec declarator ";"
+// statement   = declspec declarator ("=" expr)? ";"
 //             | "if" "(" expr ")" statement ("else" statement)?
 //             | "for" "(" expr? ";" expr? ";" expr? ")" statement
 //             | "return" expr ";"
@@ -206,7 +206,12 @@ fn parse_param(it: &mut Tokenizer) -> Expected<(Type, String)> {
 fn parse_statement(it: &mut Tokenizer) -> Expected<Stmt> {
   if let Some(ty) = consume_declspec(it)? {
     let (ty, name) = parse_declarator(it, ty)?;
-    Ok(Stmt::Decl(ty, name))
+    let init = if consume(it, "=")? {
+      Some(parse_expr(it)?)
+    } else {
+      None
+    };
+    Ok(Stmt::Decl(ty, name, init))
   } else if consume_keyword(it, "if")? {
     expect(it, "(")?;
     let cond = parse_expr(it)?;
