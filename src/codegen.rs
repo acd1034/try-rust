@@ -45,11 +45,11 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     }
   }
 
-  fn into_inkwell_type(&self, ty: &Type) -> BasicTypeEnum<'ctx> {
+  fn into_inkwell_type(&self, ty: Type) -> BasicTypeEnum<'ctx> {
     match ty {
       Type::Int => self.context.i64_type().as_basic_type_enum(),
       Type::Pointer(ty) => self
-        .into_inkwell_type(&*ty)
+        .into_inkwell_type(*ty)
         .ptr_type(AddressSpace::default())
         .as_basic_type_enum(),
     }
@@ -59,14 +59,14 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     &self,
     ret_ty: Type,
     name: &str,
-    params: &[(Type, String)],
+    param_tys: Vec<Type>,
   ) -> Expected<FunctionValue<'ctx>> {
     if let Some(fn_value) = self.module.get_function(name) {
       let stored_fn_type = fn_value.get_type();
-      let return_type = self.into_inkwell_type(&ret_ty);
-      let param_types: Vec<_> = params
-        .iter()
-        .map(|(ty, _name)| self.into_inkwell_type(ty))
+      let return_type = self.into_inkwell_type(ret_ty);
+      let param_types: Vec<_> = param_tys
+        .into_iter()
+        .map(|ty| self.into_inkwell_type(ty))
         .collect();
       if return_type == stored_fn_type.get_return_type().unwrap()
         && param_types == stored_fn_type.get_param_types()
@@ -76,10 +76,10 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Err("number of arguments differs from the previous declaration")
       }
     } else {
-      let return_type = self.into_inkwell_type(&ret_ty);
-      let param_types: Vec<_> = params
-        .iter()
-        .map(|(ty, _name)| self.into_inkwell_type(ty).into())
+      let return_type = self.into_inkwell_type(ret_ty);
+      let param_types: Vec<_> = param_tys
+        .into_iter()
+        .map(|ty| self.into_inkwell_type(ty).into())
         .collect();
       let fn_type = return_type.fn_type(param_types.as_slice(), false);
       Ok(self.module.add_function(name, fn_type, None))
@@ -108,13 +108,14 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
 
   fn gen_function(&self, function: Function) -> Expected<()> {
     match function {
-      Function::Function(ret_ty, name, params, body) => {
-        let fn_value = self.check_prototype(ret_ty, &name, params.as_slice())?;
+      Function::Function(ret_ty, name, param_tys, param_names, body) => {
+        assert_eq!(param_tys.len(), param_names.len());
+        let fn_value = self.check_prototype(ret_ty, &name, param_tys)?;
         if fn_value.count_basic_blocks() == 0 {
           let entry_block = self.context.append_basic_block(fn_value, "entry");
           self.builder.position_at_end(entry_block);
           let mut vars: HashMap<String, PointerValue<'ctx>> = HashMap::new();
-          for ((ty, name), var) in std::iter::zip(params, fn_value.get_param_iter()) {
+          for (name, var) in std::iter::zip(param_names, fn_value.get_param_iter()) {
             if vars.get(&name).is_none() {
               let alloca = self.create_entry_block_alloca(var.get_type(), name, &mut vars);
               self.builder.build_store(alloca, var.into_int_value());
@@ -140,8 +141,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           Err("function already defined")
         }
       }
-      Function::Prototype(ret_ty, name, params) => {
-        self.check_prototype(ret_ty, &name, params.as_slice())?;
+      Function::Prototype(ret_ty, name, param_tys) => {
+        self.check_prototype(ret_ty, &name, param_tys)?;
         Ok(())
       }
     }
@@ -165,7 +166,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     match stmt {
       Stmt::Decl(ty, name) => {
         if vars.get(&name).is_none() {
-          let var_type = self.into_inkwell_type(&ty);
+          let var_type = self.into_inkwell_type(ty);
           self.create_entry_block_alloca(var_type, name, vars);
           Ok(())
         } else {

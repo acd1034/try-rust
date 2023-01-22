@@ -8,8 +8,8 @@ pub enum Type {
 
 #[derive(Debug)]
 pub enum Function {
-  Function(Type, String, Vec<(Type, String)>, Vec<Stmt>),
-  Prototype(Type, String, Vec<(Type, String)>),
+  Function(Type, String, Vec<Type>, Vec<String>, Vec<Stmt>),
+  Prototype(Type, String, Vec<Type>),
 }
 
 #[derive(Debug)]
@@ -130,15 +130,21 @@ pub fn parse(mut it: Tokenizer) -> Expected<Vec<Function>> {
 fn parse_function(it: &mut Tokenizer) -> Expected<Function> {
   let ty = parse_declspec(it)?;
   let (ret_ty, name) = parse_declarator(it, ty)?;
-  let params = parse_func_params(it)?;
+  let (param_tys, param_names) = parse_func_params(it)?;
   if consume(it, "{")? {
     let mut body = Vec::new();
     while !consume(it, "}")? {
       body.push(parse_statement(it)?);
     }
-    Ok(Function::Function(ret_ty, name, params, body))
+    Ok(Function::Function(
+      ret_ty,
+      name,
+      param_tys,
+      param_names,
+      body,
+    ))
   } else if consume(it, ";")? {
-    Ok(Function::Prototype(ret_ty, name, params))
+    Ok(Function::Prototype(ret_ty, name, param_tys))
   } else {
     Err("unexpected token, expecting `{` or `;`")
   }
@@ -171,19 +177,17 @@ fn parse_declarator(it: &mut Tokenizer, mut ty: Type) -> Expected<(Type, String)
 }
 
 // func_params = "(" param (("," param)*)? ")"
-fn parse_func_params(it: &mut Tokenizer) -> Expected<Vec<(Type, String)>> {
+fn parse_func_params(it: &mut Tokenizer) -> Expected<(Vec<Type>, Vec<String>)> {
   expect(it, "(")?;
   let mut params = Vec::new();
-  if consume(it, ")")? {
-    Ok(params)
-  } else {
+  if !consume(it, ")")? {
     params.push(parse_param(it)?);
     while !consume(it, ")")? {
       expect(it, ",")?;
       params.push(parse_param(it)?);
     }
-    Ok(params)
   }
+  Ok(params.into_iter().unzip())
 }
 
 // param       = declspec declarator
