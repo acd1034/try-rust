@@ -47,6 +47,8 @@ fi
 # assert 3 'int main() { x=3; y=5; return *(&y-8); }'
 # assert 7 'int main() { x=3; y=5; *(&x+8)=7; return y; }'
 # assert 7 'int main() { x=3; y=5; *(&y-8)=7; return x; }'
+# assert 3 'int* sub(int* a) { return a; } int main() { int x=0; sub(&x) = 3; return x; }'
+# assert_fail 'int sub(int a); int sub(int* b) { return *b; } int main() { return sub(3); }'
 # num
 assert 0 'int main() { return 0; }'
 assert 42 'int main() { return 42; }'
@@ -149,3 +151,4 @@ assert_fail 'int main() { int x=3; &-x; return x; }'
 assert_fail 'int main() { int x=3; *x; return x; }'
 assert_fail 'int main() { int x=3; int* y=&x; int** z=&y; z=&x; return *z; }'
 assert_fail 'int main() { int x=3; int* y=&x; int** z=&y; z=&x; return **z; }'
+assert 3 'int sub(int* a) { *a = 3; return 4; } int main() { int x=0; sub(&x); return x; }'

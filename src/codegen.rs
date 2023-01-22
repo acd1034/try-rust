@@ -73,7 +73,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
       {
         Ok(fn_value)
       } else {
-        Err("number of arguments differs from the previous declaration")
+        Err("function type differs from the previous declaration")
       }
     } else {
       let return_type = self.into_inkwell_type(ret_ty);
@@ -115,10 +115,10 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           let entry_block = self.context.append_basic_block(fn_value, "entry");
           self.builder.position_at_end(entry_block);
           let mut vars: HashMap<String, PointerValue<'ctx>> = HashMap::new();
-          for (name, var) in std::iter::zip(param_names, fn_value.get_param_iter()) {
+          for (name, param) in std::iter::zip(param_names, fn_value.get_param_iter()) {
             if vars.get(&name).is_none() {
-              let alloca = self.create_entry_block_alloca(var.get_type(), name, &mut vars);
-              self.builder.build_store(alloca, var.into_int_value());
+              let alloca = self.create_entry_block_alloca(param.get_type(), name, &mut vars);
+              self.builder.build_store(alloca, param);
             } else {
               return Err("function parameter already defined");
             }
@@ -449,7 +449,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         if let Some(callee) = self.module.get_function(&name) {
           let args = args
             .into_iter()
-            .map(|expr| self.gen_expr_into_int_value(expr, vars).map(|x| x.into()))
+            .map(|expr| self.gen_expr(expr, vars).map(|x| x.into()))
             .collect::<Result<Vec<BasicMetadataValueEnum>, _>>()?;
           let res = self
             .builder
