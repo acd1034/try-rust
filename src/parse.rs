@@ -14,6 +14,7 @@ pub enum Function {
 
 #[derive(Debug)]
 pub enum Stmt {
+  Decl(Type, String),
   IfElse(AST, Box<Stmt>, Option<Box<Stmt>>),
   For(Option<AST>, Option<AST>, Option<AST>, Box<Stmt>),
   Return(AST),
@@ -92,7 +93,8 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  * func_params = "(" param (("," param)*)? ")"
  * param       = declspec declarator
  *
- * statement   = "if" "(" expr ")" statement ("else" statement)?
+ * statement   = declspec declarator ";"
+ *             | "if" "(" expr ")" statement ("else" statement)?
  *             | "for" "(" expr? ";" expr? ";" expr? ")" statement
  *             | "return" expr ";"
  *             | "{" statement* "}"
@@ -151,6 +153,14 @@ fn parse_declspec(it: &mut Tokenizer) -> Expected<Type> {
   }
 }
 
+fn consume_declspec(it: &mut Tokenizer) -> Expected<Option<Type>> {
+  if consume_keyword(it, "int")? {
+    Ok(Some(Type::Int))
+  } else {
+    Ok(None)
+  }
+}
+
 // declarator  = "*"* ident
 fn parse_declarator(it: &mut Tokenizer, mut ty: Type) -> Expected<(Type, String)> {
   while consume(it, "*")? {
@@ -182,14 +192,18 @@ fn parse_param(it: &mut Tokenizer) -> Expected<(Type, String)> {
   parse_declarator(it, ty)
 }
 
-// statement   = "if" "(" expr ")" statement ("else" statement)?
+// statement   = declspec declarator ";"
+//             | "if" "(" expr ")" statement ("else" statement)?
 //             | "for" "(" expr? ";" expr? ";" expr? ")" statement
 //             | "return" expr ";"
 //             | "{" statement* "}"
 //             | ";"
 //             | expr ";"
 fn parse_statement(it: &mut Tokenizer) -> Expected<Stmt> {
-  if consume_keyword(it, "if")? {
+  if let Some(ty) = consume_declspec(it)? {
+    let (ty, name) = parse_declarator(it, ty)?;
+    Ok(Stmt::Decl(ty, name))
+  } else if consume_keyword(it, "if")? {
     expect(it, "(")?;
     let cond = parse_expr(it)?;
     expect(it, ")")?;

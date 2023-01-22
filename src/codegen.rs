@@ -163,6 +163,15 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
   ) -> Expected<()> {
     let i64_type = self.context.i64_type();
     match stmt {
+      Stmt::Decl(ty, name) => {
+        if vars.get(&name).is_none() {
+          let var_type = self.into_inkwell_type(&ty);
+          self.create_entry_block_alloca(var_type, name, vars);
+          Ok(())
+        } else {
+          Err("variable already defined")
+        }
+      }
       Stmt::IfElse(cond, then_stmt, else_stmt) => {
         /* `if (A) B else C`
          *   A != 0 ? goto then : goto else;
@@ -316,21 +325,13 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     match expr {
       AST::Assign(n, m) => {
         let rhs = self.gen_expr(*m, vars)?;
-        let lhs = if let AST::Ident(name) = *n {
-          if let Some(&var) = vars.get(&name) {
-            if var.get_type().get_element_type() == rhs.get_type().as_any_type_enum() {
-              Ok(var)
-            } else {
-              Err("mismatched types between lhs and rhs of assignment")
-            }
-          } else {
-            Ok(self.create_entry_block_alloca(rhs.get_type(), name, vars))
-          }?
+        let lhs = self.gen_addr(*n, vars)?;
+        if lhs.get_type().get_element_type() == rhs.get_type().as_any_type_enum() {
+          self.builder.build_store(lhs, rhs);
+          Ok(lhs)
         } else {
-          self.gen_addr(*n, vars)?
-        };
-        self.builder.build_store(lhs, rhs);
-        Ok(lhs)
+          Err("mismatched types between lhs and rhs of assignment")
+        }
       }
       AST::Deref(n) => {
         let ptr = self.gen_expr(*n, vars)?;
@@ -342,7 +343,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
       }
       AST::Ident(name) => match vars.get(&name) {
         Some(&var) => Ok(var),
-        None => Err("variable not defined"),
+        None => Err("variable shoube declared before its first use"),
       },
       _ => Err("cannot obtain the address of lvalue"),
     }
