@@ -58,6 +58,22 @@ fn consume_keyword(it: &mut Tokenizer, keyword: &str) -> Expected<bool> {
   }
 }
 
+fn consume_ident(it: &mut Tokenizer) -> Expected<Option<String>> {
+  if let Token::Ident(name) = it.current()? {
+    Ok(Some(name.to_string()))
+  } else {
+    Ok(None)
+  }
+}
+
+fn consume_num(it: &mut Tokenizer) -> Expected<Option<u64>> {
+  if let Token::Num(n) = it.current()? {
+    Ok(Some(n))
+  } else {
+    Ok(None)
+  }
+}
+
 fn consume(it: &mut Tokenizer, op: &str) -> Expected<bool> {
   if it.current()? == Token::Punct(op) {
     it.advance();
@@ -405,16 +421,14 @@ fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
     let n = parse_expr(it)?;
     expect(it, ")")?;
     Ok(n)
-  } else if let Token::Ident(name) = it.current()? {
-    it.advance();
+  } else if let Some(name) = consume_ident(it)? {
     if consume(it, "(")? {
       let args = parse_func_args(it)?;
-      Ok(AST::Call(name.to_string(), args))
+      Ok(AST::Call(name, args))
     } else {
-      Ok(AST::Ident(name.to_string()))
+      Ok(AST::Ident(name))
     }
-  } else if let Token::Num(n) = it.current()? {
-    it.advance();
+  } else if let Some(n) = consume_num(it)? {
     Ok(AST::Num(n))
   } else {
     Err("unexpected token, expecting `(`, identifier or number")
