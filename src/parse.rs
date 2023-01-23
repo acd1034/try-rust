@@ -100,8 +100,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  * function    = declspec declarator func_params "{" statement* "}"
  *             | declspec declarator func_params ";"
  * declspec    = "int"
- * declarator  = "*"* ident type_suffix
- * type_suffix = ("[" num "]")?
+ * declarator  = "*"* ident ("[" num "]")?
  * func_params = "(" param (("," param)*)? ")"
  * param       = declspec declarator
  *
@@ -120,7 +119,8 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  * add         = mul ("+" mul | "-" mul)*
  * mul         = unary ("*" unary | "/" unary)*
  * unary       = ("+" | "-" | "&" | "*") unary
- *             | primary
+ *             | postfix
+ * postfix     = primary ("[" expr "]")?
  * primary     = "(" expr ")"
  *             | ident "(" func_args
  *             | ident
@@ -179,8 +179,7 @@ fn consume_declspec(it: &mut Tokenizer) -> Expected<Option<Type>> {
   }
 }
 
-// declarator  = "*"* ident type_suffix
-// type_suffix = ("[" num "]")?
+// declarator  = "*"* ident ("[" num "]")?
 fn parse_declarator(it: &mut Tokenizer, mut ty: Type) -> Expected<(Type, String)> {
   while consume(it, "*")? {
     ty = Type::Pointer(Box::new(ty));
@@ -365,7 +364,7 @@ fn parse_mul_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
 }
 
 // unary       = ("+" | "-" | "&" | "*")? unary
-//             | primary
+//             | postfix
 fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
   if consume(it, "+")? {
     parse_unary(it)
@@ -380,7 +379,20 @@ fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
     let n = parse_unary(it)?;
     Ok(AST::Deref(Box::new(n)))
   } else {
-    parse_primary(it)
+    parse_postfix(it)
+  }
+}
+
+// postfix     = primary ("[" expr "]")?
+fn parse_postfix(it: &mut Tokenizer) -> Expected<AST> {
+  let n = parse_primary(it)?;
+  if consume(it, "[")? {
+    let m = parse_expr(it)?;
+    expect(it, "]")?;
+    let add = AST::Add(Box::new(n), Box::new(m));
+    Ok(AST::Deref(Box::new(add)))
+  } else {
+    Ok(n)
   }
 }
 
