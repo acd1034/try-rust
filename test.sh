@@ -9,7 +9,7 @@ ESC=$(printf '\033')
 assert() {
   expected="$1"
   input="$2"
-  echo -en "$ESC[34m$input\n$ESC[m=> "
+  echo -en "$ESC[32m$input\n$ESC[m=> "
 
   ./target/debug/try-rust "$input" > tmp.ll
   $LLVM_SYS_120_PREFIX/bin/clang -o tmp tmp.ll tmp2.o -Wno-override-module
@@ -44,8 +44,6 @@ fi
 # assert 0 'int main() { return 0; return 1; }'
 # assert 0 'int main() { a = 0; return a; a = 1; }'
 # assert_fail 'int main() { x=3; &+x; return x; }'
-# assert 3 'int main() { x=3; y=5; return *(&y-8); }'
-# assert 7 'int main() { x=3; y=5; *(&y-8)=7; return x; }'
 # num
 assert 0 'int main() { return 0; }'
 assert 42 'int main() { return 42; }'
@@ -154,6 +152,8 @@ assert 3 'int** sub(int** a) { return a; } int main() { int x=3; int* y; *sub(&y
 assert_fail 'int sub(int a); int sub(int* b) { return *b; } int main() { return sub(3); }'
 assert_fail 'int sub(int a) { return a; } int main() { int x=0; sub(&x); return x; }'
 assert_fail 'int* sub(int* a) { return a; } int main() { int x=3; int* y; *sub(&y) = &x; return *y; }'
-# pointer addition
-assert 5 'int main() { x=3; y=5; return *(&x+8); }'
-assert 7 'int main() { x=3; y=5; *(&x+8)=7; return y; }'
+# pointer arithmetic
+assert 5 'int main() { int x=3; int y=5; return *(&x+1); }'
+assert 7 'int main() { int x=3; int y=5; *(&x+1)=7; return y; }'
+assert 3 'int main() { int x=3; int y=5; return *(&y-1); }'
+assert 7 'int main() { int x=3; int y=5; *(&y-1)=7; return x; }'

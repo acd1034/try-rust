@@ -391,7 +391,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           .builder
           .build_int_compare(IntPredicate::EQ, lhs, rhs, "tmpcmp");
         let b = self.builder.build_int_cast(cmp, i64_type, "tmpcast");
-        Ok(self.builder.build_int_neg(b, "").as_basic_value_enum())
+        Ok(self.builder.build_int_neg(b, "tmpneg").as_basic_value_enum())
       }
       AST::Ne(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n, vars)?;
@@ -400,7 +400,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           .builder
           .build_int_compare(IntPredicate::NE, lhs, rhs, "tmpcmp");
         let b = self.builder.build_int_cast(cmp, i64_type, "tmpcast");
-        Ok(self.builder.build_int_neg(b, "").as_basic_value_enum())
+        Ok(self.builder.build_int_neg(b, "tmpneg").as_basic_value_enum())
       }
       AST::Lt(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n, vars)?;
@@ -409,7 +409,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           .builder
           .build_int_compare(IntPredicate::ULT, lhs, rhs, "tmpcmp");
         let b = self.builder.build_int_cast(cmp, i64_type, "tmpcast");
-        Ok(self.builder.build_int_neg(b, "").as_basic_value_enum())
+        Ok(self.builder.build_int_neg(b, "tmpneg").as_basic_value_enum())
       }
       AST::Le(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n, vars)?;
@@ -418,7 +418,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           .builder
           .build_int_compare(IntPredicate::ULE, lhs, rhs, "tmpcmp");
         let b = self.builder.build_int_cast(cmp, i64_type, "tmpcast");
-        Ok(self.builder.build_int_neg(b, "").as_basic_value_enum())
+        Ok(self.builder.build_int_neg(b, "tmpneg").as_basic_value_enum())
       }
       AST::Add(n, m) => {
         let lhs = self.gen_expr(*n, vars)?;
@@ -441,13 +441,22 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         }
       }
       AST::Sub(n, m) => {
-        let lhs = self.gen_expr_into_int_value(*n, vars)?;
-        let rhs = self.gen_expr_into_int_value(*m, vars)?;
-        let res = self
-          .builder
-          .build_int_sub(lhs, rhs, "tmpsub")
-          .as_basic_value_enum();
-        Ok(res)
+        let lhs = self.gen_expr(*n, vars)?;
+        let rhs = self.gen_expr(*m, vars)?;
+        match (lhs.get_type(), rhs.get_type()) {
+          (BasicTypeEnum::IntType(_), BasicTypeEnum::IntType(_)) => {
+            let res = self
+              .builder
+              .build_int_sub(lhs.into_int_value(), rhs.into_int_value(), "tmpsub")
+              .as_basic_value_enum();
+            Ok(res)
+          }
+          (BasicTypeEnum::PointerType(_), BasicTypeEnum::IntType(_)) => {
+            let rhs = self.builder.build_int_neg(rhs.into_int_value(), "tmpneg").as_basic_value_enum();
+            Ok(self.gen_pointer_add_impl(lhs, rhs))
+          }
+          _ => Err("types of lhs and rhs of addition are not consistent")
+        }
       }
       AST::Mul(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n, vars)?;
