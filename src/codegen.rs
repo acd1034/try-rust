@@ -455,7 +455,18 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
             let rhs = self.builder.build_int_neg(rhs.into_int_value(), "tmpneg").as_basic_value_enum();
             Ok(self.gen_pointer_add_impl(lhs, rhs))
           }
-          _ => Err("types of lhs and rhs of addition are not consistent")
+          (BasicTypeEnum::PointerType(lhs_type), BasicTypeEnum::PointerType(rhs_type)) => {
+            if lhs_type.get_element_type() == rhs_type.get_element_type() {
+              let res = self
+                .builder
+                .build_ptr_diff(lhs.into_pointer_value(), rhs.into_pointer_value(), "tmpptrdiff")
+                .as_basic_value_enum();
+              Ok(res)
+            } else {
+              Err("types of lhs and rhs of pointer-pointer subtraction are not consistent")
+            }
+          }
+          _ => Err("types of lhs and rhs of subtraction are not consistent")
         }
       }
       AST::Mul(n, m) => {
