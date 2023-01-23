@@ -1,6 +1,6 @@
 pub type Expected<T> = Result<T, &'static str>;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Token<'a> {
   Eof,
   Keyword(&'a str),
@@ -29,9 +29,7 @@ fn tokenize<'a>(s: &'a str) -> Expected<(Token, &'a str)> {
     }
   } else if s.starts_with(|c: char| c.is_ascii_digit()) {
     let pos = s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
-    let num = s[..pos]
-      .parse::<u64>()
-      .map_err(|_| "failed to read integer")?;
+    let num: u64 = s[..pos].parse().map_err(|_| "failed to read integer")?;
     Ok((Token::Num(num), &s[pos..]))
   } else if s.starts_with(|c: char| c.is_ascii_punctuation()) {
     if s.len() < 2 {
@@ -48,36 +46,37 @@ fn tokenize<'a>(s: &'a str) -> Expected<(Token, &'a str)> {
 }
 
 pub struct Tokenizer<'a> {
-  input_: &'a str,
+  item: Expected<Token<'a>>,
+  input: &'a str,
 }
 
 impl<'a> Tokenizer<'a> {
   pub fn new(input: &'a str) -> Tokenizer {
-    Tokenizer { input_: input }
-  }
-
-  pub fn current(&mut self) -> Option<<Self as Iterator>::Item> {
-    match tokenize(self.input_) {
-      Ok((tok, _)) => Some(Ok(tok)),
-      Err(msg) => Some(Err(msg)),
+    match tokenize(input) {
+      Ok((tok, s)) => Tokenizer {
+        item: Ok(tok),
+        input: s,
+      },
+      Err(msg) => Tokenizer {
+        item: Err(msg),
+        input,
+      },
     }
   }
-}
 
-impl<'a> Iterator for Tokenizer<'a> {
-  type Item = Expected<Token<'a>>;
-
-  fn next(&mut self) -> Option<Self::Item> {
-    match tokenize(self.input_) {
-      // Ok((Token::Eof, s)) => {
-      //   self.input_ = s;
-      //   None
-      // }
+  pub fn advance(&mut self) -> () {
+    match tokenize(self.input) {
       Ok((tok, s)) => {
-        self.input_ = s;
-        Some(Ok(tok))
+        self.item = Ok(tok);
+        self.input = s;
       }
-      Err(msg) => Some(Err(msg)),
+      Err(msg) => {
+        self.item = Err(msg);
+      }
     }
+  }
+
+  pub fn current(&mut self) -> Expected<Token<'a>> {
+    self.item.clone()
   }
 }

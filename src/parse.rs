@@ -42,7 +42,7 @@ pub enum AST {
 }
 
 fn consume_eof(it: &mut Tokenizer) -> Expected<bool> {
-  if it.current().unwrap()? == Token::Eof {
+  if it.current()? == Token::Eof {
     Ok(true)
   } else {
     Ok(false)
@@ -50,8 +50,8 @@ fn consume_eof(it: &mut Tokenizer) -> Expected<bool> {
 }
 
 fn consume_keyword(it: &mut Tokenizer, keyword: &str) -> Expected<bool> {
-  if it.current().unwrap()? == Token::Keyword(keyword) {
-    it.next();
+  if it.current()? == Token::Keyword(keyword) {
+    it.advance();
     Ok(true)
   } else {
     Ok(false)
@@ -59,8 +59,8 @@ fn consume_keyword(it: &mut Tokenizer, keyword: &str) -> Expected<bool> {
 }
 
 fn consume(it: &mut Tokenizer, op: &str) -> Expected<bool> {
-  if it.current().unwrap()? == Token::Punct(op) {
-    it.next();
+  if it.current()? == Token::Punct(op) {
+    it.advance();
     Ok(true)
   } else {
     Ok(false)
@@ -68,9 +68,9 @@ fn consume(it: &mut Tokenizer, op: &str) -> Expected<bool> {
 }
 
 fn expect_ident(it: &mut Tokenizer) -> Expected<String> {
-  match it.current().unwrap()? {
+  match it.current()? {
     Token::Ident(name) => {
-      it.next();
+      it.advance();
       Ok(name.to_string())
     }
     _ => Err("unexpected token, expecting identifier"),
@@ -78,9 +78,9 @@ fn expect_ident(it: &mut Tokenizer) -> Expected<String> {
 }
 
 fn expect_num(it: &mut Tokenizer) -> Expected<u64> {
-  match it.current().unwrap()? {
+  match it.current()? {
     Token::Num(n) => {
-      it.next();
+      it.advance();
       Ok(n)
     }
     _ => Err("unexpected token, expecting number"),
@@ -88,8 +88,8 @@ fn expect_num(it: &mut Tokenizer) -> Expected<u64> {
 }
 
 fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
-  if it.current().unwrap()? == Token::Punct(op) {
-    it.next();
+  if it.current()? == Token::Punct(op) {
+    it.advance();
     Ok(())
   } else {
     Err("unexpected token, expecting punctuator")
@@ -405,16 +405,16 @@ fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
     let n = parse_expr(it)?;
     expect(it, ")")?;
     Ok(n)
-  } else if let Token::Ident(name) = it.current().unwrap()? {
-    it.next();
+  } else if let Token::Ident(name) = it.current()? {
+    it.advance();
     if consume(it, "(")? {
       let args = parse_func_args(it)?;
       Ok(AST::Call(name.to_string(), args))
     } else {
       Ok(AST::Ident(name.to_string()))
     }
-  } else if let Token::Num(n) = it.current().unwrap()? {
-    it.next();
+  } else if let Token::Num(n) = it.current()? {
+    it.advance();
     Ok(AST::Num(n))
   } else {
     Err("unexpected token, expecting `(`, identifier or number")
