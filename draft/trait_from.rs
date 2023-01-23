@@ -39,3 +39,13 @@ fn print_msg() {
     Message::Move { x, y } => println!("Move: ({}, {})", x, y),
   }
 }
+
+macro_rules! err {
+  ($x:expr) => {
+    Err(concat!(file!(), ":", line!(), "\n", $x))
+  };
+}
+
+fn cat_literal() -> Result<i64, &'static str> {
+  err!("file not exists")
+}
