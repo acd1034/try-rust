@@ -52,6 +52,10 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         .into_inkwell_type(*ty)
         .ptr_type(AddressSpace::default())
         .as_basic_type_enum(),
+      Type::Array(ty, size) => self
+        .into_inkwell_type(*ty)
+        .array_type(size)
+        .as_basic_type_enum(),
     }
   }
 
@@ -89,7 +93,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
   // Creates a new stack allocation instruction in the entry block of the function.
   fn create_entry_block_alloca(
     &self,
-    ty: BasicTypeEnum<'ctx>,
+    var_type: BasicTypeEnum<'ctx>,
     name: String,
     vars: &mut HashMap<String, PointerValue<'ctx>>,
   ) -> PointerValue<'ctx> {
@@ -101,7 +105,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
       None => builder.position_at_end(entry_block),
     }
 
-    let alloca = builder.build_alloca(ty, &name);
+    let alloca = builder.build_alloca(var_type, &name);
     vars.insert(name, alloca);
     alloca
   }

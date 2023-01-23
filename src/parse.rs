@@ -4,6 +4,7 @@ use crate::tokenize::{Expected, Token, Tokenizer};
 pub enum Type {
   Int,
   Pointer(Box<Type>),
+  Array(Box<Type>, u32),
 }
 
 #[derive(Debug)]
@@ -76,6 +77,16 @@ fn expect_ident(it: &mut Tokenizer) -> Expected<String> {
   }
 }
 
+fn expect_num(it: &mut Tokenizer) -> Expected<u64> {
+  match it.current().unwrap()? {
+    Token::Num(n) => {
+      it.next();
+      Ok(n)
+    }
+    _ => Err("unexpected token, expecting number"),
+  }
+}
+
 fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
   if it.current().unwrap()? == Token::Punct(op) {
     it.next();
@@ -89,7 +100,8 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  * function    = declspec declarator func_params "{" statement* "}"
  *             | declspec declarator func_params ";"
  * declspec    = "int"
- * declarator  = "*"* ident
+ * declarator  = "*"* ident type_suffix
+ * type_suffix = ("[" num "]")?
  * func_params = "(" param (("," param)*)? ")"
  * param       = declspec declarator
  *
@@ -167,12 +179,18 @@ fn consume_declspec(it: &mut Tokenizer) -> Expected<Option<Type>> {
   }
 }
 
-// declarator  = "*"* ident
+// declarator  = "*"* ident type_suffix
+// type_suffix = ("[" num "]")?
 fn parse_declarator(it: &mut Tokenizer, mut ty: Type) -> Expected<(Type, String)> {
   while consume(it, "*")? {
     ty = Type::Pointer(Box::new(ty));
   }
   let name = expect_ident(it)?;
+  if consume(it, "[")? {
+    let n = expect_num(it)?;
+    expect(it, "]")?;
+    ty = Type::Array(Box::new(ty), n as u32);
+  }
   Ok((ty, name))
 }
 

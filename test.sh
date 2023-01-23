@@ -167,3 +167,5 @@ assert 5 'int main() { int x=3; return (&x+2)-&x+3; }'
 assert_fail 'int main() { int x=3; int y=5; return &x+&y; }'
 assert_fail 'int main() { int x=3; int* y=&x; return x-y; }'
 assert_fail 'int main() { int x=3; int* y=&x; return &x-&y; }'
+# array
+assert 0 'int main() { int a[3]; return 0; }'
