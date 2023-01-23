@@ -362,6 +362,21 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     }
   }
 
+  fn gen_pointer_add_impl(
+    &self,
+    ptr: BasicValueEnum<'ctx>,
+    idx: BasicValueEnum<'ctx>,
+  ) -> BasicValueEnum<'ctx> {
+    let ptr = ptr.into_pointer_value();
+    let idx = idx.into_int_value();
+    unsafe {
+      self
+        .builder
+        .build_gep(ptr, &[idx], "tmpgep")
+        .as_basic_value_enum()
+    }
+  }
+
   fn gen_expr(
     &self,
     expr: AST,
@@ -406,13 +421,24 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(self.builder.build_int_neg(b, "").as_basic_value_enum())
       }
       AST::Add(n, m) => {
-        let lhs = self.gen_expr_into_int_value(*n, vars)?;
-        let rhs = self.gen_expr_into_int_value(*m, vars)?;
-        let res = self
-          .builder
-          .build_int_add(lhs, rhs, "tmpadd")
-          .as_basic_value_enum();
-        Ok(res)
+        let lhs = self.gen_expr(*n, vars)?;
+        let rhs = self.gen_expr(*m, vars)?;
+        match (lhs.get_type(), rhs.get_type()) {
+          (BasicTypeEnum::IntType(_), BasicTypeEnum::IntType(_)) => {
+            let res = self
+              .builder
+              .build_int_add(lhs.into_int_value(), rhs.into_int_value(), "tmpadd")
+              .as_basic_value_enum();
+            Ok(res)
+          }
+          (BasicTypeEnum::PointerType(_), BasicTypeEnum::IntType(_)) => {
+            Ok(self.gen_pointer_add_impl(lhs, rhs))
+          }
+          (BasicTypeEnum::IntType(_), BasicTypeEnum::PointerType(_)) => {
+            Ok(self.gen_pointer_add_impl(rhs, lhs))
+          }
+          _ => Err("types of lhs and rhs of addition are not consistent")
+        }
       }
       AST::Sub(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n, vars)?;

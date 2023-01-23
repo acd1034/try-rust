@@ -44,9 +44,7 @@ fi
 # assert 0 'int main() { return 0; return 1; }'
 # assert 0 'int main() { a = 0; return a; a = 1; }'
 # assert_fail 'int main() { x=3; &+x; return x; }'
-# assert 5 'int main() { x=3; y=5; return *(&x+8); }'
 # assert 3 'int main() { x=3; y=5; return *(&y-8); }'
-# assert 7 'int main() { x=3; y=5; *(&x+8)=7; return y; }'
 # assert 7 'int main() { x=3; y=5; *(&y-8)=7; return x; }'
 # num
 assert 0 'int main() { return 0; }'
@@ -156,3 +154,6 @@ assert 3 'int** sub(int** a) { return a; } int main() { int x=3; int* y; *sub(&y
 assert_fail 'int sub(int a); int sub(int* b) { return *b; } int main() { return sub(3); }'
 assert_fail 'int sub(int a) { return a; } int main() { int x=0; sub(&x); return x; }'
 assert_fail 'int* sub(int* a) { return a; } int main() { int x=3; int* y; *sub(&y) = &x; return *y; }'
+# pointer addition
+assert 5 'int main() { x=3; y=5; return *(&x+8); }'
+assert 7 'int main() { x=3; y=5; *(&x+8)=7; return y; }'
