@@ -83,26 +83,6 @@ fn consume(it: &mut Tokenizer, op: &str) -> Expected<bool> {
   }
 }
 
-fn expect_ident(it: &mut Tokenizer) -> Expected<String> {
-  match it.current()? {
-    Token::Ident(name) => {
-      it.advance();
-      Ok(name.to_string())
-    }
-    _ => Err("unexpected token, expecting identifier"),
-  }
-}
-
-fn expect_num(it: &mut Tokenizer) -> Expected<u64> {
-  match it.current()? {
-    Token::Num(n) => {
-      it.advance();
-      Ok(n)
-    }
-    _ => Err("unexpected token, expecting number"),
-  }
-}
-
 fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
   if it.current()? == Token::Punct(op) {
     it.advance();
@@ -200,9 +180,9 @@ fn parse_declarator(it: &mut Tokenizer, mut ty: Type) -> Expected<(Type, String)
   while consume(it, "*")? {
     ty = Type::Pointer(Box::new(ty));
   }
-  let name = expect_ident(it)?;
+  let name = parse_ident(it)?;
   if consume(it, "[")? {
-    let n = expect_num(it)?;
+    let n = parse_num(it)?;
     expect(it, "]")?;
     ty = Type::Array(Box::new(ty), n as u32);
   }
@@ -432,6 +412,22 @@ fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
     Ok(AST::Num(n))
   } else {
     Err("unexpected token, expecting `(`, identifier or number")
+  }
+}
+
+fn parse_ident(it: &mut Tokenizer) -> Expected<String> {
+  if let Token::Ident(name) = it.current()? {
+    Ok(name.to_string())
+  } else {
+    Err("unexpected token, expecting identifier")
+  }
+}
+
+fn parse_num(it: &mut Tokenizer) -> Expected<u64> {
+  if let Token::Num(n) = it.current()? {
+    Ok(n)
+  } else {
+    Err("unexpected token, expecting number")
   }
 }
 
