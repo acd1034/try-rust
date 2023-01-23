@@ -376,7 +376,17 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     unsafe {
       self
         .builder
-        .build_gep(ptr, &[idx], "tmpgep")
+        .build_in_bounds_gep(ptr, &[idx], "tmpgep")
+        .as_basic_value_enum()
+    }
+  }
+
+  fn gen_array_addr_impl(&self, ptr: PointerValue<'ctx>) -> BasicValueEnum<'ctx> {
+    let zero = self.context.i64_type().const_int(0, false);
+    unsafe {
+      self
+        .builder
+        .build_in_bounds_gep(ptr, &[zero, zero], "tmpgep")
         .as_basic_value_enum()
     }
   }
@@ -463,7 +473,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
             if lhs_type.get_element_type() == rhs_type.get_element_type() {
               let res = self
                 .builder
-                .build_ptr_diff(lhs.into_pointer_value(), rhs.into_pointer_value(), "tmpptrdiff")
+                .build_ptr_diff(lhs.into_pointer_value(), rhs.into_pointer_value(), "tmp_ptr_diff")
                 .as_basic_value_enum();
               Ok(res)
             } else {
@@ -493,7 +503,11 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
       }
       AST::Addr(n) => {
         let var = self.gen_addr(*n, vars)?;
-        Ok(var.as_basic_value_enum())
+        if var.get_type().get_element_type().is_array_type() {
+          Ok(self.gen_array_addr_impl(var))
+        } else {
+          Ok(var.as_basic_value_enum())
+        }
       }
       AST::Call(name, args) => {
         if let Some(callee) = self.module.get_function(&name) {
@@ -524,8 +538,12 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
       AST::Num(n) => Ok(i64_type.const_int(n, false).as_basic_value_enum()),
       lvalue /* AST::Assign, AST::Deref, AST::Ident */ => {
         let var = self.gen_addr(lvalue, vars)?;
-        let res = self.builder.build_load(var, "tmpload");
-        Ok(res)
+        if var.get_type().get_element_type().is_array_type() {
+          Ok(self.gen_array_addr_impl(var))
+        } else {
+          let res = self.builder.build_load(var, "tmpload");
+          Ok(res)
+        }
       }
     }
   }

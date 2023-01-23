@@ -168,4 +168,4 @@ assert_fail 'int main() { int x=3; int y=5; return &x+&y; }'
 assert_fail 'int main() { int x=3; int* y=&x; return x-y; }'
 assert_fail 'int main() { int x=3; int* y=&x; return &x-&y; }'
 # array
-assert 0 'int main() { int a[3]; return 0; }'
+assert 2 'int main() { int a[3]; *(a+1)=2; return *(a+1); }'
