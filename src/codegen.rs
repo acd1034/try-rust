@@ -265,7 +265,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
 
         // begin:
         self.builder.position_at_end(begin_block);
-        let has_terminator_in_begin = cond.is_some();
+        let has_no_branch_to_end = cond.is_none();
         if let Some(expr) = cond {
           let cond = self.gen_expr_into_int_value(expr, vars)?;
           let zero = i64_type.const_int(0, false);
@@ -291,10 +291,10 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
 
         // end:
         self.builder.position_at_end(end_block);
-        if !has_terminator_in_begin {
+        if has_no_branch_to_end {
           self.builder.build_unreachable();
         }
-        Ok(!has_terminator_in_begin)
+        Ok(has_no_branch_to_end)
       }
       Stmt::Return(expr) => {
         let return_value = self.gen_expr(expr, vars)?;
