@@ -1,6 +1,2 @@
 # https://rust-lang.github.io/rustfmt/
 tab_spaces = 2
-# reorder_impl_items = true
-reorder_imports = true
-group_imports = "StdExternalCrate"
-reorder_modules = true

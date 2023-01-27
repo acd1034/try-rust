@@ -1,15 +1,14 @@
 use crate::parse::{Function, Stmt, Type, AST};
 use crate::tokenize::Expected;
+use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
-use std::collections::HashMap;
-
-use inkwell::basic_block::BasicBlock;
 use inkwell::types::*;
 use inkwell::values::*;
 use inkwell::AddressSpace;
 use inkwell::IntPredicate;
+use std::collections::HashMap;
 
 // Module ⊇ Function ⊇ BasicBlock ⊇ Instruction
 pub struct CodeGen<'ctx> {
@@ -195,8 +194,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
       Stmt::IfElse(cond, then, else_) => self.gen_if_else(cond, then, else_, vars),
       Stmt::For(init, cond, inc, body) => self.gen_for(init, cond, inc, body, vars),
       Stmt::Return(expr) => {
-        let return_value = self.gen_expr(expr, vars)?;
-        self.builder.build_return(Some(&return_value));
+        let ret = self.gen_expr(expr, vars)?;
+        self.builder.build_return(Some(&ret));
         Ok(true)
       }
       Stmt::Block(stmts) => {
