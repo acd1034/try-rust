@@ -212,31 +212,22 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           .build_conditional_branch(cond, then_block, else_block);
 
         // then:
-        let has_terminator_in_then = {
-          self.builder.position_at_end(then_block);
-          self.gen_statement(*then_stmt, vars)?;
-          if self.get_current_basic_block().get_terminator().is_some() {
-            true
-          } else {
-            self.builder.build_unconditional_branch(cont_block);
-            false
-          }
-        };
+        self.builder.position_at_end(then_block);
+        let has_terminator_in_then = self.gen_statement(*then_stmt, vars)?;
+        if !has_terminator_in_then {
+          self.builder.build_unconditional_branch(cont_block);
+        }
 
         // else:
-        let has_terminator_in_else = {
+        let has_terminator_in_else = if let Some(else_stmt) = else_stmt {
           self.builder.position_at_end(else_block);
-          if let Some(else_stmt) = else_stmt {
-            self.gen_statement(*else_stmt, vars)?;
-            if self.get_current_basic_block().get_terminator().is_some() {
-              true
-            } else {
-              self.builder.build_unconditional_branch(cont_block);
-              false
-            }
-          } else {
-            false
+          let has_terminator = self.gen_statement(*else_stmt, vars)?;
+          if !has_terminator {
+            self.builder.build_unconditional_branch(cont_block);
           }
+          has_terminator
+        } else {
+          false
         };
 
         // cont:
