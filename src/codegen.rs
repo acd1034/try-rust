@@ -5,6 +5,7 @@ use inkwell::context::Context;
 use inkwell::module::Module;
 use std::collections::HashMap;
 
+use inkwell::basic_block::BasicBlock;
 use inkwell::types::*;
 use inkwell::values::*;
 use inkwell::AddressSpace;
@@ -153,13 +154,12 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     }
   }
 
+  fn get_current_basic_block(&self) -> BasicBlock<'ctx> {
+    self.builder.get_insert_block().unwrap()
+  }
+
   fn get_current_function(&self) -> FunctionValue<'ctx> {
-    self
-      .builder
-      .get_insert_block()
-      .unwrap()
-      .get_parent()
-      .unwrap()
+    self.get_current_basic_block().get_parent().unwrap()
   }
 
   // Returns if the last basic block has a terminator
@@ -193,11 +193,11 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
          *   C;
          * cont:
          */
-        let fn_value = self.get_current_function();
-        let then_block = self.context.append_basic_block(fn_value, "then");
-        let else_block = self.context.append_basic_block(fn_value, "else");
+        let current_block = self.get_current_basic_block();
+        let then_block = self.context.insert_basic_block_after(current_block, "then");
+        let else_block = self.context.insert_basic_block_after(then_block, "else");
         let cont_block = if else_stmt.is_some() {
-          self.context.append_basic_block(fn_value, "cont")
+          self.context.insert_basic_block_after(else_block, "cont")
         } else {
           else_block
         };
@@ -215,7 +215,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         let has_terminator_in_then = {
           self.builder.position_at_end(then_block);
           self.gen_statement(*then_stmt, vars)?;
-          if then_block.get_terminator().is_some() {
+          if self.get_current_basic_block().get_terminator().is_some() {
             true
           } else {
             self.builder.build_unconditional_branch(cont_block);
@@ -228,7 +228,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           self.builder.position_at_end(else_block);
           if let Some(else_stmt) = else_stmt {
             self.gen_statement(*else_stmt, vars)?;
-            if else_block.get_terminator().is_some() {
+            if self.get_current_basic_block().get_terminator().is_some() {
               true
             } else {
               self.builder.build_unconditional_branch(cont_block);
