@@ -60,6 +60,34 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     }
   }
 
+  fn get_current_basic_block(&self) -> BasicBlock<'ctx> {
+    self.builder.get_insert_block().unwrap()
+  }
+
+  fn get_current_function(&self) -> FunctionValue<'ctx> {
+    self.get_current_basic_block().get_parent().unwrap()
+  }
+
+  // Creates a new stack allocation instruction in the entry block of the function
+  fn create_entry_block_alloca(
+    &self,
+    var_type: BasicTypeEnum<'ctx>,
+    name: String,
+    vars: &mut HashMap<String, PointerValue<'ctx>>,
+  ) -> PointerValue<'ctx> {
+    let fn_value = self.get_current_function();
+    let entry_block = fn_value.get_first_basic_block().unwrap();
+    let builder = self.context.create_builder();
+    match entry_block.get_first_instruction() {
+      Some(inst) => builder.position_before(&inst),
+      None => builder.position_at_end(entry_block),
+    }
+
+    let alloca = builder.build_alloca(var_type, &name);
+    vars.insert(name, alloca);
+    alloca
+  }
+
   fn check_prototype(
     &self,
     ret_ty: Type,
@@ -89,26 +117,6 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
       let fn_type = return_type.fn_type(param_types.as_slice(), false);
       Ok(self.module.add_function(name, fn_type, None))
     }
-  }
-
-  // Creates a new stack allocation instruction in the entry block of the function.
-  fn create_entry_block_alloca(
-    &self,
-    var_type: BasicTypeEnum<'ctx>,
-    name: String,
-    vars: &mut HashMap<String, PointerValue<'ctx>>,
-  ) -> PointerValue<'ctx> {
-    let fn_value = self.get_current_function();
-    let entry_block = fn_value.get_first_basic_block().unwrap();
-    let builder = self.context.create_builder();
-    match entry_block.get_first_instruction() {
-      Some(inst) => builder.position_before(&inst),
-      None => builder.position_at_end(entry_block),
-    }
-
-    let alloca = builder.build_alloca(var_type, &name);
-    vars.insert(name, alloca);
-    alloca
   }
 
   fn gen_function(&self, function: Function) -> Expected<FunctionValue<'ctx>> {
@@ -151,14 +159,6 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         self.check_prototype(ret_ty, &name, param_tys)
       }
     }
-  }
-
-  fn get_current_basic_block(&self) -> BasicBlock<'ctx> {
-    self.builder.get_insert_block().unwrap()
-  }
-
-  fn get_current_function(&self) -> FunctionValue<'ctx> {
-    self.get_current_basic_block().get_parent().unwrap()
   }
 
   // Returns if the last basic block has a terminator
