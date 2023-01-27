@@ -248,7 +248,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           Ok(false)
         }
       }
-      Stmt::For(init, cond, inc, stmt) => {
+      Stmt::For(init, cond, inc, body) => {
         /* `for (A; B; C) D`
          *   A;
          *   goto begin;
@@ -260,10 +260,12 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
          *   goto begin;
          * end:
          */
-        let fn_value = self.get_current_function();
-        let begin_block = self.context.append_basic_block(fn_value, "begin");
-        let body_block = self.context.append_basic_block(fn_value, "body");
-        let end_block = self.context.append_basic_block(fn_value, "end");
+        let current_block = self.get_current_basic_block();
+        let begin_block = self
+          .context
+          .insert_basic_block_after(current_block, "begin");
+        let body_block = self.context.insert_basic_block_after(begin_block, "body");
+        let end_block = self.context.insert_basic_block_after(body_block, "end");
 
         if let Some(expr) = init {
           self.gen_expr(expr, vars)?;
@@ -272,6 +274,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
 
         // begin:
         self.builder.position_at_end(begin_block);
+        let has_terminator_in_begin = cond.is_some();
         if let Some(expr) = cond {
           let cond = self.gen_expr_into_int_value(expr, vars)?;
           let zero = i64_type.const_int(0, false);
@@ -287,17 +290,20 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
 
         // body:
         self.builder.position_at_end(body_block);
-        self.gen_statement(*stmt, vars)?;
+        let has_terminator_in_body = self.gen_statement(*body, vars)?;
         if let Some(expr) = inc {
           self.gen_expr(expr, vars)?;
         }
-        if body_block.get_terminator().is_none() {
+        if !has_terminator_in_body {
           self.builder.build_unconditional_branch(begin_block);
         }
 
         // end:
         self.builder.position_at_end(end_block);
-        Ok(false)
+        if !has_terminator_in_begin {
+          self.builder.build_unreachable();
+        }
+        Ok(!has_terminator_in_begin)
       }
       Stmt::Return(expr) => {
         let return_value = self.gen_expr(expr, vars)?;
