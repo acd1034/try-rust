@@ -88,7 +88,18 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     alloca
   }
 
-  fn check_prototype(
+  // ----- gen_function -----
+
+  fn gen_function(&self, function: Function) -> Expected<FunctionValue<'ctx>> {
+    match function {
+      Function::Prototype(ret_ty, name, param_tys) => self.gen_prototype(ret_ty, &name, param_tys),
+      Function::Definition(ret_ty, name, param_tys, param_names, body) => {
+        self.gen_definition(ret_ty, &name, param_tys, param_names, body)
+      }
+    }
+  }
+
+  fn gen_prototype(
     &self,
     ret_ty: Type,
     name: &str,
@@ -119,45 +130,43 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     }
   }
 
-  fn gen_function(&self, function: Function) -> Expected<FunctionValue<'ctx>> {
-    match function {
-      Function::Function(ret_ty, name, param_tys, param_names, body) => {
-        assert_eq!(param_tys.len(), param_names.len());
-        let fn_value = self.check_prototype(ret_ty, &name, param_tys)?;
-        if fn_value.count_basic_blocks() == 0 {
-          let entry_block = self.context.append_basic_block(fn_value, "entry");
-          self.builder.position_at_end(entry_block);
-          let mut vars: HashMap<String, PointerValue<'ctx>> = HashMap::new();
-          for (name, param) in std::iter::zip(param_names, fn_value.get_param_iter()) {
-            if vars.get(&name).is_none() {
-              let alloca = self.create_entry_block_alloca(param.get_type(), name, &mut vars);
-              self.builder.build_store(alloca, param);
-            } else {
-              return Err("function parameter already defined");
-            }
-          }
+  fn gen_definition(
+    &self,
+    ret_ty: Type,
+    name: &str,
+    param_tys: Vec<Type>,
+    param_names: Vec<String>,
+    body: Stmt,
+  ) -> Expected<FunctionValue<'ctx>> {
+    assert_eq!(param_tys.len(), param_names.len());
+    let fn_value = self.gen_prototype(ret_ty, &name, param_tys)?;
+    if fn_value.count_basic_blocks() != 0 {
+      return Err("function already defined");
+    }
 
-          let has_terminator = self.gen_statement(body, &mut vars)?;
-          if !has_terminator {
-            return Err("gen_function: no terminator in function");
-          }
+    let entry_block = self.context.append_basic_block(fn_value, "entry");
+    self.builder.position_at_end(entry_block);
+    let mut vars: HashMap<String, PointerValue<'ctx>> = HashMap::new();
+    for (name, param) in std::iter::zip(param_names, fn_value.get_param_iter()) {
+      if vars.get(&name).is_none() {
+        let alloca = self.create_entry_block_alloca(param.get_type(), name, &mut vars);
+        self.builder.build_store(alloca, param);
+      } else {
+        return Err("function parameter already defined");
+      }
+    }
 
-          if fn_value.verify(true) {
-            Ok(fn_value)
-          } else {
-            // TODO: 前方宣言後の定義ならば定義のみ消す。前方宣言なしの定義ならば宣言ごと消す
-            unsafe {
-              fn_value.delete();
-            }
-            Err("gen_function: failed to verify function")
-          }
-        } else {
-          Err("function already defined")
-        }
-      }
-      Function::Prototype(ret_ty, name, param_tys) => {
-        self.check_prototype(ret_ty, &name, param_tys)
-      }
+    let has_terminator = self.gen_statement(body, &mut vars)?;
+    if !has_terminator {
+      return Err("gen_function: no terminator in function");
+    }
+
+    if fn_value.verify(true) {
+      Ok(fn_value)
+    } else {
+      // TODO: 前方宣言後の定義ならば定義のみ消す。前方宣言なしの定義ならば宣言ごと消す
+      // unsafe { fn_value.delete(); }
+      Err("gen_function: failed to verify function")
     }
   }
 

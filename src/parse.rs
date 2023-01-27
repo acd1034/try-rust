@@ -9,8 +9,8 @@ pub enum Type {
 
 #[derive(Debug)]
 pub enum Function {
-  Function(Type, String, Vec<Type>, Vec<String>, Stmt),
   Prototype(Type, String, Vec<Type>),
+  Definition(Type, String, Vec<Type>, Vec<String>, Stmt),
 }
 
 #[derive(Debug)]
@@ -113,8 +113,8 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
 }
 
 /* program     = function* eof
- * function    = declspec declarator func_params "{" statement* "}"
- *             | declspec declarator func_params ";"
+ * function    = declspec declarator func_params ";"
+ *             | declspec declarator func_params "{" statement* "}"
  * declspec    = "int"
  * declarator  = "*"* ident ("[" num "]")?
  * func_params = "(" param (("," param)*)? ")"
@@ -153,26 +153,26 @@ pub fn parse(mut it: Tokenizer) -> Expected<Vec<Function>> {
   Ok(functions)
 }
 
-// function    = declspec declarator func_params "{" statement* "}"
-//             | declspec declarator func_params ";"
+// function    = declspec declarator func_params ";"
+//             | declspec declarator func_params "{" statement* "}"
 fn parse_function(it: &mut Tokenizer) -> Expected<Function> {
   let ty = parse_declspec(it)?;
   let (ret_ty, name) = parse_declarator(it, ty)?;
   let (param_tys, param_names) = parse_func_params(it)?;
-  if consume(it, "{")? {
+  if consume(it, ";")? {
+    Ok(Function::Prototype(ret_ty, name, param_tys))
+  } else if consume(it, "{")? {
     let mut body = Vec::new();
     while !consume(it, "}")? {
       body.push(parse_statement(it)?);
     }
-    Ok(Function::Function(
+    Ok(Function::Definition(
       ret_ty,
       name,
       param_tys,
       param_names,
       Stmt::Block(body),
     ))
-  } else if consume(it, ";")? {
-    Ok(Function::Prototype(ret_ty, name, param_tys))
   } else {
     Err("unexpected token, expecting `{` or `;`")
   }
