@@ -344,6 +344,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     Ok(has_no_branch_to_end)
   }
 
+  // ----- gen_expr -----
+
   fn gen_expr_into_int_value(
     &self,
     expr: AST,
@@ -354,69 +356,6 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
       Ok(value.into_int_value())
     } else {
       Err("unexpected type in expression, expecting int type")
-    }
-  }
-
-  fn gen_assign_impl(
-    &self,
-    lhs: PointerValue<'ctx>,
-    rhs: BasicValueEnum<'ctx>,
-  ) -> Expected<PointerValue<'ctx>> {
-    if lhs.get_type().get_element_type() == rhs.get_type().as_any_type_enum() {
-      self.builder.build_store(lhs, rhs);
-      Ok(lhs)
-    } else {
-      Err("mismatched types between lhs and rhs of assignment")
-    }
-  }
-
-  fn gen_addr(
-    &self,
-    lvalue: AST,
-    vars: &mut HashMap<String, PointerValue<'ctx>>,
-  ) -> Expected<PointerValue<'ctx>> {
-    match lvalue {
-      AST::Assign(n, m) => {
-        let rhs = self.gen_expr(*m, vars)?;
-        let lhs = self.gen_addr(*n, vars)?;
-        self.gen_assign_impl(lhs, rhs)
-      }
-      AST::Deref(n) => {
-        let ptr = self.gen_expr(*n, vars)?;
-        if ptr.is_pointer_value() {
-          Ok(ptr.into_pointer_value())
-        } else {
-          Err("cannot dereference int value")
-        }
-      }
-      AST::Ident(name) => match vars.get(&name) {
-        Some(&var) => Ok(var),
-        None => Err("variable shoube declared before its first use"),
-      },
-      _ => Err("cannot obtain address of rvalue"),
-    }
-  }
-
-  fn gen_pointer_add_impl(
-    &self,
-    ptr: PointerValue<'ctx>,
-    idx: IntValue<'ctx>,
-  ) -> BasicValueEnum<'ctx> {
-    unsafe {
-      self
-        .builder
-        .build_in_bounds_gep(ptr, &[idx], "tmpgep")
-        .as_basic_value_enum()
-    }
-  }
-
-  fn gen_array_addr_impl(&self, ptr: PointerValue<'ctx>) -> BasicValueEnum<'ctx> {
-    let zero = self.context.i64_type().const_int(0, false);
-    unsafe {
-      self
-        .builder
-        .build_in_bounds_gep(ptr, &[zero, zero], "tmpgep")
-        .as_basic_value_enum()
     }
   }
 
@@ -586,6 +525,71 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           Ok(res)
         }
       }
+    }
+  }
+
+  fn gen_pointer_add_impl(
+    &self,
+    ptr: PointerValue<'ctx>,
+    idx: IntValue<'ctx>,
+  ) -> BasicValueEnum<'ctx> {
+    unsafe {
+      self
+        .builder
+        .build_in_bounds_gep(ptr, &[idx], "tmpgep")
+        .as_basic_value_enum()
+    }
+  }
+
+  fn gen_array_addr_impl(&self, ptr: PointerValue<'ctx>) -> BasicValueEnum<'ctx> {
+    let zero = self.context.i64_type().const_int(0, false);
+    unsafe {
+      self
+        .builder
+        .build_in_bounds_gep(ptr, &[zero, zero], "tmpgep")
+        .as_basic_value_enum()
+    }
+  }
+
+  // ----- gen_addr -----
+
+  fn gen_addr(
+    &self,
+    lvalue: AST,
+    vars: &mut HashMap<String, PointerValue<'ctx>>,
+  ) -> Expected<PointerValue<'ctx>> {
+    match lvalue {
+      AST::Assign(n, m) => {
+        let rhs = self.gen_expr(*m, vars)?;
+        let lhs = self.gen_addr(*n, vars)?;
+        self.gen_assign_impl(lhs, rhs)
+      }
+      AST::Deref(n) => {
+        let ptr = self.gen_expr(*n, vars)?;
+        if ptr.is_pointer_value() {
+          Ok(ptr.into_pointer_value())
+        } else {
+          Err("cannot dereference int value")
+        }
+      }
+      AST::Ident(name) => match vars.get(&name) {
+        Some(&var) => Ok(var),
+        None => Err("variable should be declared before its first use"),
+      },
+      _ => Err("cannot obtain address of rvalue"),
+    }
+  }
+
+  fn gen_assign_impl(
+    &self,
+    lhs: PointerValue<'ctx>,
+    rhs: BasicValueEnum<'ctx>,
+  ) -> Expected<PointerValue<'ctx>> {
+    if lhs.get_type().get_element_type() == rhs.get_type().as_any_type_enum() {
+      self.builder.build_store(lhs, rhs);
+      Ok(lhs)
+    } else {
+      Err("mismatched types between lhs and rhs of assignment")
     }
   }
 }
