@@ -111,7 +111,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     alloca
   }
 
-  fn gen_function(&self, function: Function) -> Expected<()> {
+  fn gen_function(&self, function: Function) -> Expected<FunctionValue<'ctx>> {
     match function {
       Function::Function(ret_ty, name, param_tys, param_names, body) => {
         assert_eq!(param_tys.len(), param_names.len());
@@ -135,7 +135,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           }
 
           if fn_value.verify(true) {
-            Ok(())
+            Ok(fn_value)
           } else {
             // TODO: 前方宣言後の定義ならば定義のみ消す。前方宣言なしの定義ならば宣言ごと消す
             unsafe {
@@ -148,8 +148,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         }
       }
       Function::Prototype(ret_ty, name, param_tys) => {
-        self.check_prototype(ret_ty, &name, param_tys)?;
-        Ok(())
+        self.check_prototype(ret_ty, &name, param_tys)
       }
     }
   }
