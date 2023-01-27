@@ -194,6 +194,11 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         let fn_value = self.get_current_function();
         let then_block = self.context.append_basic_block(fn_value, "then");
         let else_block = self.context.append_basic_block(fn_value, "else");
+        let cont_block = if else_stmt.is_some() {
+          self.context.append_basic_block(fn_value, "cont")
+        } else {
+          else_block
+        };
 
         let cond = self.gen_expr_into_int_value(cond, vars)?;
         let zero = i64_type.const_int(0, false);
@@ -204,45 +209,40 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           .builder
           .build_conditional_branch(cond, then_block, else_block);
 
-        if let Some(else_stmt) = else_stmt {
-          // then:
+        // then:
+        let has_terminator_in_then = {
           self.builder.position_at_end(then_block);
           self.gen_statement(*then_stmt, vars)?;
-          let cont_block = if then_block.get_terminator().is_none() {
-            let cont_block = self.context.append_basic_block(fn_value, "cont");
-            self.builder.build_unconditional_branch(cont_block);
-            Some(cont_block)
+          if then_block.get_terminator().is_some() {
+            true
           } else {
-            None
-          };
-
-          // else:
-          self.builder.position_at_end(else_block);
-          self.gen_statement(*else_stmt, vars)?;
-          let cont_block = if else_block.get_terminator().is_none() {
-            let cont_block =
-              cont_block.unwrap_or_else(|| self.context.append_basic_block(fn_value, "cont"));
             self.builder.build_unconditional_branch(cont_block);
-            cont_block
-          } else {
-            else_block
-          };
-
-          // cont:
-          self.builder.position_at_end(cont_block);
-          Ok(())
-        } else {
-          // then:
-          self.builder.position_at_end(then_block);
-          self.gen_statement(*then_stmt, vars)?;
-          if then_block.get_terminator().is_none() {
-            self.builder.build_unconditional_branch(else_block);
+            false
           }
+        };
 
-          // else:
+        // else:
+        let has_terminator_in_else = {
           self.builder.position_at_end(else_block);
-          Ok(())
+          if let Some(else_stmt) = else_stmt {
+            self.gen_statement(*else_stmt, vars)?;
+            if else_block.get_terminator().is_some() {
+              true
+            } else {
+              self.builder.build_unconditional_branch(cont_block);
+              false
+            }
+          } else {
+            false
+          }
+        };
+
+        // cont:
+        self.builder.position_at_end(cont_block);
+        if has_terminator_in_then && has_terminator_in_else {
+          self.builder.build_unreachable();
         }
+        Ok(())
       }
       Stmt::For(init, cond, inc, stmt) => {
         /* `for (A; B; C) D`

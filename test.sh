@@ -41,6 +41,18 @@ if [ $? -ne 0 ]; then
 fi
 
 # TODO:
+assert 0 'int main() { int x=0; if (x) x=1; return x; }'
+assert 0 'int main() { int x=0; if (x) if (x) x=1; return x; }'
+assert 2 'int main() { int x=0; if (x) if (x) x=1; else x=2; return x; }'
+
+assert 2 'int main() { int x=0; if (x) { x=1; } else x=2; return x; }'
+assert 2 'int main() { int x=0; if (x) { if (x) x=1; } else x=2; return x; }'
+assert 3 'int main() { int x=0; if (x) { if (x) x=1; else x=2; } else x=3; return x; }'
+
+assert 2 'int main() { int x=0; if (x) x=1; else { x=2; } return x; }'
+assert 0 'int main() { int x=0; if (x) x=1; else { if (x) x=2; } return x; }'
+assert 3 'int main() { int x=0; if (x) x=1; else { if (x) x=2; else x=3; } return x; }'
+exit 0
 # assert 0 'int main() { return 0; return 1; }'
 # assert 0 'int main() { a = 0; return a; a = 1; }'
 # assert_fail 'int main() { x=3; &+x; return x; }'
@@ -112,10 +124,6 @@ assert 2 'int main() { if (1) return 2; return 3; }'
 assert 2 'int main() { if (2-1) return 2; return 3; }'
 assert 4 'int main() { if (0) { 1; 2; return 3; } return 4; }'
 assert 4 'int main() { if (0) { 1; 2; return 3; } else { return 4; } }'
-assert 3 'int main() { if (1) { 1; 2; return 3; } else { return 4; } }'
-assert 4 'int main() { if (0) { 1; 2; return 3; } return 4; }'
-assert 4 'int main() { if (0) { 1; 2; return 3; } else { return 4; } }'
-assert 3 'int main() { if (1) { 1; 2; return 3; } else { return 4; } }'
 assert 1 'int main() { if (1) if (1) return 1; else return 2; return 3; }'
 assert 2 'int main() { if (1) if (0) return 1; else return 2; return 3; }'
 assert 3 'int main() { if (0) if (1) return 1; else return 2; return 3; }'
