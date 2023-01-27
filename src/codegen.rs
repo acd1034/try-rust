@@ -128,7 +128,10 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
             }
           }
 
-          self.gen_statement(body, &mut vars)?;
+          let has_terminator = self.gen_statement(body, &mut vars)?;
+          if !has_terminator {
+            return Err("gen_function: no terminator in function");
+          }
 
           if fn_value.verify(true) {
             Ok(())
@@ -159,11 +162,12 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
       .unwrap()
   }
 
+  // Returns if the last basic block has a terminator
   fn gen_statement(
     &self,
     stmt: Stmt,
     vars: &mut HashMap<String, PointerValue<'ctx>>,
-  ) -> Expected<()> {
+  ) -> Expected<bool> {
     let i64_type = self.context.i64_type();
     match stmt {
       Stmt::Decl(ty, name, init) => {
@@ -174,7 +178,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
             let rhs = self.gen_expr(expr, vars)?;
             self.gen_assign_impl(alloca, rhs)?;
           }
-          Ok(())
+          Ok(false)
         } else {
           Err("variable already defined")
         }
@@ -239,8 +243,10 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         self.builder.position_at_end(cont_block);
         if has_terminator_in_then && has_terminator_in_else {
           self.builder.build_unreachable();
+          Ok(true)
+        } else {
+          Ok(false)
         }
-        Ok(())
       }
       Stmt::For(init, cond, inc, stmt) => {
         /* `for (A; B; C) D`
@@ -291,22 +297,26 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
 
         // end:
         self.builder.position_at_end(end_block);
-        Ok(())
+        Ok(false)
       }
       Stmt::Return(expr) => {
         let return_value = self.gen_expr(expr, vars)?;
         self.builder.build_return(Some(&return_value));
-        Ok(())
+        Ok(true)
       }
       Stmt::Block(stmts) => {
+        let mut has_terminator = false;
         for stmt in stmts {
-          self.gen_statement(stmt, vars)?;
+          has_terminator = self.gen_statement(stmt, vars)?;
+          if has_terminator {
+            break;
+          }
         }
-        Ok(())
+        Ok(has_terminator)
       }
       Stmt::Expr(expr) => {
         self.gen_expr(expr, vars)?;
-        Ok(())
+        Ok(false)
       }
     }
   }
