@@ -15,7 +15,7 @@ pub enum Function {
 
 #[derive(Debug)]
 pub enum Stmt {
-  Decl(Type, String, Option<AST>),
+  VarDecl(Type, String, Option<AST>),
   IfElse(AST, Box<Stmt>, Option<Box<Stmt>>),
   For(Option<AST>, Option<AST>, Option<AST>, Box<Stmt>),
   Return(AST),
@@ -244,7 +244,7 @@ fn parse_statement(it: &mut Tokenizer) -> Expected<Stmt> {
     } else {
       None
     };
-    Ok(Stmt::Decl(ty, name, init))
+    Ok(Stmt::VarDecl(ty, name, init))
   } else if consume_keyword(it, "if")? {
     expect(it, "(")?;
     let cond = parse_expr(it)?;

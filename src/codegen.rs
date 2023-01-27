@@ -170,140 +170,30 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     }
   }
 
+  // ----- gen_statement -----
+
   // Returns if the last basic block has a terminator
   fn gen_statement(
     &self,
     stmt: Stmt,
     vars: &mut HashMap<String, PointerValue<'ctx>>,
   ) -> Expected<bool> {
-    let i64_type = self.context.i64_type();
     match stmt {
-      Stmt::Decl(ty, name, init) => {
-        if vars.get(&name).is_none() {
-          let var_type = self.into_inkwell_type(ty);
-          let alloca = self.create_entry_block_alloca(var_type, name, vars);
-          if let Some(expr) = init {
-            let rhs = self.gen_expr(expr, vars)?;
-            self.gen_assign_impl(alloca, rhs)?;
-          }
-          Ok(false)
-        } else {
-          Err("variable already defined")
-        }
-      }
-      Stmt::IfElse(cond, then_stmt, else_stmt) => {
-        /* `if (A) B else C`
-         *   A != 0 ? goto then : goto else;
-         * then:
-         *   B;
-         *   goto cont;
-         * else:
-         *   C;
-         * cont:
-         */
-        let current_block = self.get_current_basic_block();
-        let then_block = self.context.insert_basic_block_after(current_block, "then");
-        let else_block = self.context.insert_basic_block_after(then_block, "else");
-        let cont_block = if else_stmt.is_some() {
-          self.context.insert_basic_block_after(else_block, "cont")
-        } else {
-          else_block
-        };
-
-        let cond = self.gen_expr_into_int_value(cond, vars)?;
-        let zero = i64_type.const_int(0, false);
-        let cond = self
-          .builder
-          .build_int_compare(IntPredicate::NE, cond, zero, "cond");
-        self
-          .builder
-          .build_conditional_branch(cond, then_block, else_block);
-
-        // then:
-        self.builder.position_at_end(then_block);
-        let has_terminator_in_then = self.gen_statement(*then_stmt, vars)?;
-        if !has_terminator_in_then {
-          self.builder.build_unconditional_branch(cont_block);
+      Stmt::VarDecl(ty, name, init) => {
+        if vars.get(&name).is_some() {
+          return Err("variable already defined");
         }
 
-        // else:
-        let has_terminator_in_else = if let Some(else_stmt) = else_stmt {
-          self.builder.position_at_end(else_block);
-          let has_terminator = self.gen_statement(*else_stmt, vars)?;
-          if !has_terminator {
-            self.builder.build_unconditional_branch(cont_block);
-          }
-          has_terminator
-        } else {
-          false
-        };
-
-        // cont:
-        self.builder.position_at_end(cont_block);
-        if has_terminator_in_then && has_terminator_in_else {
-          self.builder.build_unreachable();
-          Ok(true)
-        } else {
-          Ok(false)
-        }
-      }
-      Stmt::For(init, cond, inc, body) => {
-        /* `for (A; B; C) D`
-         *   A;
-         *   goto begin;
-         * begin:
-         *   B != 0 ? goto body : goto end;
-         * body:
-         *   D;
-         *   C;
-         *   goto begin;
-         * end:
-         */
-        let current_block = self.get_current_basic_block();
-        let begin_block = self
-          .context
-          .insert_basic_block_after(current_block, "begin");
-        let body_block = self.context.insert_basic_block_after(begin_block, "body");
-        let end_block = self.context.insert_basic_block_after(body_block, "end");
-
+        let var_type = self.into_inkwell_type(ty);
+        let alloca = self.create_entry_block_alloca(var_type, name, vars);
         if let Some(expr) = init {
-          self.gen_expr(expr, vars)?;
+          let rhs = self.gen_expr(expr, vars)?;
+          self.gen_assign_impl(alloca, rhs)?;
         }
-        self.builder.build_unconditional_branch(begin_block);
-
-        // begin:
-        self.builder.position_at_end(begin_block);
-        let has_no_branch_to_end = cond.is_none();
-        if let Some(expr) = cond {
-          let cond = self.gen_expr_into_int_value(expr, vars)?;
-          let zero = i64_type.const_int(0, false);
-          let cond = self
-            .builder
-            .build_int_compare(IntPredicate::NE, cond, zero, "cond");
-          self
-            .builder
-            .build_conditional_branch(cond, body_block, end_block);
-        } else {
-          self.builder.build_unconditional_branch(body_block);
-        }
-
-        // body:
-        self.builder.position_at_end(body_block);
-        let has_terminator_in_body = self.gen_statement(*body, vars)?;
-        if let Some(expr) = inc {
-          self.gen_expr(expr, vars)?;
-        }
-        if !has_terminator_in_body {
-          self.builder.build_unconditional_branch(begin_block);
-        }
-
-        // end:
-        self.builder.position_at_end(end_block);
-        if has_no_branch_to_end {
-          self.builder.build_unreachable();
-        }
-        Ok(has_no_branch_to_end)
+        Ok(false)
       }
+      Stmt::IfElse(cond, then, else_) => self.gen_if_else(cond, then, else_, vars),
+      Stmt::For(init, cond, inc, body) => self.gen_for(init, cond, inc, body, vars),
       Stmt::Return(expr) => {
         let return_value = self.gen_expr(expr, vars)?;
         self.builder.build_return(Some(&return_value));
@@ -324,6 +214,134 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(false)
       }
     }
+  }
+
+  fn gen_if_else(
+    &self,
+    cond: AST,
+    then: Box<Stmt>,
+    else_: Option<Box<Stmt>>,
+    vars: &mut HashMap<String, PointerValue<'ctx>>,
+  ) -> Expected<bool> {
+    /* `if (A) B else C`
+     *   A != 0 ? goto then : goto else;
+     * then:
+     *   B;
+     *   goto cont;
+     * else:
+     *   C;
+     * cont:
+     */
+    let current_block = self.get_current_basic_block();
+    let then_block = self.context.insert_basic_block_after(current_block, "then");
+    let else_block = self.context.insert_basic_block_after(then_block, "else");
+    let cont_block = if else_.is_some() {
+      self.context.insert_basic_block_after(else_block, "cont")
+    } else {
+      else_block
+    };
+
+    let cond = self.gen_expr_into_int_value(cond, vars)?;
+    let zero = self.context.i64_type().const_int(0, false);
+    let cond = self
+      .builder
+      .build_int_compare(IntPredicate::NE, cond, zero, "cond");
+    self
+      .builder
+      .build_conditional_branch(cond, then_block, else_block);
+
+    // then:
+    self.builder.position_at_end(then_block);
+    let has_terminator_in_then = self.gen_statement(*then, vars)?;
+    if !has_terminator_in_then {
+      self.builder.build_unconditional_branch(cont_block);
+    }
+
+    // else:
+    let has_terminator_in_else = if let Some(else_) = else_ {
+      self.builder.position_at_end(else_block);
+      let has_terminator = self.gen_statement(*else_, vars)?;
+      if !has_terminator {
+        self.builder.build_unconditional_branch(cont_block);
+      }
+      has_terminator
+    } else {
+      false
+    };
+
+    // cont:
+    self.builder.position_at_end(cont_block);
+    if has_terminator_in_then && has_terminator_in_else {
+      self.builder.build_unreachable();
+      Ok(true)
+    } else {
+      Ok(false)
+    }
+  }
+
+  fn gen_for(
+    &self,
+    init: Option<AST>,
+    cond: Option<AST>,
+    inc: Option<AST>,
+    body: Box<Stmt>,
+    vars: &mut HashMap<String, PointerValue<'ctx>>,
+  ) -> Expected<bool> {
+    /* `for (A; B; C) D`
+     *   A;
+     *   goto begin;
+     * begin:
+     *   B != 0 ? goto body : goto end;
+     * body:
+     *   D;
+     *   C;
+     *   goto begin;
+     * end:
+     */
+    let current_block = self.get_current_basic_block();
+    let begin_block = self
+      .context
+      .insert_basic_block_after(current_block, "begin");
+    let body_block = self.context.insert_basic_block_after(begin_block, "body");
+    let end_block = self.context.insert_basic_block_after(body_block, "end");
+
+    if let Some(expr) = init {
+      self.gen_expr(expr, vars)?;
+    }
+    self.builder.build_unconditional_branch(begin_block);
+
+    // begin:
+    self.builder.position_at_end(begin_block);
+    let has_no_branch_to_end = cond.is_none();
+    if let Some(expr) = cond {
+      let cond = self.gen_expr_into_int_value(expr, vars)?;
+      let zero = self.context.i64_type().const_int(0, false);
+      let cond = self
+        .builder
+        .build_int_compare(IntPredicate::NE, cond, zero, "cond");
+      self
+        .builder
+        .build_conditional_branch(cond, body_block, end_block);
+    } else {
+      self.builder.build_unconditional_branch(body_block);
+    }
+
+    // body:
+    self.builder.position_at_end(body_block);
+    let has_terminator_in_body = self.gen_statement(*body, vars)?;
+    if let Some(expr) = inc {
+      self.gen_expr(expr, vars)?;
+    }
+    if !has_terminator_in_body {
+      self.builder.build_unconditional_branch(begin_block);
+    }
+
+    // end:
+    self.builder.position_at_end(end_block);
+    if has_no_branch_to_end {
+      self.builder.build_unreachable();
+    }
+    Ok(has_no_branch_to_end)
   }
 
   fn gen_expr_into_int_value(
