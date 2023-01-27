@@ -435,19 +435,19 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
       AST::Add(n, m) => {
         let lhs = self.gen_expr(*n, vars)?;
         let rhs = self.gen_expr(*m, vars)?;
-        match (lhs.get_type(), rhs.get_type()) {
-          (BasicTypeEnum::IntType(_), BasicTypeEnum::IntType(_)) => {
+        match (lhs, rhs) {
+          (BasicValueEnum::IntValue(lhs), BasicValueEnum::IntValue(rhs)) => {
             let res = self
               .builder
-              .build_int_add(lhs.into_int_value(), rhs.into_int_value(), "tmpadd")
+              .build_int_add(lhs, rhs, "tmpadd")
               .as_basic_value_enum();
             Ok(res)
           }
-          (BasicTypeEnum::PointerType(_), BasicTypeEnum::IntType(_)) => {
-            Ok(self.gen_pointer_add_impl(lhs.into_pointer_value(), rhs.into_int_value()))
+          (BasicValueEnum::PointerValue(ptr), BasicValueEnum::IntValue(idx)) => {
+            Ok(self.gen_pointer_add_impl(ptr, idx))
           }
-          (BasicTypeEnum::IntType(_), BasicTypeEnum::PointerType(_)) => {
-            Ok(self.gen_pointer_add_impl(rhs.into_pointer_value(), lhs.into_int_value()))
+          (BasicValueEnum::IntValue(idx), BasicValueEnum::PointerValue(ptr)) => {
+            Ok(self.gen_pointer_add_impl(ptr, idx))
           }
           _ => Err("types of lhs and rhs of addition are not consistent")
         }
@@ -455,23 +455,23 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
       AST::Sub(n, m) => {
         let lhs = self.gen_expr(*n, vars)?;
         let rhs = self.gen_expr(*m, vars)?;
-        match (lhs.get_type(), rhs.get_type()) {
-          (BasicTypeEnum::IntType(_), BasicTypeEnum::IntType(_)) => {
+        match (lhs, rhs) {
+          (BasicValueEnum::IntValue(lhs), BasicValueEnum::IntValue(rhs)) => {
             let res = self
               .builder
-              .build_int_sub(lhs.into_int_value(), rhs.into_int_value(), "tmpsub")
+              .build_int_sub(lhs, rhs, "tmpadd")
               .as_basic_value_enum();
             Ok(res)
           }
-          (BasicTypeEnum::PointerType(_), BasicTypeEnum::IntType(_)) => {
-            let rhs_int = self.builder.build_int_neg(rhs.into_int_value(), "tmpneg");
-            Ok(self.gen_pointer_add_impl(lhs.into_pointer_value(), rhs_int))
+          (BasicValueEnum::PointerValue(ptr), BasicValueEnum::IntValue(idx)) => {
+            let idx = self.builder.build_int_neg(idx, "tmpneg");
+            Ok(self.gen_pointer_add_impl(ptr, idx))
           }
-          (BasicTypeEnum::PointerType(lhs_type), BasicTypeEnum::PointerType(rhs_type)) => {
-            if lhs_type.get_element_type() == rhs_type.get_element_type() {
+          (BasicValueEnum::PointerValue(lhs), BasicValueEnum::PointerValue(rhs)) => {
+            if lhs.get_type().get_element_type() == rhs.get_type().get_element_type() {
               let res = self
                 .builder
-                .build_ptr_diff(lhs.into_pointer_value(), rhs.into_pointer_value(), "tmp_ptr_diff")
+                .build_ptr_diff(lhs, rhs, "tmp_ptr_diff")
                 .as_basic_value_enum();
               Ok(res)
             } else {
