@@ -402,8 +402,11 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::EQ, lhs, rhs, "tmpcmp");
-        let b = self.builder.build_int_cast(cmp, i64_type, "tmpcast");
-        Ok(self.builder.build_int_neg(b, "tmpneg").as_basic_value_enum())
+        let zext = self
+          .builder
+          .build_int_z_extend(cmp, i64_type, "tmpzext")
+          .as_basic_value_enum();
+        Ok(zext)
       }
       AST::Ne(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n, vars)?;
@@ -411,26 +414,35 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::NE, lhs, rhs, "tmpcmp");
-        let b = self.builder.build_int_cast(cmp, i64_type, "tmpcast");
-        Ok(self.builder.build_int_neg(b, "tmpneg").as_basic_value_enum())
+        let zext = self
+          .builder
+          .build_int_z_extend(cmp, i64_type, "tmpzext")
+          .as_basic_value_enum();
+        Ok(zext)
       }
       AST::Lt(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n, vars)?;
         let rhs = self.gen_expr_into_int_value(*m, vars)?;
         let cmp = self
           .builder
-          .build_int_compare(IntPredicate::ULT, lhs, rhs, "tmpcmp");
-        let b = self.builder.build_int_cast(cmp, i64_type, "tmpcast");
-        Ok(self.builder.build_int_neg(b, "tmpneg").as_basic_value_enum())
+          .build_int_compare(IntPredicate::SLT, lhs, rhs, "tmpcmp");
+        let zext = self
+          .builder
+          .build_int_z_extend(cmp, i64_type, "tmpzext")
+          .as_basic_value_enum();
+        Ok(zext)
       }
       AST::Le(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n, vars)?;
         let rhs = self.gen_expr_into_int_value(*m, vars)?;
         let cmp = self
           .builder
-          .build_int_compare(IntPredicate::ULE, lhs, rhs, "tmpcmp");
-        let b = self.builder.build_int_cast(cmp, i64_type, "tmpcast");
-        Ok(self.builder.build_int_neg(b, "tmpneg").as_basic_value_enum())
+          .build_int_compare(IntPredicate::SLE, lhs, rhs, "tmpcmp");
+        let zext = self
+          .builder
+          .build_int_z_extend(cmp, i64_type, "tmpzext")
+          .as_basic_value_enum();
+        Ok(zext)
       }
       AST::Add(n, m) => {
         let lhs = self.gen_expr(*n, vars)?;
