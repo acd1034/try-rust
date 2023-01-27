@@ -128,9 +128,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
             }
           }
 
-          for stmt in body {
-            self.gen_statement(stmt, &mut vars)?;
-          }
+          self.gen_statement(body, &mut vars)?;
 
           if fn_value.verify(true) {
             Ok(())

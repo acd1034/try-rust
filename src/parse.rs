@@ -9,7 +9,7 @@ pub enum Type {
 
 #[derive(Debug)]
 pub enum Function {
-  Function(Type, String, Vec<Type>, Vec<String>, Vec<Stmt>),
+  Function(Type, String, Vec<Type>, Vec<String>, Stmt),
   Prototype(Type, String, Vec<Type>),
 }
 
@@ -169,7 +169,7 @@ fn parse_function(it: &mut Tokenizer) -> Expected<Function> {
       name,
       param_tys,
       param_names,
-      body,
+      Stmt::Block(body),
     ))
   } else if consume(it, ";")? {
     Ok(Function::Prototype(ret_ty, name, param_tys))
