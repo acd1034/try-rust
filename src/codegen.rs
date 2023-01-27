@@ -468,7 +468,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
             Ok(self.gen_pointer_add_impl(ptr, idx))
           }
           (BasicValueEnum::PointerValue(lhs), BasicValueEnum::PointerValue(rhs)) => {
-            if lhs.get_type().get_element_type() == rhs.get_type().get_element_type() {
+            if lhs.get_type() == rhs.get_type() {
               let res = self
                 .builder
                 .build_ptr_diff(lhs, rhs, "tmp_ptr_diff")
