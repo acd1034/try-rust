@@ -4,20 +4,31 @@ mod tokenize;
 use inkwell::context::Context;
 use tokenize::Expected;
 
-fn compile(s: &str) -> Expected<String> {
-  let it = tokenize::Tokenizer::new(s);
+fn main() -> Expected<()> {
+  let mut use_inkwell = false;
+  let mut input = String::new();
+  for arg in std::env::args().skip(1) {
+    match arg.as_str() {
+      "-inkwell" => {
+        use_inkwell = true;
+      }
+      _ => {
+        input = arg;
+      }
+    }
+  }
+
+  let it = tokenize::Tokenizer::new(&input);
   let functions = parse::parse(it)?;
 
-  let context = Context::create();
-  let codegen = codegen::CodeGen::new(&context);
-  codegen.codegen(functions)
-}
+  let code = if use_inkwell {
+    let context = Context::create();
+    let codegen = codegen::CodeGen::new(&context);
+    codegen.codegen(functions)?
+  } else {
+    todo!()
+  };
 
-fn main() -> Expected<()> {
-  let arg = std::env::args()
-    .nth(1)
-    .ok_or("main: invalid number of arguments")?;
-  let ir = compile(&arg)?;
-  println!("{}", ir);
+  println!("{}", code);
   Ok(())
 }
