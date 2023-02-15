@@ -35,11 +35,6 @@ assert_fail() {
   fi
 }
 
-cargo build
-if [ $? -ne 0 ]; then
-  exit 1
-fi
-
 # TODO:
 # assert 0 'int main() { a = 0; return a; a = 1; }'
 # assert_fail 'int main() { x=3; &+x; return x; }'
