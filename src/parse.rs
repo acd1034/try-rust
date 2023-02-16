@@ -10,7 +10,7 @@ pub enum Type {
 #[derive(Debug)]
 pub enum Fun {
   FunDecl(Type, String, Vec<Type>),
-  FunDef(Type, String, Vec<Type>, Vec<String>, Stmt),
+  FunDef(Type, String, Vec<Type>, Vec<String>, Vec<Stmt>),
 }
 
 #[derive(Debug)]
@@ -166,13 +166,7 @@ fn parse_fun(it: &mut Tokenizer) -> Expected<Fun> {
     while !consume(it, "}")? {
       body.push(parse_stmt(it)?);
     }
-    Ok(Fun::FunDef(
-      ret_ty,
-      name,
-      param_tys,
-      param_names,
-      Stmt::Block(body),
-    ))
+    Ok(Fun::FunDef(ret_ty, name, param_tys, param_names, body))
   } else {
     Err("unexpected token, expecting `{` or `;`")
   }

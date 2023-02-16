@@ -29,22 +29,59 @@ impl<'ctx> CodeGen<'ctx> {
   }
 }
 
+struct Scope<'ctx> {
+  vars: Vec<HashMap<String, PointerValue<'ctx>>>,
+}
+
+impl<'ctx> Scope<'ctx> {
+  fn new() -> Scope<'ctx> {
+    let vars = Vec::new();
+    Scope { vars }
+  }
+
+  fn push(&mut self) {
+    self.vars.push(HashMap::new());
+  }
+
+  fn pop(&mut self) {
+    self.vars.pop();
+  }
+
+  fn insert(&mut self, k: String, v: PointerValue<'ctx>) -> Option<PointerValue<'ctx>> {
+    self.vars.last_mut().unwrap().insert(k, v)
+  }
+
+  fn get(&self, k: &str) -> Option<&PointerValue<'ctx>> {
+    self.vars.last().unwrap().get(k)
+  }
+
+  fn get_all(&self, k: &str) -> Option<&PointerValue<'ctx>> {
+    for vars in self.vars.iter().rev() {
+      let var = vars.get(k);
+      if var.is_some() {
+        return var;
+      }
+    }
+    None
+  }
+}
+
 struct GenFun<'a, 'ctx> {
   context: &'ctx Context,
   module: &'a Module<'ctx>,
   builder: Builder<'ctx>,
-  vars: HashMap<String, PointerValue<'ctx>>,
+  scope: Scope<'ctx>,
 }
 
 impl<'a, 'ctx> GenFun<'a, 'ctx> {
   fn new(context: &'ctx Context, module: &'a Module<'ctx>) -> GenFun<'a, 'ctx> {
     let builder = context.create_builder();
-    let vars = HashMap::new();
+    let scope = Scope::new();
     GenFun {
       context,
       module,
       builder,
-      vars,
+      scope,
     }
   }
 
@@ -85,7 +122,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     }
 
     let alloca = builder.build_alloca(var_type, &name);
-    self.vars.insert(name, alloca);
+    self.scope.insert(name, alloca);
     alloca
   }
 
@@ -137,28 +174,44 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     name: &str,
     param_tys: Vec<Type>,
     param_names: Vec<String>,
-    body: Stmt,
+    body: Vec<Stmt>,
   ) -> Expected<FunctionValue<'ctx>> {
     assert_eq!(param_tys.len(), param_names.len());
+    // Check consistency with forward declaration
     let fn_value = self.gen_fun_decl(ret_ty, &name, param_tys)?;
+    // Check function is not defined
     if fn_value.count_basic_blocks() != 0 {
       return Err("fun already defined");
     }
 
+    // Create first basic block
     let entry_block = self.context.append_basic_block(fn_value, "entry");
     self.builder.position_at_end(entry_block);
+    // Create first variable scope
+    self.scope.push();
+    // Allocate function parameters
     for (name, param) in std::iter::zip(param_names, fn_value.get_param_iter()) {
-      if self.vars.get(&name).is_none() {
+      if self.scope.get(&name).is_none() {
         let alloca = self.create_entry_block_alloca(param.get_type(), name);
         self.builder.build_store(alloca, param);
       } else {
         return Err("function parameter already defined");
       }
     }
+    // Generate function body
+    let mut has_terminator = false;
+    for stmt in body {
+      has_terminator = self.gen_stmt(stmt)?;
+      if has_terminator {
+        break;
+      }
+    }
+    // Remove first scope
+    self.scope.pop();
 
-    let has_terminator = self.gen_stmt(body)?;
+    // verify
     if !has_terminator {
-      return Err("gen_function: no terminator in function");
+      return Err("gen_fun: no terminator in function");
     }
 
     if fn_value.verify(true) {
@@ -166,7 +219,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     } else {
       // TODO: 前方宣言後の定義ならば定義のみ消す。前方宣言なしの定義ならば宣言ごと消す
       // unsafe { fn_value.delete(); }
-      Err("gen_function: failed to verify function")
+      Err("gen_fun: failed to verify function")
     }
   }
 
@@ -176,7 +229,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
   fn gen_stmt(&mut self, stmt: Stmt) -> Expected<bool> {
     match stmt {
       Stmt::VarDef(ty, name, init) => {
-        if self.vars.get(&name).is_some() {
+        if self.scope.get(&name).is_some() {
           return Err("variable already defined");
         }
 
@@ -196,6 +249,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
         Ok(true)
       }
       Stmt::Block(stmts) => {
+        self.scope.push();
         let mut has_terminator = false;
         for stmt in stmts {
           has_terminator = self.gen_stmt(stmt)?;
@@ -203,6 +257,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
             break;
           }
         }
+        self.scope.pop();
         Ok(has_terminator)
       }
       Stmt::Expr(expr) => {
@@ -551,7 +606,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
           Err("cannot dereference int value")
         }
       }
-      AST::Ident(name) => match self.vars.get(&name) {
+      AST::Ident(name) => match self.scope.get_all(&name) {
         Some(&var) => Ok(var),
         None => Err("variable should be declared before its first use"),
       },
