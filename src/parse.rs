@@ -8,14 +8,14 @@ pub enum Type {
 }
 
 #[derive(Debug)]
-pub enum Function {
-  Prototype(Type, String, Vec<Type>),
-  Definition(Type, String, Vec<Type>, Vec<String>, Stmt),
+pub enum Fun {
+  FunDecl(Type, String, Vec<Type>),
+  FunDef(Type, String, Vec<Type>, Vec<String>, Stmt),
 }
 
 #[derive(Debug)]
 pub enum Stmt {
-  VarDecl(Type, String, Option<AST>),
+  VarDef(Type, String, Option<AST>),
   IfElse(AST, Box<Stmt>, Option<Box<Stmt>>),
   For(Option<AST>, Option<AST>, Option<AST>, Box<Stmt>),
   Return(AST),
@@ -112,19 +112,19 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
   }
 }
 
-/* program     = function* eof
- * function    = declspec declarator func_params ";"
- *             | declspec declarator func_params "{" statement* "}"
+/* program     = fun* eof
+ * fun         = declspec declarator fun_params ";"
+ *             | declspec declarator fun_params "{" stmt* "}"
  * declspec    = "int"
  * declarator  = "*"* ident ("[" num "]")?
- * func_params = "(" param (("," param)*)? ")"
+ * fun_params  = "(" param (("," param)*)? ")"
  * param       = declspec declarator
  *
- * statement   = declspec declarator ("=" expr)? ";"
- *             | "if" "(" expr ")" statement ("else" statement)?
- *             | "for" "(" expr? ";" expr? ";" expr? ")" statement
+ * stmt        = declspec declarator ("=" expr)? ";"
+ *             | "if" "(" expr ")" stmt ("else" stmt)?
+ *             | "for" "(" expr? ";" expr? ";" expr? ")" stmt
  *             | "return" expr ";"
- *             | "{" statement* "}"
+ *             | "{" stmt* "}"
  *             | ";"
  *             | expr ";"
  *
@@ -138,35 +138,35 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  *             | postfix
  * postfix     = primary ("[" expr "]")?
  * primary     = "(" expr ")"
- *             | ident "(" func_args
+ *             | ident "(" fun_args
  *             | ident
  *             | num
- * func_args   = (expr ("," expr)*)? ")"
+ * fun_args    = (expr ("," expr)*)? ")"
  */
 
-// program     = function* eof
-pub fn parse(mut it: Tokenizer) -> Expected<Vec<Function>> {
-  let mut functions = Vec::new();
+// program     = fun* eof
+pub fn parse(mut it: Tokenizer) -> Expected<Vec<Fun>> {
+  let mut funs = Vec::new();
   while !consume_eof(&mut it)? {
-    functions.push(parse_function(&mut it)?);
+    funs.push(parse_fun(&mut it)?);
   }
-  Ok(functions)
+  Ok(funs)
 }
 
-// function    = declspec declarator func_params ";"
-//             | declspec declarator func_params "{" statement* "}"
-fn parse_function(it: &mut Tokenizer) -> Expected<Function> {
+// fun         = declspec declarator fun_params ";"
+//             | declspec declarator fun_params "{" stmt* "}"
+fn parse_fun(it: &mut Tokenizer) -> Expected<Fun> {
   let ty = parse_declspec(it)?;
   let (ret_ty, name) = parse_declarator(it, ty)?;
-  let (param_tys, param_names) = parse_func_params(it)?;
+  let (param_tys, param_names) = parse_fun_params(it)?;
   if consume(it, ";")? {
-    Ok(Function::Prototype(ret_ty, name, param_tys))
+    Ok(Fun::FunDecl(ret_ty, name, param_tys))
   } else if consume(it, "{")? {
     let mut body = Vec::new();
     while !consume(it, "}")? {
-      body.push(parse_statement(it)?);
+      body.push(parse_stmt(it)?);
     }
-    Ok(Function::Definition(
+    Ok(Fun::FunDef(
       ret_ty,
       name,
       param_tys,
@@ -209,8 +209,8 @@ fn parse_declarator(it: &mut Tokenizer, mut ty: Type) -> Expected<(Type, String)
   Ok((ty, name))
 }
 
-// func_params = "(" param (("," param)*)? ")"
-fn parse_func_params(it: &mut Tokenizer) -> Expected<(Vec<Type>, Vec<String>)> {
+// fun_params  = "(" param (("," param)*)? ")"
+fn parse_fun_params(it: &mut Tokenizer) -> Expected<(Vec<Type>, Vec<String>)> {
   expect(it, "(")?;
   let mut params = Vec::new();
   if !consume(it, ")")? {
@@ -229,14 +229,14 @@ fn parse_param(it: &mut Tokenizer) -> Expected<(Type, String)> {
   parse_declarator(it, ty)
 }
 
-// statement   = declspec declarator ("=" expr)? ";"
-//             | "if" "(" expr ")" statement ("else" statement)?
-//             | "for" "(" expr? ";" expr? ";" expr? ")" statement
+// stmt        = declspec declarator ("=" expr)? ";"
+//             | "if" "(" expr ")" stmt ("else" stmt)?
+//             | "for" "(" expr? ";" expr? ";" expr? ")" stmt
 //             | "return" expr ";"
-//             | "{" statement* "}"
+//             | "{" stmt* "}"
 //             | ";"
 //             | expr ";"
-fn parse_statement(it: &mut Tokenizer) -> Expected<Stmt> {
+fn parse_stmt(it: &mut Tokenizer) -> Expected<Stmt> {
   if let Some(ty) = consume_declspec(it)? {
     let (ty, name) = parse_declarator(it, ty)?;
     let init = if consume(it, "=")? {
@@ -244,14 +244,14 @@ fn parse_statement(it: &mut Tokenizer) -> Expected<Stmt> {
     } else {
       None
     };
-    Ok(Stmt::VarDecl(ty, name, init))
+    Ok(Stmt::VarDef(ty, name, init))
   } else if consume_keyword(it, "if")? {
     expect(it, "(")?;
     let cond = parse_expr(it)?;
     expect(it, ")")?;
-    let then_stmt = Box::new(parse_statement(it)?);
+    let then_stmt = Box::new(parse_stmt(it)?);
     let else_stmt = if consume_keyword(it, "else")? {
-      Some(Box::new(parse_statement(it)?))
+      Some(Box::new(parse_stmt(it)?))
     } else {
       None
     };
@@ -264,7 +264,7 @@ fn parse_statement(it: &mut Tokenizer) -> Expected<Stmt> {
     expect(it, ";")?;
     let n3 = parse_expr(it).ok();
     expect(it, ")")?;
-    let stmt = Box::new(parse_statement(it)?);
+    let stmt = Box::new(parse_stmt(it)?);
     Ok(Stmt::For(n1, n2, n3, stmt))
   } else if consume_keyword(it, "return")? {
     let n = parse_expr(it)?;
@@ -273,7 +273,7 @@ fn parse_statement(it: &mut Tokenizer) -> Expected<Stmt> {
   } else if consume(it, "{")? {
     let mut stmts = Vec::new();
     while !consume(it, "}")? {
-      stmts.push(parse_statement(it)?);
+      stmts.push(parse_stmt(it)?);
     }
     Ok(Stmt::Block(stmts))
   } else if consume(it, ";")? {
@@ -413,7 +413,7 @@ fn parse_postfix(it: &mut Tokenizer) -> Expected<AST> {
 }
 
 // primary     = "(" expr ")"
-//             | ident "(" func_args
+//             | ident "(" fun_args
 //             | ident
 //             | num
 fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
@@ -423,7 +423,7 @@ fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
     Ok(n)
   } else if let Some(name) = consume_ident(it)? {
     if consume(it, "(")? {
-      let args = parse_func_args(it)?;
+      let args = parse_fun_args(it)?;
       Ok(AST::Call(name, args))
     } else {
       Ok(AST::Ident(name))
@@ -435,8 +435,8 @@ fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
   }
 }
 
-// func_args   = (expr ("," expr)*)? ")"
-fn parse_func_args(it: &mut Tokenizer) -> Expected<Vec<AST>> {
+// fun_args    = (expr ("," expr)*)? ")"
+fn parse_fun_args(it: &mut Tokenizer) -> Expected<Vec<AST>> {
   let mut args = Vec::new();
   if consume(it, ")")? {
     Ok(args)

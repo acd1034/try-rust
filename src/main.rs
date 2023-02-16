@@ -19,11 +19,11 @@ fn main() -> Expected<()> {
   }
 
   let it = tokenize::Tokenizer::new(&input);
-  let functions = parse::parse(it)?;
+  let funs = parse::parse(it)?;
 
   let code = if use_inkwell {
     let context = Context::create();
-    codegen::CodeGen::new(&context).codegen(functions)?
+    codegen::CodeGen::new(&context).codegen(funs)?
   } else {
     todo!()
   };

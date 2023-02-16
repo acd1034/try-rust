@@ -1,4 +1,4 @@
-use crate::parse::{Function, Stmt, Type, AST};
+use crate::parse::{Fun, Stmt, Type, AST};
 use crate::tokenize::Expected;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
@@ -20,27 +20,27 @@ impl<'ctx> CodeGen<'ctx> {
     CodeGen { context }
   }
 
-  pub fn codegen(self, functions: Vec<Function>) -> Expected<String> {
+  pub fn codegen(self, funs: Vec<Fun>) -> Expected<String> {
     let module = self.context.create_module("mod");
-    for function in functions {
-      GenFunction::new(self.context, &module).gen_function(function)?;
+    for fun in funs {
+      GenFun::new(self.context, &module).gen_fun(fun)?;
     }
     Ok(module.to_string())
   }
 }
 
-struct GenFunction<'a, 'ctx> {
+struct GenFun<'a, 'ctx> {
   context: &'ctx Context,
   module: &'a Module<'ctx>,
   builder: Builder<'ctx>,
   vars: HashMap<String, PointerValue<'ctx>>,
 }
 
-impl<'a, 'ctx> GenFunction<'a, 'ctx> {
-  fn new(context: &'ctx Context, module: &'a Module<'ctx>) -> GenFunction<'a, 'ctx> {
+impl<'a, 'ctx> GenFun<'a, 'ctx> {
+  fn new(context: &'ctx Context, module: &'a Module<'ctx>) -> GenFun<'a, 'ctx> {
     let builder = context.create_builder();
     let vars = HashMap::new();
-    GenFunction {
+    GenFun {
       context,
       module,
       builder,
@@ -66,7 +66,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     self.builder.get_insert_block().unwrap()
   }
 
-  fn get_current_function(&self) -> FunctionValue<'ctx> {
+  fn get_current_fun(&self) -> FunctionValue<'ctx> {
     self.get_current_basic_block().get_parent().unwrap()
   }
 
@@ -76,7 +76,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     var_type: BasicTypeEnum<'ctx>,
     name: String,
   ) -> PointerValue<'ctx> {
-    let fn_value = self.get_current_function();
+    let fn_value = self.get_current_fun();
     let entry_block = fn_value.get_first_basic_block().unwrap();
     let builder = self.context.create_builder();
     match entry_block.get_first_instruction() {
@@ -89,18 +89,18 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     alloca
   }
 
-  // ----- gen_function -----
+  // ----- gen_fun -----
 
-  fn gen_function(mut self, function: Function) -> Expected<FunctionValue<'ctx>> {
-    match function {
-      Function::Prototype(ret_ty, name, param_tys) => self.gen_prototype(ret_ty, &name, param_tys),
-      Function::Definition(ret_ty, name, param_tys, param_names, body) => {
-        self.gen_definition(ret_ty, &name, param_tys, param_names, body)
+  fn gen_fun(mut self, fun: Fun) -> Expected<FunctionValue<'ctx>> {
+    match fun {
+      Fun::FunDecl(ret_ty, name, param_tys) => self.gen_fun_decl(ret_ty, &name, param_tys),
+      Fun::FunDef(ret_ty, name, param_tys, param_names, body) => {
+        self.gen_fun_def(ret_ty, &name, param_tys, param_names, body)
       }
     }
   }
 
-  fn gen_prototype(
+  fn gen_fun_decl(
     &self,
     ret_ty: Type,
     name: &str,
@@ -131,7 +131,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     }
   }
 
-  fn gen_definition(
+  fn gen_fun_def(
     &mut self,
     ret_ty: Type,
     name: &str,
@@ -140,9 +140,9 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     body: Stmt,
   ) -> Expected<FunctionValue<'ctx>> {
     assert_eq!(param_tys.len(), param_names.len());
-    let fn_value = self.gen_prototype(ret_ty, &name, param_tys)?;
+    let fn_value = self.gen_fun_decl(ret_ty, &name, param_tys)?;
     if fn_value.count_basic_blocks() != 0 {
-      return Err("function already defined");
+      return Err("fun already defined");
     }
 
     let entry_block = self.context.append_basic_block(fn_value, "entry");
@@ -156,7 +156,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
       }
     }
 
-    let has_terminator = self.gen_statement(body)?;
+    let has_terminator = self.gen_stmt(body)?;
     if !has_terminator {
       return Err("gen_function: no terminator in function");
     }
@@ -170,12 +170,12 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     }
   }
 
-  // ----- gen_statement -----
+  // ----- gen_stmt -----
 
   // Returns if the last basic block has a terminator
-  fn gen_statement(&mut self, stmt: Stmt) -> Expected<bool> {
+  fn gen_stmt(&mut self, stmt: Stmt) -> Expected<bool> {
     match stmt {
-      Stmt::VarDecl(ty, name, init) => {
+      Stmt::VarDef(ty, name, init) => {
         if self.vars.get(&name).is_some() {
           return Err("variable already defined");
         }
@@ -198,7 +198,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
       Stmt::Block(stmts) => {
         let mut has_terminator = false;
         for stmt in stmts {
-          has_terminator = self.gen_statement(stmt)?;
+          has_terminator = self.gen_stmt(stmt)?;
           if has_terminator {
             break;
           }
@@ -247,7 +247,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
 
     // then:
     self.builder.position_at_end(then_block);
-    let has_terminator_in_then = self.gen_statement(*then)?;
+    let has_terminator_in_then = self.gen_stmt(*then)?;
     if !has_terminator_in_then {
       self.builder.build_unconditional_branch(cont_block);
     }
@@ -255,7 +255,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     // else:
     let has_terminator_in_else = if let Some(else_) = else_ {
       self.builder.position_at_end(else_block);
-      let has_terminator = self.gen_statement(*else_)?;
+      let has_terminator = self.gen_stmt(*else_)?;
       if !has_terminator {
         self.builder.build_unconditional_branch(cont_block);
       }
@@ -322,7 +322,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
 
     // body:
     self.builder.position_at_end(body_block);
-    let has_terminator_in_body = self.gen_statement(*body)?;
+    let has_terminator_in_body = self.gen_stmt(*body)?;
     if let Some(expr) = inc {
       self.gen_expr(expr)?;
     }
