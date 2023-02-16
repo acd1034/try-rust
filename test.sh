@@ -11,7 +11,7 @@ assert() {
   input="$2"
   echo -en "$ESC[32m$input\n$ESC[m=> "
 
-  ./target/debug/try-rust "-inkwell" "$input" > tmp.ll
+  ./target/debug/try-rust "-inkwell" "$input" > tmp.ll || exit
   $LLVM_SYS_120_PREFIX/bin/clang -o tmp tmp.ll tmp2.o -Wno-override-module
   ./tmp
   actual="$?"
@@ -27,7 +27,7 @@ assert_fail() {
   input="$1"
   echo -en "$ESC[31m$input\n$ESC[m=> "
 
-  ./target/debug/try-rust "-inkwell" "$input" > /dev/null
+  ./target/debug/try-rust "-inkwell" "$input" > /dev/null || exit
 
   if [ $? -eq 0 ]; then
     echo "Error: unexpected success in compiling"
