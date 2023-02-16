@@ -20,7 +20,7 @@ impl<'ctx> CodeGen<'ctx> {
     CodeGen { context }
   }
 
-  pub fn codegen(&self, functions: Vec<Function>) -> Expected<String> {
+  pub fn codegen(self, functions: Vec<Function>) -> Expected<String> {
     let module = self.context.create_module("mod");
     for function in functions {
       GenFunction::new(self.context, &module).gen_function(function)?;
@@ -33,15 +33,18 @@ struct GenFunction<'a, 'ctx> {
   context: &'ctx Context,
   module: &'a Module<'ctx>,
   builder: Builder<'ctx>,
+  vars: HashMap<String, PointerValue<'ctx>>,
 }
 
 impl<'a, 'ctx> GenFunction<'a, 'ctx> {
   fn new(context: &'ctx Context, module: &'a Module<'ctx>) -> GenFunction<'a, 'ctx> {
     let builder = context.create_builder();
+    let vars = HashMap::new();
     GenFunction {
       context,
       module,
       builder,
+      vars,
     }
   }
 
@@ -69,10 +72,9 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
 
   // Creates a new stack allocation instruction in the entry block of the function
   fn create_entry_block_alloca(
-    &self,
+    &mut self,
     var_type: BasicTypeEnum<'ctx>,
     name: String,
-    vars: &mut HashMap<String, PointerValue<'ctx>>,
   ) -> PointerValue<'ctx> {
     let fn_value = self.get_current_function();
     let entry_block = fn_value.get_first_basic_block().unwrap();
@@ -83,13 +85,13 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     }
 
     let alloca = builder.build_alloca(var_type, &name);
-    vars.insert(name, alloca);
+    self.vars.insert(name, alloca);
     alloca
   }
 
   // ----- gen_function -----
 
-  fn gen_function(&self, function: Function) -> Expected<FunctionValue<'ctx>> {
+  fn gen_function(mut self, function: Function) -> Expected<FunctionValue<'ctx>> {
     match function {
       Function::Prototype(ret_ty, name, param_tys) => self.gen_prototype(ret_ty, &name, param_tys),
       Function::Definition(ret_ty, name, param_tys, param_names, body) => {
@@ -130,7 +132,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
   }
 
   fn gen_definition(
-    &self,
+    &mut self,
     ret_ty: Type,
     name: &str,
     param_tys: Vec<Type>,
@@ -145,17 +147,16 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
 
     let entry_block = self.context.append_basic_block(fn_value, "entry");
     self.builder.position_at_end(entry_block);
-    let mut vars: HashMap<String, PointerValue<'ctx>> = HashMap::new();
     for (name, param) in std::iter::zip(param_names, fn_value.get_param_iter()) {
-      if vars.get(&name).is_none() {
-        let alloca = self.create_entry_block_alloca(param.get_type(), name, &mut vars);
+      if self.vars.get(&name).is_none() {
+        let alloca = self.create_entry_block_alloca(param.get_type(), name);
         self.builder.build_store(alloca, param);
       } else {
         return Err("function parameter already defined");
       }
     }
 
-    let has_terminator = self.gen_statement(body, &mut vars)?;
+    let has_terminator = self.gen_statement(body)?;
     if !has_terminator {
       return Err("gen_function: no terminator in function");
     }
@@ -172,36 +173,32 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
   // ----- gen_statement -----
 
   // Returns if the last basic block has a terminator
-  fn gen_statement(
-    &self,
-    stmt: Stmt,
-    vars: &mut HashMap<String, PointerValue<'ctx>>,
-  ) -> Expected<bool> {
+  fn gen_statement(&mut self, stmt: Stmt) -> Expected<bool> {
     match stmt {
       Stmt::VarDecl(ty, name, init) => {
-        if vars.get(&name).is_some() {
+        if self.vars.get(&name).is_some() {
           return Err("variable already defined");
         }
 
         let var_type = self.into_inkwell_type(ty);
-        let alloca = self.create_entry_block_alloca(var_type, name, vars);
+        let alloca = self.create_entry_block_alloca(var_type, name);
         if let Some(expr) = init {
-          let rhs = self.gen_expr(expr, vars)?;
+          let rhs = self.gen_expr(expr)?;
           self.gen_assign_impl(alloca, rhs)?;
         }
         Ok(false)
       }
-      Stmt::IfElse(cond, then, else_) => self.gen_if_else(cond, then, else_, vars),
-      Stmt::For(init, cond, inc, body) => self.gen_for(init, cond, inc, body, vars),
+      Stmt::IfElse(cond, then, else_) => self.gen_if_else(cond, then, else_),
+      Stmt::For(init, cond, inc, body) => self.gen_for(init, cond, inc, body),
       Stmt::Return(expr) => {
-        let ret = self.gen_expr(expr, vars)?;
+        let ret = self.gen_expr(expr)?;
         self.builder.build_return(Some(&ret));
         Ok(true)
       }
       Stmt::Block(stmts) => {
         let mut has_terminator = false;
         for stmt in stmts {
-          has_terminator = self.gen_statement(stmt, vars)?;
+          has_terminator = self.gen_statement(stmt)?;
           if has_terminator {
             break;
           }
@@ -209,18 +206,17 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(has_terminator)
       }
       Stmt::Expr(expr) => {
-        self.gen_expr(expr, vars)?;
+        self.gen_expr(expr)?;
         Ok(false)
       }
     }
   }
 
   fn gen_if_else(
-    &self,
+    &mut self,
     cond: AST,
     then: Box<Stmt>,
     else_: Option<Box<Stmt>>,
-    vars: &mut HashMap<String, PointerValue<'ctx>>,
   ) -> Expected<bool> {
     /* `if (A) B else C`
      *   A != 0 ? goto then : goto else;
@@ -240,7 +236,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
       else_block
     };
 
-    let cond = self.gen_expr_into_int_value(cond, vars)?;
+    let cond = self.gen_expr_into_int_value(cond)?;
     let zero = self.context.i64_type().const_int(0, false);
     let cond = self
       .builder
@@ -251,7 +247,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
 
     // then:
     self.builder.position_at_end(then_block);
-    let has_terminator_in_then = self.gen_statement(*then, vars)?;
+    let has_terminator_in_then = self.gen_statement(*then)?;
     if !has_terminator_in_then {
       self.builder.build_unconditional_branch(cont_block);
     }
@@ -259,7 +255,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     // else:
     let has_terminator_in_else = if let Some(else_) = else_ {
       self.builder.position_at_end(else_block);
-      let has_terminator = self.gen_statement(*else_, vars)?;
+      let has_terminator = self.gen_statement(*else_)?;
       if !has_terminator {
         self.builder.build_unconditional_branch(cont_block);
       }
@@ -279,12 +275,11 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
   }
 
   fn gen_for(
-    &self,
+    &mut self,
     init: Option<AST>,
     cond: Option<AST>,
     inc: Option<AST>,
     body: Box<Stmt>,
-    vars: &mut HashMap<String, PointerValue<'ctx>>,
   ) -> Expected<bool> {
     /* `for (A; B; C) D`
      *   A;
@@ -305,7 +300,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     let end_block = self.context.insert_basic_block_after(body_block, "end");
 
     if let Some(expr) = init {
-      self.gen_expr(expr, vars)?;
+      self.gen_expr(expr)?;
     }
     self.builder.build_unconditional_branch(begin_block);
 
@@ -313,7 +308,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     self.builder.position_at_end(begin_block);
     let has_no_branch_to_end = cond.is_none();
     if let Some(expr) = cond {
-      let cond = self.gen_expr_into_int_value(expr, vars)?;
+      let cond = self.gen_expr_into_int_value(expr)?;
       let zero = self.context.i64_type().const_int(0, false);
       let cond = self
         .builder
@@ -327,9 +322,9 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
 
     // body:
     self.builder.position_at_end(body_block);
-    let has_terminator_in_body = self.gen_statement(*body, vars)?;
+    let has_terminator_in_body = self.gen_statement(*body)?;
     if let Some(expr) = inc {
-      self.gen_expr(expr, vars)?;
+      self.gen_expr(expr)?;
     }
     if !has_terminator_in_body {
       self.builder.build_unconditional_branch(begin_block);
@@ -345,12 +340,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
 
   // ----- gen_expr -----
 
-  fn gen_expr_into_int_value(
-    &self,
-    expr: AST,
-    vars: &mut HashMap<String, PointerValue<'ctx>>,
-  ) -> Expected<IntValue<'ctx>> {
-    let value = self.gen_expr(expr, vars)?;
+  fn gen_expr_into_int_value(&self, expr: AST) -> Expected<IntValue<'ctx>> {
+    let value = self.gen_expr(expr)?;
     if value.is_int_value() {
       Ok(value.into_int_value())
     } else {
@@ -358,16 +349,12 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
     }
   }
 
-  fn gen_expr(
-    &self,
-    expr: AST,
-    vars: &mut HashMap<String, PointerValue<'ctx>>,
-  ) -> Expected<BasicValueEnum<'ctx>> {
+  fn gen_expr(&self, expr: AST) -> Expected<BasicValueEnum<'ctx>> {
     let i64_type = self.context.i64_type();
     match expr {
       AST::Eq(n, m) => {
-        let lhs = self.gen_expr_into_int_value(*n, vars)?;
-        let rhs = self.gen_expr_into_int_value(*m, vars)?;
+        let lhs = self.gen_expr_into_int_value(*n)?;
+        let rhs = self.gen_expr_into_int_value(*m)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::EQ, lhs, rhs, "tmpcmp");
@@ -378,8 +365,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(zext)
       }
       AST::Ne(n, m) => {
-        let lhs = self.gen_expr_into_int_value(*n, vars)?;
-        let rhs = self.gen_expr_into_int_value(*m, vars)?;
+        let lhs = self.gen_expr_into_int_value(*n)?;
+        let rhs = self.gen_expr_into_int_value(*m)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::NE, lhs, rhs, "tmpcmp");
@@ -390,8 +377,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(zext)
       }
       AST::Lt(n, m) => {
-        let lhs = self.gen_expr_into_int_value(*n, vars)?;
-        let rhs = self.gen_expr_into_int_value(*m, vars)?;
+        let lhs = self.gen_expr_into_int_value(*n)?;
+        let rhs = self.gen_expr_into_int_value(*m)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::SLT, lhs, rhs, "tmpcmp");
@@ -402,8 +389,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(zext)
       }
       AST::Le(n, m) => {
-        let lhs = self.gen_expr_into_int_value(*n, vars)?;
-        let rhs = self.gen_expr_into_int_value(*m, vars)?;
+        let lhs = self.gen_expr_into_int_value(*n)?;
+        let rhs = self.gen_expr_into_int_value(*m)?;
         let cmp = self
           .builder
           .build_int_compare(IntPredicate::SLE, lhs, rhs, "tmpcmp");
@@ -414,8 +401,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(zext)
       }
       AST::Add(n, m) => {
-        let lhs = self.gen_expr(*n, vars)?;
-        let rhs = self.gen_expr(*m, vars)?;
+        let lhs = self.gen_expr(*n)?;
+        let rhs = self.gen_expr(*m)?;
         match (lhs, rhs) {
           (BasicValueEnum::IntValue(lhs), BasicValueEnum::IntValue(rhs)) => {
             let res = self
@@ -430,12 +417,12 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           (BasicValueEnum::IntValue(idx), BasicValueEnum::PointerValue(ptr)) => {
             Ok(self.gen_pointer_add_impl(ptr, idx))
           }
-          _ => Err("types of lhs and rhs of addition are not consistent")
+          _ => Err("types of lhs and rhs of addition are not consistent"),
         }
       }
       AST::Sub(n, m) => {
-        let lhs = self.gen_expr(*n, vars)?;
-        let rhs = self.gen_expr(*m, vars)?;
+        let lhs = self.gen_expr(*n)?;
+        let rhs = self.gen_expr(*m)?;
         match (lhs, rhs) {
           (BasicValueEnum::IntValue(lhs), BasicValueEnum::IntValue(rhs)) => {
             let res = self
@@ -459,12 +446,12 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
               Err("types of lhs and rhs of pointer-pointer subtraction are not consistent")
             }
           }
-          _ => Err("types of lhs and rhs of subtraction are not consistent")
+          _ => Err("types of lhs and rhs of subtraction are not consistent"),
         }
       }
       AST::Mul(n, m) => {
-        let lhs = self.gen_expr_into_int_value(*n, vars)?;
-        let rhs = self.gen_expr_into_int_value(*m, vars)?;
+        let lhs = self.gen_expr_into_int_value(*n)?;
+        let rhs = self.gen_expr_into_int_value(*m)?;
         let res = self
           .builder
           .build_int_mul(lhs, rhs, "tmpmul")
@@ -472,8 +459,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(res)
       }
       AST::Div(n, m) => {
-        let lhs = self.gen_expr_into_int_value(*n, vars)?;
-        let rhs = self.gen_expr_into_int_value(*m, vars)?;
+        let lhs = self.gen_expr_into_int_value(*n)?;
+        let rhs = self.gen_expr_into_int_value(*m)?;
         let res = self
           .builder
           .build_int_signed_div(lhs, rhs, "tmpdiv")
@@ -481,7 +468,7 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         Ok(res)
       }
       AST::Addr(n) => {
-        let var = self.gen_addr(*n, vars)?;
+        let var = self.gen_addr(*n)?;
         if var.get_type().get_element_type().is_array_type() {
           Ok(self.gen_array_addr_impl(var))
         } else {
@@ -493,14 +480,11 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
           let stored_param_types = callee.get_type().get_param_types();
           let args = args
             .into_iter()
-            .map(|expr| self.gen_expr(expr, vars))
+            .map(|expr| self.gen_expr(expr))
             .collect::<Result<Vec<_>, _>>()?;
           let arg_types: Vec<_> = args.iter().map(|arg| arg.get_type()).collect();
           if arg_types == stored_param_types {
-            let args: Vec<_> = args
-              .into_iter()
-              .map(|arg| arg.into())
-              .collect();
+            let args: Vec<_> = args.into_iter().map(|arg| arg.into()).collect();
             let res = self
               .builder
               .build_call(callee, args.as_slice(), "tmpcall")
@@ -515,8 +499,8 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
         }
       }
       AST::Num(n) => Ok(i64_type.const_int(n, false).as_basic_value_enum()),
-      lvalue /* AST::Assign, AST::Deref, AST::Ident */ => {
-        let var = self.gen_addr(lvalue, vars)?;
+      AST::Assign(..) | AST::Deref(..) | AST::Ident(..) => {
+        let var = self.gen_addr(expr)?;
         if var.get_type().get_element_type().is_array_type() {
           Ok(self.gen_array_addr_impl(var))
         } else {
@@ -552,26 +536,22 @@ impl<'a, 'ctx> GenFunction<'a, 'ctx> {
 
   // ----- gen_addr -----
 
-  fn gen_addr(
-    &self,
-    lvalue: AST,
-    vars: &mut HashMap<String, PointerValue<'ctx>>,
-  ) -> Expected<PointerValue<'ctx>> {
-    match lvalue {
+  fn gen_addr(&self, expr: AST) -> Expected<PointerValue<'ctx>> {
+    match expr {
       AST::Assign(n, m) => {
-        let rhs = self.gen_expr(*m, vars)?;
-        let lhs = self.gen_addr(*n, vars)?;
+        let rhs = self.gen_expr(*m)?;
+        let lhs = self.gen_addr(*n)?;
         self.gen_assign_impl(lhs, rhs)
       }
       AST::Deref(n) => {
-        let ptr = self.gen_expr(*n, vars)?;
+        let ptr = self.gen_expr(*n)?;
         if ptr.is_pointer_value() {
           Ok(ptr.into_pointer_value())
         } else {
           Err("cannot dereference int value")
         }
       }
-      AST::Ident(name) => match vars.get(&name) {
+      AST::Ident(name) => match self.vars.get(&name) {
         Some(&var) => Ok(var),
         None => Err("variable should be declared before its first use"),
       },

@@ -23,8 +23,7 @@ fn main() -> Expected<()> {
 
   let code = if use_inkwell {
     let context = Context::create();
-    let codegen = codegen::CodeGen::new(&context);
-    codegen.codegen(functions)?
+    codegen::CodeGen::new(&context).codegen(functions)?
   } else {
     todo!()
   };
