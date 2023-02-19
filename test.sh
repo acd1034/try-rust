@@ -11,7 +11,7 @@ assert() {
   input="$2"
   echo -en "$ESC[32m$input\n$ESC[m=> "
 
-  ./target/debug/try-rust "-inkwell" "$input" > tmp.ll || exit
+  echo "$input" | ./target/debug/try-rust "-inkwell" - > tmp.ll || exit
   $LLVM_SYS_120_PREFIX/bin/clang -o tmp tmp.ll tmp2.o -Wno-override-module
   ./tmp
   actual="$?"
@@ -27,11 +27,10 @@ assert_fail() {
   input="$1"
   echo -en "$ESC[31m$input\n$ESC[m=> "
 
-  ./target/debug/try-rust "-inkwell" "$input" > /dev/null && echo "Error: unexpected success in compiling"
+  echo "$input" | ./target/debug/try-rust "-inkwell" - > /dev/null && echo "Error: unexpected success in compiling"
 }
 
 # TODO:
-# assert 0 'int main() { a = 0; return a; a = 1; }'
 # assert_fail 'int main() { x=3; &+x; return x; }'
 # num
 assert 0 'int main() { return 0; }'
@@ -89,6 +88,7 @@ assert 1 'int main() { return 1; 2; 3; }'
 assert 2 'int main() { 1; return 2; 3; }'
 assert 3 'int main() { 1; 2; return 3; }'
 assert 0 'int main() { return 0; return 1; }'
+assert 0 'int main() { int a = 0; return a; a = 1; }'
 assert_fail 'int main() { 1; }'
 # block
 assert 3 'int main() { {1; {2;} return 3;} }'
