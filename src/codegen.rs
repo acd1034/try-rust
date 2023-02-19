@@ -267,12 +267,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     }
   }
 
-  fn gen_if_else(
-    &mut self,
-    cond: AST,
-    then: Box<Stmt>,
-    else_: Option<Box<Stmt>>,
-  ) -> Expected<bool> {
+  fn gen_if_else(&mut self, cond: AST, then: Box<Stmt>, else_: Box<Stmt>) -> Expected<bool> {
     /* `if (A) B else C`
      *   A != 0 ? goto then : goto else;
      * then:
@@ -280,16 +275,13 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
      *   goto cont;
      * else:
      *   C;
+     *   goto cont;
      * cont:
      */
     let current_block = self.get_current_basic_block();
     let then_block = self.context.insert_basic_block_after(current_block, "then");
     let else_block = self.context.insert_basic_block_after(then_block, "else");
-    let cont_block = if else_.is_some() {
-      self.context.insert_basic_block_after(else_block, "cont")
-    } else {
-      else_block
-    };
+    let cont_block = self.context.insert_basic_block_after(else_block, "cont");
 
     let cond = self.gen_expr_into_int_value(cond)?;
     let zero = self.context.i64_type().const_int(0, false);
@@ -308,16 +300,11 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     }
 
     // else:
-    let has_terminator_in_else = if let Some(else_) = else_ {
-      self.builder.position_at_end(else_block);
-      let has_terminator = self.gen_stmt(*else_)?;
-      if !has_terminator {
-        self.builder.build_unconditional_branch(cont_block);
-      }
-      has_terminator
-    } else {
-      false
-    };
+    self.builder.position_at_end(else_block);
+    let has_terminator_in_else = self.gen_stmt(*else_)?;
+    if !has_terminator_in_else {
+      self.builder.build_unconditional_branch(cont_block);
+    }
 
     // cont:
     self.builder.position_at_end(cont_block);
@@ -343,6 +330,8 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
      *   B != 0 ? goto body : goto end;
      * body:
      *   D;
+     *   goto inc;
+     * inc:
      *   C;
      *   goto begin;
      * end:
