@@ -302,14 +302,14 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     let cont_block = self.context.insert_basic_block_after(else_block, "cont");
 
     // cond:
-    let cond = self.gen_expr_into_int_value(cond)?;
-    let zero = self.context.i64_type().const_int(0, false);
-    let cond = self
+    let lhs = self.gen_expr_into_int_value(cond)?;
+    let zero = lhs.get_type().const_int(0, false);
+    let comp = self
       .builder
-      .build_int_compare(IntPredicate::NE, cond, zero, "cond");
+      .build_int_compare(IntPredicate::NE, lhs, zero, "cond");
     self
       .builder
-      .build_conditional_branch(cond, then_block, else_block);
+      .build_conditional_branch(comp, then_block, else_block);
 
     // then:
     self.builder.position_at_end(then_block);
@@ -372,14 +372,14 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     // cond:
     self.builder.position_at_end(cond_block);
     if let Some(expr) = cond {
-      let cond = self.gen_expr_into_int_value(expr)?;
-      let zero = self.context.i64_type().const_int(0, false);
-      let cond = self
+      let lhs = self.gen_expr_into_int_value(expr)?;
+      let zero = lhs.get_type().const_int(0, false);
+      let comp = self
         .builder
-        .build_int_compare(IntPredicate::NE, cond, zero, "cond");
+        .build_int_compare(IntPredicate::NE, lhs, zero, "cond");
       self
         .builder
-        .build_conditional_branch(cond, body_block, end_block);
+        .build_conditional_branch(comp, body_block, end_block);
     } else {
       self.builder.build_unconditional_branch(body_block);
     }
