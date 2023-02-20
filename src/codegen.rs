@@ -185,9 +185,9 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     assert_eq!(param_tys.len(), param_names.len());
     // Check consistency with forward declaration
     let fn_value = self.gen_fun_decl(ret_ty, &name, param_tys)?;
-    // Check function is not defined
+    // Check function does not exist
     if fn_value.count_basic_blocks() != 0 {
-      return err!("fun already defined");
+      return err!("function already exists");
     }
 
     // Create first basic block
@@ -201,7 +201,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
         let alloca = self.create_entry_block_alloca(param.get_type(), name);
         self.builder.build_store(alloca, param);
       } else {
-        return err!("function parameter already defined");
+        return err!("function parameter already exists");
       }
     }
     // Generate function body
@@ -236,7 +236,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     match stmt {
       Stmt::VarDef(ty, name, init) => {
         if self.scope.get(&name).is_some() {
-          return err!("variable already defined");
+          return err!("variable already exists");
         }
 
         let var_type = self.into_inkwell_type(ty);
@@ -497,7 +497,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
           }
           (BasicValueEnum::PointerValue(lhs), BasicValueEnum::PointerValue(rhs)) => {
             if lhs.get_type() != rhs.get_type() {
-              return err!("inconsistent types in operands of ternary pointer subtraction");
+              return err!("inconsistent types in operands of pointer difference");
             }
             let res = self
               .builder
@@ -554,7 +554,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
             err!("argument types mismatch function parameter types")
           }
         } else {
-          err!("function not defined")
+          err!("function does not exist")
         }
       }
       AST::Num(n) => {
