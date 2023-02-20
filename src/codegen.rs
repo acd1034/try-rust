@@ -290,16 +290,16 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
      *   A != 0 ? goto then : goto else;
      * then:
      *   B;
-     *   goto cont;
+     *   goto merge;
      * else:
      *   C;
-     *   goto cont;
-     * cont:
+     *   goto merge;
+     * merge:
      */
     let current_block = self.get_current_basic_block();
     let then_block = self.context.insert_basic_block_after(current_block, "then");
     let else_block = self.context.insert_basic_block_after(then_block, "else");
-    let cont_block = self.context.insert_basic_block_after(else_block, "cont");
+    let merge_block = self.context.insert_basic_block_after(else_block, "merge");
 
     // cond:
     let lhs = self.gen_expr_into_int_value(cond)?;
@@ -315,18 +315,18 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     self.builder.position_at_end(then_block);
     let has_terminator_in_then = self.gen_stmt(*then)?;
     if !has_terminator_in_then {
-      self.builder.build_unconditional_branch(cont_block);
+      self.builder.build_unconditional_branch(merge_block);
     }
 
     // else:
     self.builder.position_at_end(else_block);
     let has_terminator_in_else = self.gen_stmt(*else_)?;
     if !has_terminator_in_else {
-      self.builder.build_unconditional_branch(cont_block);
+      self.builder.build_unconditional_branch(merge_block);
     }
 
-    // cont:
-    self.builder.position_at_end(cont_block);
+    // merge:
+    self.builder.position_at_end(merge_block);
     if has_terminator_in_then && has_terminator_in_else {
       self.builder.build_unreachable();
       Ok(true)
