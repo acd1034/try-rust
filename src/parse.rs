@@ -136,7 +136,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  * mul         = unary ("*" unary | "/" unary)*
  * unary       = ("+" | "-" | "&" | "*" | "++" | "--") unary
  *             | postfix
- * postfix     = primary ("[" expr "]")?
+ * postfix     = primary ("[" expr "]" | "++" | "--")?
  * primary     = "(" expr ")"
  *             | ident "(" fun_args
  *             | ident
@@ -291,18 +291,22 @@ fn parse_assign(it: &mut Tokenizer) -> Expected<AST> {
     let m = parse_assign(it)?;
     Ok(AST::Assign(Box::new(n), Box::new(m)))
   } else if consume(it, "+=")? {
+    // convert x+=y to x=x+y
     let m = parse_assign(it)?;
     let add = AST::Add(Box::new(n.clone()), Box::new(m));
     Ok(AST::Assign(Box::new(n), Box::new(add)))
   } else if consume(it, "-=")? {
+    // convert x-=y to x=x-y
     let m = parse_assign(it)?;
     let sub = AST::Sub(Box::new(n.clone()), Box::new(m));
     Ok(AST::Assign(Box::new(n), Box::new(sub)))
   } else if consume(it, "*=")? {
+    // convert x*=y to x=x*y
     let m = parse_assign(it)?;
     let mul = AST::Mul(Box::new(n.clone()), Box::new(m));
     Ok(AST::Assign(Box::new(n), Box::new(mul)))
   } else if consume(it, "/=")? {
+    // convert x/=y to x=x/y
     let m = parse_assign(it)?;
     let div = AST::Div(Box::new(n.clone()), Box::new(m));
     Ok(AST::Assign(Box::new(n), Box::new(div)))
@@ -405,11 +409,13 @@ fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
     let n = parse_unary(it)?;
     Ok(AST::Deref(Box::new(n)))
   } else if consume(it, "++")? {
+    // convert ++i to i=i+1
     let n = parse_unary(it)?;
     let one = AST::Num(1);
     let add = AST::Add(Box::new(n.clone()), Box::new(one));
     Ok(AST::Assign(Box::new(n), Box::new(add)))
   } else if consume(it, "--")? {
+    // convert --i to i=i-1
     let n = parse_unary(it)?;
     let one = AST::Num(1);
     let sub = AST::Sub(Box::new(n.clone()), Box::new(one));
@@ -419,14 +425,27 @@ fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
   }
 }
 
-// postfix     = primary ("[" expr "]")?
+// postfix     = primary ("[" expr "]" | "++" | "--")?
 fn parse_postfix(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_primary(it)?;
   if consume(it, "[")? {
+    // convert a[i] to *(a+i)
     let m = parse_expr(it)?;
     expect(it, "]")?;
     let add = AST::Add(Box::new(n), Box::new(m));
     Ok(AST::Deref(Box::new(add)))
+  } else if consume(it, "++")? {
+    // convert i++ to (i=i+1)-1
+    let one = AST::Num(1);
+    let add = AST::Add(Box::new(n.clone()), Box::new(one.clone()));
+    let assign = AST::Assign(Box::new(n), Box::new(add));
+    Ok(AST::Sub(Box::new(assign), Box::new(one)))
+  } else if consume(it, "--")? {
+    // convert i-- to (i=i-1)+1
+    let one = AST::Num(1);
+    let sub = AST::Sub(Box::new(n.clone()), Box::new(one.clone()));
+    let assign = AST::Assign(Box::new(n), Box::new(sub));
+    Ok(AST::Add(Box::new(assign), Box::new(one)))
   } else {
     Ok(n)
   }
