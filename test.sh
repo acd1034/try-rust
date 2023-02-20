@@ -35,6 +35,10 @@ assert_fail() {
 # assert 0 'int main() { int a[3]; a[0]=0; a[1]=1; a[2]=2; int *p=a+1; (*p++)--; return a[1]; }'
 # assert 2 'int main() { int a[3]; a[0]=0; a[1]=1; a[2]=2; int *p=a+1; (*p++)--; return a[2]; }'
 # assert 2 'int main() { int a[3]; a[0]=0; a[1]=1; a[2]=2; int *p=a+1; (*p++)--; return *p; }'
+# assert 11 'int main() { int i=0; int j=0; while (i++<10) { if (i>5) continue; j++; } return i; }'
+# assert 5 'int main() { int i=0; int j=0; while (i++<10) { if (i>5) continue; j++; } return j; }'
+# assert 10 'int main() { int i=0; int j=0; for(;!i;) { for (;j!=10;j++) continue; break; } return j; }'
+# assert 11 'int main() { int i=0; int j=0; while(!i) { while (j++!=10) continue; break; } return j; }'
 # assert_fail 'int main() { x=3; &+x; return x; }'
 # num
 assert 0 'int main() { return 0; }'
@@ -114,11 +118,11 @@ assert 3 'int main() { if (0) if (1) return 1; else return 2; return 3; }'
 assert 0 'int main() { int x=0; if (x) { x=1; } return x; }'
 assert 0 'int main() { int x=0; if (x) { if (x) x=1; } return x; }'
 assert 0 'int main() { int x=0; if (x) { if (x) x=1; else x=2; } return x; }'
-# an else follows first if, nested if in first if
+# else follows first if, nested if in first if
 assert 2 'int main() { int x=0; if (x) { x=1; } else x=2; return x; }'
 assert 2 'int main() { int x=0; if (x) { if (x) x=1; } else x=2; return x; }'
 assert 3 'int main() { int x=0; if (x) { if (x) x=1; else x=2; } else x=3; return x; }'
-# an else follows first if, nested if in first else
+# else follows first if, nested if in first else
 assert 2 'int main() { int x=0; if (x) x=1; else { x=2; } return x; }'
 assert 0 'int main() { int x=0; if (x) x=1; else { if (x) x=2; } return x; }'
 assert 3 'int main() { int x=0; if (x) x=1; else { if (x) x=2; else x=3; } return x; }'
@@ -127,6 +131,9 @@ assert 3 'int main() { for (;;) return 3; return 5; }'
 assert 55 'int main() { int i; int j=0; for (i=0; i<=10; i=i+1) j=i+j; return j; }'
 assert 2 'int main() { int x=0; for (;;) if (x) return 1; else return 2; }'
 assert 5 'int main() { int x=0; for (;;) { if (x==5) return x; x=x+1; } }'
+# continue
+assert 10 'int main() { int i=0; int j=0; for (;i<10;i++) { if (i>5) continue; j++; } return i; }'
+assert 6 'int main() { int i=0; int j=0; for (;i<10;i++) { if (i>5) continue; j++; } return j; }'
 # defunc
 assert 6 'int sub() { return 4; } int main() { int b=3; int a=b; return a+b; }'
 assert_fail 'int main() { return 4; } int main() { int b=3; int a=b; return a+b; }'

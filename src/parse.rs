@@ -18,6 +18,7 @@ pub enum Stmt {
   VarDef(Type, String, Option<AST>),
   IfElse(AST, Box<Stmt>, Box<Stmt>),
   For(Option<AST>, Option<AST>, Option<AST>, Box<Stmt>),
+  Cont,
   Return(AST),
   Block(Vec<Stmt>),
   Expr(AST),
@@ -123,6 +124,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  * stmt        = declspec declarator ("=" expr)? ";"
  *             | "if" "(" expr ")" stmt ("else" stmt)?
  *             | "for" "(" expr? ";" expr? ";" expr? ")" stmt
+ *             | "continue" ";"
  *             | "return" expr ";"
  *             | "{" stmt* "}"
  *             | ";"
@@ -226,6 +228,7 @@ fn parse_param(it: &mut Tokenizer) -> Expected<(Type, String)> {
 // stmt        = declspec declarator ("=" expr)? ";"
 //             | "if" "(" expr ")" stmt ("else" stmt)?
 //             | "for" "(" expr? ";" expr? ";" expr? ")" stmt
+//             | "continue" ";"
 //             | "return" expr ";"
 //             | "{" stmt* "}"
 //             | ";"
@@ -260,6 +263,9 @@ fn parse_stmt(it: &mut Tokenizer) -> Expected<Stmt> {
     expect(it, ")")?;
     let stmt = Box::new(parse_stmt(it)?);
     Ok(Stmt::For(n1, n2, n3, stmt))
+  } else if consume_keyword(it, "continue")? {
+    expect(it, ";")?;
+    Ok(Stmt::Cont)
   } else if consume_keyword(it, "return")? {
     let n = parse_expr(it)?;
     expect(it, ";")?;

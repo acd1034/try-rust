@@ -71,17 +71,20 @@ struct GenFun<'a, 'ctx> {
   module: &'a Module<'ctx>,
   builder: Builder<'ctx>,
   scope: Scope<'ctx>,
+  cont_label: Vec<BasicBlock<'ctx>>,
 }
 
 impl<'a, 'ctx> GenFun<'a, 'ctx> {
   fn new(context: &'ctx Context, module: &'a Module<'ctx>) -> GenFun<'a, 'ctx> {
     let builder = context.create_builder();
     let scope = Scope::new();
+    let cont_label = Vec::new();
     GenFun {
       context,
       module,
       builder,
       scope,
+      cont_label,
     }
   }
 
@@ -243,6 +246,12 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
       }
       Stmt::IfElse(cond, then, else_) => self.gen_if_else(cond, then, else_),
       Stmt::For(init, cond, inc, body) => self.gen_for(init, cond, inc, body),
+      Stmt::Cont => {
+        self
+          .builder
+          .build_unconditional_branch(*self.cont_label.last().unwrap());
+        Ok(true)
+      }
       Stmt::Return(expr) => {
         let ret = self.gen_expr(expr)?;
         self.builder.build_return(Some(&ret));
@@ -342,6 +351,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     let body_block = self.context.insert_basic_block_after(cond_block, "body");
     let inc_block = self.context.insert_basic_block_after(body_block, "inc");
     let end_block = self.context.insert_basic_block_after(inc_block, "end");
+    self.cont_label.push(inc_block.clone());
 
     // init:
     if let Some(expr) = init {
@@ -384,6 +394,8 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     if has_no_branch_to_end {
       self.builder.build_unreachable();
     }
+
+    self.cont_label.pop();
     Ok(has_no_branch_to_end)
   }
 
