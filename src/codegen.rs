@@ -424,6 +424,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
   fn gen_expr(&self, expr: AST) -> Expected<BasicValueEnum<'ctx>> {
     let i64_type = self.context.i64_type();
     match expr {
+      AST::Ternary(cond, then, else_) => self.gen_ternary(*cond, *then, *else_),
       AST::Eq(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n)?;
         let rhs = self.gen_expr_into_int_value(*m)?;
@@ -581,6 +582,39 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
         }
       }
     }
+  }
+
+  fn gen_ternary(&self, cond: AST, then: AST, else_: AST) -> Expected<BasicValueEnum<'ctx>> {
+    let current_block = self.get_current_basic_block();
+    let then_block = self.context.insert_basic_block_after(current_block, "then");
+    let else_block = self.context.insert_basic_block_after(then_block, "else");
+    let merge_block = self.context.insert_basic_block_after(else_block, "merge");
+
+    // cond:
+    let lhs = self.gen_expr_into_int_value(cond)?;
+    let zero = lhs.get_type().const_int(0, false);
+    let comp = self
+      .builder
+      .build_int_compare(IntPredicate::NE, lhs, zero, "cond");
+    self
+      .builder
+      .build_conditional_branch(comp, then_block, else_block);
+
+    // then:
+    self.builder.position_at_end(then_block);
+    let then_value = self.gen_expr(then)?;
+    self.builder.build_unconditional_branch(merge_block);
+
+    // else:
+    self.builder.position_at_end(else_block);
+    let else_value = self.gen_expr(else_)?;
+    self.builder.build_unconditional_branch(merge_block);
+
+    // merge:
+    self.builder.position_at_end(merge_block);
+    let phi = self.builder.build_phi(then_value.get_type(), "tmpphi");
+    phi.add_incoming(&[(&then_value, then_block), (&else_value, else_block)]);
+    Ok(phi.as_basic_value())
   }
 
   fn gen_pointer_add_impl(

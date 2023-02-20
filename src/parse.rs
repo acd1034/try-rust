@@ -27,6 +27,7 @@ pub enum Stmt {
 
 #[derive(Clone, Debug)]
 pub enum AST {
+  Ternary(Box<AST>, Box<AST>, Box<AST>),
   Assign(Box<AST>, Box<AST>),
   Eq(Box<AST>, Box<AST>),
   Ne(Box<AST>, Box<AST>),
@@ -133,7 +134,8 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  *             | ";"
  *             | expr ";"
  *
- * expr        = assign
+ * expr        = ternary
+ * ternary     = assign ("?" expr ":" ternary)?
  * assign      = equality ("=" assign | "+=" assign | "-=" assign | "*=" assign | "/=" assign)?
  * equality    = relational ("==" relational | "!=" relational)*
  * relational  = add ("<" add | "<=" add | ">" add | ">=" add)*
@@ -299,9 +301,26 @@ fn parse_stmt(it: &mut Tokenizer) -> Expected<Stmt> {
   }
 }
 
-// expr        = assign
+// expr        = ternary
 fn parse_expr(it: &mut Tokenizer) -> Expected<AST> {
-  parse_assign(it)
+  parse_ternary(it)
+}
+
+// ternary     = assign ("?" expr ":" ternary)?
+fn parse_ternary(it: &mut Tokenizer) -> Expected<AST> {
+  let cond = parse_assign(it)?;
+  if consume(it, "?")? {
+    let then = parse_expr(it)?;
+    expect(it, ":")?;
+    let else_ = parse_ternary(it)?;
+    Ok(AST::Ternary(
+      Box::new(cond),
+      Box::new(then),
+      Box::new(else_),
+    ))
+  } else {
+    Ok(cond)
+  }
 }
 
 // assign      = equality ("=" assign | "+=" assign | "-=" assign | "*=" assign | "/=" assign)?
