@@ -292,20 +292,20 @@ fn parse_assign(it: &mut Tokenizer) -> Expected<AST> {
     Ok(AST::Assign(Box::new(n), Box::new(m)))
   } else if consume(it, "+=")? {
     let m = parse_assign(it)?;
-    let bop = AST::Add(Box::new(n.clone()), Box::new(m));
-    Ok(AST::Assign(Box::new(n), Box::new(bop)))
+    let add = AST::Add(Box::new(n.clone()), Box::new(m));
+    Ok(AST::Assign(Box::new(n), Box::new(add)))
   } else if consume(it, "-=")? {
     let m = parse_assign(it)?;
-    let bop = AST::Sub(Box::new(n.clone()), Box::new(m));
-    Ok(AST::Assign(Box::new(n), Box::new(bop)))
+    let sub = AST::Sub(Box::new(n.clone()), Box::new(m));
+    Ok(AST::Assign(Box::new(n), Box::new(sub)))
   } else if consume(it, "*=")? {
     let m = parse_assign(it)?;
-    let bop = AST::Mul(Box::new(n.clone()), Box::new(m));
-    Ok(AST::Assign(Box::new(n), Box::new(bop)))
+    let mul = AST::Mul(Box::new(n.clone()), Box::new(m));
+    Ok(AST::Assign(Box::new(n), Box::new(mul)))
   } else if consume(it, "/=")? {
     let m = parse_assign(it)?;
-    let bop = AST::Div(Box::new(n.clone()), Box::new(m));
-    Ok(AST::Assign(Box::new(n), Box::new(bop)))
+    let div = AST::Div(Box::new(n.clone()), Box::new(m));
+    Ok(AST::Assign(Box::new(n), Box::new(div)))
   } else {
     Ok(n)
   }
