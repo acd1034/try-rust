@@ -71,6 +71,7 @@ struct GenFun<'a, 'ctx> {
   module: &'a Module<'ctx>,
   builder: Builder<'ctx>,
   scope: Scope<'ctx>,
+  break_label: Vec<BasicBlock<'ctx>>,
   cont_label: Vec<BasicBlock<'ctx>>,
 }
 
@@ -78,12 +79,14 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
   fn new(context: &'ctx Context, module: &'a Module<'ctx>) -> GenFun<'a, 'ctx> {
     let builder = context.create_builder();
     let scope = Scope::new();
+    let break_label = Vec::new();
     let cont_label = Vec::new();
     GenFun {
       context,
       module,
       builder,
       scope,
+      break_label,
       cont_label,
     }
   }
@@ -246,6 +249,12 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
       }
       Stmt::IfElse(cond, then, else_) => self.gen_if_else(cond, then, else_),
       Stmt::For(init, cond, inc, body) => self.gen_for(init, cond, inc, body),
+      Stmt::Break => {
+        self
+          .builder
+          .build_unconditional_branch(*self.break_label.last().unwrap());
+        Ok(true)
+      }
       Stmt::Cont => {
         self
           .builder
@@ -351,6 +360,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     let body_block = self.context.insert_basic_block_after(cond_block, "body");
     let inc_block = self.context.insert_basic_block_after(body_block, "inc");
     let end_block = self.context.insert_basic_block_after(inc_block, "end");
+    self.break_label.push(end_block.clone());
     self.cont_label.push(inc_block.clone());
 
     // init:
@@ -361,7 +371,6 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
 
     // cond:
     self.builder.position_at_end(cond_block);
-    let has_no_branch_to_end = cond.is_none();
     if let Some(expr) = cond {
       let cond = self.gen_expr_into_int_value(expr)?;
       let zero = self.context.i64_type().const_int(0, false);
@@ -391,10 +400,12 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
 
     // end:
     self.builder.position_at_end(end_block);
+    let has_no_branch_to_end = end_block.get_first_use().is_none();
     if has_no_branch_to_end {
       self.builder.build_unreachable();
     }
 
+    self.break_label.pop();
     self.cont_label.pop();
     Ok(has_no_branch_to_end)
   }
