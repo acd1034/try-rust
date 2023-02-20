@@ -283,6 +283,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     let else_block = self.context.insert_basic_block_after(then_block, "else");
     let cont_block = self.context.insert_basic_block_after(else_block, "cont");
 
+    // cond:
     let cond = self.gen_expr_into_int_value(cond)?;
     let zero = self.context.i64_type().const_int(0, false);
     let cond = self
@@ -325,31 +326,31 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
   ) -> Expected<bool> {
     /* `for (A; B; C) D`
      *   A;
-     *   goto begin;
-     * begin:
+     *   goto cond;
+     * cond:
      *   B != 0 ? goto body : goto end;
      * body:
      *   D;
      *   goto inc;
      * inc:
      *   C;
-     *   goto begin;
+     *   goto cond;
      * end:
      */
     let current_block = self.get_current_basic_block();
-    let begin_block = self
-      .context
-      .insert_basic_block_after(current_block, "begin");
-    let body_block = self.context.insert_basic_block_after(begin_block, "body");
-    let end_block = self.context.insert_basic_block_after(body_block, "end");
+    let cond_block = self.context.insert_basic_block_after(current_block, "cond");
+    let body_block = self.context.insert_basic_block_after(cond_block, "body");
+    let inc_block = self.context.insert_basic_block_after(body_block, "inc");
+    let end_block = self.context.insert_basic_block_after(inc_block, "end");
 
+    // init:
     if let Some(expr) = init {
       self.gen_expr(expr)?;
     }
-    self.builder.build_unconditional_branch(begin_block);
+    self.builder.build_unconditional_branch(cond_block);
 
-    // begin:
-    self.builder.position_at_end(begin_block);
+    // cond:
+    self.builder.position_at_end(cond_block);
     let has_no_branch_to_end = cond.is_none();
     if let Some(expr) = cond {
       let cond = self.gen_expr_into_int_value(expr)?;
@@ -367,12 +368,16 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     // body:
     self.builder.position_at_end(body_block);
     let has_terminator_in_body = self.gen_stmt(*body)?;
+    if !has_terminator_in_body {
+      self.builder.build_unconditional_branch(inc_block);
+    }
+
+    // inc:
+    self.builder.position_at_end(inc_block);
     if let Some(expr) = inc {
       self.gen_expr(expr)?;
     }
-    if !has_terminator_in_body {
-      self.builder.build_unconditional_branch(begin_block);
-    }
+    self.builder.build_unconditional_branch(cond_block);
 
     // end:
     self.builder.position_at_end(end_block);
