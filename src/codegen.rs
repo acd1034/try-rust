@@ -247,8 +247,8 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
         }
         Ok(false)
       }
-      Stmt::IfElse(cond, then, else_) => self.gen_if_else(cond, then, else_),
-      Stmt::For(init, cond, inc, body) => self.gen_for(init, cond, inc, body),
+      Stmt::IfElse(cond, then, else_) => self.gen_if_else(cond, *then, *else_),
+      Stmt::For(init, cond, inc, body) => self.gen_for(init, cond, inc, *body),
       Stmt::Break => {
         self
           .builder
@@ -285,7 +285,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     }
   }
 
-  fn gen_if_else(&mut self, cond: AST, then: Box<Stmt>, else_: Box<Stmt>) -> Expected<bool> {
+  fn gen_if_else(&mut self, cond: AST, then: Stmt, else_: Stmt) -> Expected<bool> {
     /* `if (A) B else C`
      *   A != 0 ? goto then : goto else;
      * then:
@@ -313,14 +313,14 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
 
     // then:
     self.builder.position_at_end(then_block);
-    let has_terminator_in_then = self.gen_stmt(*then)?;
+    let has_terminator_in_then = self.gen_stmt(then)?;
     if !has_terminator_in_then {
       self.builder.build_unconditional_branch(merge_block);
     }
 
     // else:
     self.builder.position_at_end(else_block);
-    let has_terminator_in_else = self.gen_stmt(*else_)?;
+    let has_terminator_in_else = self.gen_stmt(else_)?;
     if !has_terminator_in_else {
       self.builder.build_unconditional_branch(merge_block);
     }
@@ -340,7 +340,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     init: Option<AST>,
     cond: Option<AST>,
     inc: Option<AST>,
-    body: Box<Stmt>,
+    body: Stmt,
   ) -> Expected<bool> {
     /* `for (A; B; C) D`
      *   A;
@@ -386,7 +386,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
 
     // body:
     self.builder.position_at_end(body_block);
-    let has_terminator_in_body = self.gen_stmt(*body)?;
+    let has_terminator_in_body = self.gen_stmt(body)?;
     if !has_terminator_in_body {
       self.builder.build_unconditional_branch(inc_block);
     }
