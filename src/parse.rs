@@ -134,7 +134,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  * relational  = add ("<" add | "<=" add | ">" add | ">=" add)*
  * add         = mul ("+" mul | "-" mul)*
  * mul         = unary ("*" unary | "/" unary)*
- * unary       = ("+" | "-" | "&" | "*") unary
+ * unary       = ("+" | "-" | "&" | "*" | "++" | "--") unary
  *             | postfix
  * postfix     = primary ("[" expr "]")?
  * primary     = "(" expr ")"
@@ -389,7 +389,7 @@ fn parse_mul_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   }
 }
 
-// unary       = ("+" | "-" | "&" | "*")? unary
+// unary       = ("+" | "-" | "&" | "*" | "++" | "--") unary
 //             | postfix
 fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
   if consume(it, "+")? {
@@ -404,6 +404,16 @@ fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
   } else if consume(it, "*")? {
     let n = parse_unary(it)?;
     Ok(AST::Deref(Box::new(n)))
+  } else if consume(it, "++")? {
+    let n = parse_unary(it)?;
+    let one = AST::Num(1);
+    let add = AST::Add(Box::new(n.clone()), Box::new(one));
+    Ok(AST::Assign(Box::new(n), Box::new(add)))
+  } else if consume(it, "--")? {
+    let n = parse_unary(it)?;
+    let one = AST::Num(1);
+    let sub = AST::Sub(Box::new(n.clone()), Box::new(one));
+    Ok(AST::Assign(Box::new(n), Box::new(sub)))
   } else {
     parse_postfix(it)
   }

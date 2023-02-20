@@ -193,5 +193,10 @@ assert 6 'int main() { int i=3; i*=2; return i; }'
 assert 6 'int main() { int i=3; return i*=2; }'
 assert 3 'int main() { int i=6; i/=2; return i; }'
 assert 3 'int main() { int i=6; return i/=2; }'
+# prefix increment & decrement
+assert 3 'int main() { int i=2; return ++i; }'
+assert 5 'int main() { int i=0; return ++i=5; }'
+assert 2 'int main() { int a[3]; a[0]=0; a[1]=1; a[2]=2; int *p=a+1; return ++*p; }'
+assert 0 'int main() { int a[3]; a[0]=0; a[1]=1; a[2]=2; int *p=a+1; return --*p; }'
 # practical
-assert 1 'int partition(int* a, int p, int r) { int piv = a[r]; int i = p - 1; int j; for (j = p; j < r; j = j + 1) if (a[j] <= piv) { i = i + 1; int tmp = a[i]; a[i] = a[j]; a[j] = tmp; } i = i + 1; int tmp = a[i]; a[i] = a[j]; a[j] = tmp; return i; } int quicksort(int* a, int p, int r) { if (p < r) { int q = partition(a, p, r); quicksort(a, p, q - 1); quicksort(a, q + 1, r); } return 0; } int sorted(int* a, int n) { int i; for (i = 1; i < n; i = i + 1) if (a[i - 1] > a[i]) return 0; return 1; } int main() { int a[9]; a[0] = 8; a[1] = 4; a[2] = 3; a[3] = 0; a[4] = 7; a[5] = 6; a[6] = 5; a[7] = 2; a[8] = 1; quicksort(a, 0, 9); return sorted(a, 9); }'
+assert 1 'int partition(int* a, int p, int r) { int piv = a[r]; int i = p - 1; int j; for (j = p; j < r; ++j) if (a[j] <= piv) { ++i; int tmp = a[i]; a[i] = a[j]; a[j] = tmp; } ++i; int tmp = a[i]; a[i] = a[j]; a[j] = tmp; return i; } int quicksort(int* a, int p, int r) { if (p < r) { int q = partition(a, p, r); quicksort(a, p, q - 1); quicksort(a, q + 1, r); } return 0; } int sorted(int* a, int n) { int i; for (i = 1; i < n; ++i) if (a[i - 1] > a[i]) return 0; return 1; } int main() { int a[9]; a[0] = 8; a[1] = 4; a[2] = 3; a[3] = 0; a[4] = 7; a[5] = 6; a[6] = 5; a[7] = 2; a[8] = 1; quicksort(a, 0, 9); return sorted(a, 9); }'
