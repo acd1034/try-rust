@@ -1,4 +1,5 @@
-use crate::tokenize::{Expected, Token, Tokenizer};
+use crate::tokenize::{Token, Tokenizer};
+use crate::{common::Expected, err};
 
 #[derive(Debug)]
 pub enum Type {
@@ -93,7 +94,7 @@ fn expect_ident(it: &mut Tokenizer) -> Expected<String> {
     it.advance();
     Ok(name.to_string())
   } else {
-    Err("unexpected token, expecting identifier")
+    err!("unexpected token, expecting identifier")
   }
 }
 
@@ -102,7 +103,7 @@ fn expect_num(it: &mut Tokenizer) -> Expected<u64> {
     it.advance();
     Ok(n)
   } else {
-    Err("unexpected token, expecting number")
+    err!("unexpected token, expecting number")
   }
 }
 
@@ -111,7 +112,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
     it.advance();
     Ok(())
   } else {
-    Err("unexpected token, expecting punctuator")
+    err!("unexpected token, expecting punctuator")
   }
 }
 
@@ -175,7 +176,7 @@ fn parse_fun(it: &mut Tokenizer) -> Expected<Fun> {
     }
     Ok(Fun::FunDef(ret_ty, name, param_tys, param_names, body))
   } else {
-    Err("unexpected token, expecting `{` or `;`")
+    err!("unexpected token, expecting `{` or `;`")
   }
 }
 
@@ -184,7 +185,7 @@ fn parse_declspec(it: &mut Tokenizer) -> Expected<Type> {
   if consume_keyword(it, "int")? {
     Ok(Type::Int)
   } else {
-    Err("unexpected token, expecting `int`")
+    err!("unexpected token, expecting `int`")
   }
 }
 
@@ -509,7 +510,7 @@ fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
   } else if let Some(n) = consume_num(it)? {
     Ok(AST::Num(n))
   } else {
-    Err("unexpected token, expecting `(`, identifier or number")
+    err!("unexpected token, expecting `(`, identifier or number")
   }
 }
 

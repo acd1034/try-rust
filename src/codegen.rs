@@ -1,5 +1,5 @@
 use crate::parse::{Fun, Stmt, Type, AST};
-use crate::tokenize::Expected;
+use crate::{common::Expected, err};
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
@@ -161,7 +161,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
       {
         Ok(fn_value)
       } else {
-        Err("function type differs from the previous declaration")
+        err!("function type differs from the previous declaration")
       }
     } else {
       let return_type = self.into_inkwell_type(ret_ty);
@@ -187,7 +187,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     let fn_value = self.gen_fun_decl(ret_ty, &name, param_tys)?;
     // Check function is not defined
     if fn_value.count_basic_blocks() != 0 {
-      return Err("fun already defined");
+      return err!("fun already defined");
     }
 
     // Create first basic block
@@ -201,7 +201,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
         let alloca = self.create_entry_block_alloca(param.get_type(), name);
         self.builder.build_store(alloca, param);
       } else {
-        return Err("function parameter already defined");
+        return err!("function parameter already defined");
       }
     }
     // Generate function body
@@ -217,7 +217,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
 
     // verify
     if !has_terminator {
-      return Err("gen_fun: no terminator in function");
+      return err!("gen_fun: no terminator in function");
     }
 
     if fn_value.verify(true) {
@@ -225,7 +225,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     } else {
       // TODO: 前方宣言後の定義ならば定義のみ消す。前方宣言なしの定義ならば宣言ごと消す
       // unsafe { fn_value.delete(); }
-      Err("gen_fun: failed to verify function")
+      err!("gen_fun: failed to verify function")
     }
   }
 
@@ -236,7 +236,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     match stmt {
       Stmt::VarDef(ty, name, init) => {
         if self.scope.get(&name).is_some() {
-          return Err("variable already defined");
+          return err!("variable already defined");
         }
 
         let var_type = self.into_inkwell_type(ty);
@@ -417,7 +417,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     if value.is_int_value() {
       Ok(value.into_int_value())
     } else {
-      Err("unexpected type in expression, expecting int type")
+      err!("unexpected type in expression, expecting int type")
     }
   }
 
@@ -477,7 +477,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
           (BasicValueEnum::IntValue(idx), BasicValueEnum::PointerValue(ptr)) => {
             Ok(self.gen_pointer_add_impl(ptr, idx))
           }
-          _ => Err("inconsistent types in operands of addition"),
+          _ => err!("inconsistent types in operands of addition"),
         }
       }
       AST::Sub(n, m) => {
@@ -497,7 +497,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
           }
           (BasicValueEnum::PointerValue(lhs), BasicValueEnum::PointerValue(rhs)) => {
             if lhs.get_type() != rhs.get_type() {
-              return Err("inconsistent types in operands of ternary pointer subtraction");
+              return err!("inconsistent types in operands of ternary pointer subtraction");
             }
             let res = self
               .builder
@@ -505,7 +505,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
               .as_basic_value_enum();
             Ok(res)
           }
-          _ => Err("inconsistent types in operands of subtraction"),
+          _ => err!("inconsistent types in operands of subtraction"),
         }
       }
       AST::Mul(n, m) => {
@@ -551,10 +551,10 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
               .unwrap_left();
             Ok(res)
           } else {
-            Err("argument types mismatch function parameter types")
+            err!("argument types mismatch function parameter types")
           }
         } else {
-          Err("function not defined")
+          err!("function not defined")
         }
       }
       AST::Num(n) => {
@@ -605,7 +605,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
 
     // merge:
     if then_value.get_type() != else_value.get_type() {
-      return Err("inconsistent types in operands of ternary operator");
+      return err!("inconsistent types in operands of ternary operator");
     }
     self.builder.position_at_end(merge_block);
     let phi = self.builder.build_phi(then_value.get_type(), "tmpphi");
@@ -650,14 +650,14 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
         if ptr.is_pointer_value() {
           Ok(ptr.into_pointer_value())
         } else {
-          Err("cannot dereference int value")
+          err!("cannot dereference int value")
         }
       }
       AST::Ident(name) => match self.scope.get_all(&name) {
         Some(&var) => Ok(var),
-        None => Err("variable should be declared before its first use"),
+        None => err!("variable should be declared before its first use"),
       },
-      _ => Err("cannot obtain address of rvalue"),
+      _ => err!("cannot obtain address of rvalue"),
     }
   }
 
@@ -670,7 +670,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
       self.builder.build_store(lhs, rhs);
       Ok(lhs)
     } else {
-      Err("inconsistent types in operands of assignment")
+      err!("inconsistent types in operands of assignment")
     }
   }
 }

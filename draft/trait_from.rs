@@ -42,10 +42,14 @@ fn print_msg() {
 
 macro_rules! err {
   ($x:expr) => {
-    Err(concat!(file!(), ":", line!(), "\n", $x))
+    Err(concat!($x, " [", file!(), ":", line!(), "]"))
   };
 }
 
 fn cat_literal() -> Result<i64, &'static str> {
+  println!(
+    "[\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\]",
+    "http://example.com", "Hyperlink"
+  );
   err!("file not exists")
 }

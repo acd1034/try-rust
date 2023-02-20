@@ -1,11 +1,11 @@
 mod codegen;
+mod common;
 mod parse;
 mod tokenize;
+use common::Expected;
 use inkwell::context::Context;
 use std::fs::File;
-use std::io;
-use std::io::Read;
-use tokenize::Expected;
+use std::io::{self, Read};
 
 fn read_file(path: String) -> Expected<String> {
   if path == "-" {

@@ -1,4 +1,4 @@
-pub type Expected<T> = Result<T, &'static str>;
+use crate::{common::Expected, err};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token<'a> {
@@ -44,7 +44,7 @@ fn tokenize<'a>(s: &'a str) -> Expected<(Token, &'a str)> {
       Ok((Token::Punct(&s[..1]), &s[1..]))
     }
   } else {
-    Err("unexpected character")
+    err!("unexpected character")
   }
 }
 
