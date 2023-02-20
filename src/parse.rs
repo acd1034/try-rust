@@ -23,7 +23,7 @@ pub enum Stmt {
   Expr(AST),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum AST {
   Assign(Box<AST>, Box<AST>),
   Eq(Box<AST>, Box<AST>),
@@ -129,7 +129,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  *             | expr ";"
  *
  * expr        = assign
- * assign      = equality ("=" assign)?
+ * assign      = equality ("=" assign | "+=" assign | "-=" assign | "*=" assign | "/=" assign)?
  * equality    = relational ("==" relational | "!=" relational)*
  * relational  = add ("<" add | "<=" add | ">" add | ">=" add)*
  * add         = mul ("+" mul | "-" mul)*
@@ -284,12 +284,28 @@ fn parse_expr(it: &mut Tokenizer) -> Expected<AST> {
   parse_assign(it)
 }
 
-// assign      = equality ("=" assign)?
+// assign      = equality ("=" assign | "+=" assign | "-=" assign | "*=" assign | "/=" assign)?
 fn parse_assign(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_equality(it)?;
   if consume(it, "=")? {
     let m = parse_assign(it)?;
     Ok(AST::Assign(Box::new(n), Box::new(m)))
+  } else if consume(it, "+=")? {
+    let m = parse_assign(it)?;
+    let bop = AST::Add(Box::new(n.clone()), Box::new(m));
+    Ok(AST::Assign(Box::new(n), Box::new(bop)))
+  } else if consume(it, "-=")? {
+    let m = parse_assign(it)?;
+    let bop = AST::Sub(Box::new(n.clone()), Box::new(m));
+    Ok(AST::Assign(Box::new(n), Box::new(bop)))
+  } else if consume(it, "*=")? {
+    let m = parse_assign(it)?;
+    let bop = AST::Mul(Box::new(n.clone()), Box::new(m));
+    Ok(AST::Assign(Box::new(n), Box::new(bop)))
+  } else if consume(it, "/=")? {
+    let m = parse_assign(it)?;
+    let bop = AST::Div(Box::new(n.clone()), Box::new(m));
+    Ok(AST::Assign(Box::new(n), Box::new(bop)))
   } else {
     Ok(n)
   }

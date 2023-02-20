@@ -11,6 +11,7 @@ pub enum Token<'a> {
 
 fn tokenize<'a>(s: &'a str) -> Expected<(Token, &'a str)> {
   static KEYWORDS: [&str; 5] = ["return", "if", "else", "for", "int"];
+  static TWO_CHAR_OPS: [&str; 8] = ["==", "!=", "<=", ">=", "+=", "-=", "*=", "/="];
   if s.is_empty() {
     Ok((Token::Eof, s))
   } else if s.starts_with(|c: char| c.is_ascii_whitespace()) {
@@ -33,12 +34,12 @@ fn tokenize<'a>(s: &'a str) -> Expected<(Token, &'a str)> {
     Ok((Token::Num(num), &s[pos..]))
   } else if s.starts_with(|c: char| c.is_ascii_punctuation()) {
     if s.len() < 2 {
-      Ok((Token::Punct(&s[..1]), &s[1..]))
+      return Ok((Token::Punct(&s[..1]), &s[1..]));
+    }
+    if TWO_CHAR_OPS.contains(&&s[..2]) {
+      Ok((Token::Punct(&s[..2]), &s[2..]))
     } else {
-      match &s[..2] {
-        "==" | "!=" | "<=" | ">=" => Ok((Token::Punct(&s[..2]), &s[2..])),
-        _ => Ok((Token::Punct(&s[..1]), &s[1..])),
-      }
+      Ok((Token::Punct(&s[..1]), &s[1..]))
     }
   } else {
     Err("unexpected character")
