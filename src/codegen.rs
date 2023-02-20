@@ -477,7 +477,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
           (BasicValueEnum::IntValue(idx), BasicValueEnum::PointerValue(ptr)) => {
             Ok(self.gen_pointer_add_impl(ptr, idx))
           }
-          _ => Err("types of lhs and rhs of addition are not consistent"),
+          _ => Err("Inconsistent types in operands of addition"),
         }
       }
       AST::Sub(n, m) => {
@@ -496,17 +496,16 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
             Ok(self.gen_pointer_add_impl(ptr, idx))
           }
           (BasicValueEnum::PointerValue(lhs), BasicValueEnum::PointerValue(rhs)) => {
-            if lhs.get_type() == rhs.get_type() {
-              let res = self
-                .builder
-                .build_ptr_diff(lhs, rhs, "tmp_ptr_diff")
-                .as_basic_value_enum();
-              Ok(res)
-            } else {
-              Err("types of lhs and rhs of pointer-pointer subtraction are not consistent")
+            if lhs.get_type() != rhs.get_type() {
+              return Err("Inconsistent types in operands of ternary pointer subtraction");
             }
+            let res = self
+              .builder
+              .build_ptr_diff(lhs, rhs, "tmp_ptr_diff")
+              .as_basic_value_enum();
+            Ok(res)
           }
-          _ => Err("types of lhs and rhs of subtraction are not consistent"),
+          _ => Err("Inconsistent types in operands of subtraction"),
         }
       }
       AST::Mul(n, m) => {
@@ -605,6 +604,9 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     self.builder.build_unconditional_branch(merge_block);
 
     // merge:
+    if then_value.get_type() != else_value.get_type() {
+      return Err("Inconsistent types in operands of ternary operator");
+    }
     self.builder.position_at_end(merge_block);
     let phi = self.builder.build_phi(then_value.get_type(), "tmpphi");
     phi.add_incoming(&[(&then_value, then_block), (&else_value, else_block)]);
