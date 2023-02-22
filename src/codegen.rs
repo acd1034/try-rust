@@ -422,6 +422,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
   }
 
   fn gen_expr(&self, expr: AST) -> Expected<BasicValueEnum<'ctx>> {
+    let i64_type = self.context.i64_type();
     match expr {
       AST::Ternary(cond, then, else_) => self.gen_ternary(*cond, *then, *else_),
       AST::Eq(n, m) => {
@@ -429,36 +430,48 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
         let rhs = self.gen_expr_into_int_value(*m)?;
         let cmp = self
           .builder
-          .build_int_compare(IntPredicate::EQ, lhs, rhs, "tmpcmp")
+          .build_int_compare(IntPredicate::EQ, lhs, rhs, "tmpcmp");
+        let zext = self
+          .builder
+          .build_int_z_extend(cmp, i64_type, "tmpzext")
           .as_basic_value_enum();
-        Ok(cmp)
+        Ok(zext)
       }
       AST::Ne(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n)?;
         let rhs = self.gen_expr_into_int_value(*m)?;
         let cmp = self
           .builder
-          .build_int_compare(IntPredicate::NE, lhs, rhs, "tmpcmp")
+          .build_int_compare(IntPredicate::NE, lhs, rhs, "tmpcmp");
+        let zext = self
+          .builder
+          .build_int_z_extend(cmp, i64_type, "tmpzext")
           .as_basic_value_enum();
-        Ok(cmp)
+        Ok(zext)
       }
       AST::Lt(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n)?;
         let rhs = self.gen_expr_into_int_value(*m)?;
         let cmp = self
           .builder
-          .build_int_compare(IntPredicate::SLT, lhs, rhs, "tmpcmp")
+          .build_int_compare(IntPredicate::SLT, lhs, rhs, "tmpcmp");
+        let zext = self
+          .builder
+          .build_int_z_extend(cmp, i64_type, "tmpzext")
           .as_basic_value_enum();
-        Ok(cmp)
+        Ok(zext)
       }
       AST::Le(n, m) => {
         let lhs = self.gen_expr_into_int_value(*n)?;
         let rhs = self.gen_expr_into_int_value(*m)?;
         let cmp = self
           .builder
-          .build_int_compare(IntPredicate::SLE, lhs, rhs, "tmpcmp")
+          .build_int_compare(IntPredicate::SLE, lhs, rhs, "tmpcmp");
+        let zext = self
+          .builder
+          .build_int_z_extend(cmp, i64_type, "tmpzext")
           .as_basic_value_enum();
-        Ok(cmp)
+        Ok(zext)
       }
       AST::Add(n, m) => {
         let lhs = self.gen_expr(*n)?;
@@ -557,14 +570,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
           err!("function does not exist")
         }
       }
-      AST::Num(n) => {
-        let res = self
-          .context
-          .i64_type()
-          .const_int(n, false)
-          .as_basic_value_enum();
-        Ok(res)
-      }
+      AST::Num(n) => Ok(i64_type.const_int(n, false).as_basic_value_enum()),
       AST::Assign(..) | AST::Deref(..) | AST::Ident(..) => {
         let var = self.gen_addr(expr)?;
         if var.get_type().get_element_type().is_array_type() {
