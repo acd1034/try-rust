@@ -17,7 +17,7 @@ pub enum Fun {
 #[derive(Debug)]
 pub enum Stmt {
   VarDef(Type, String, Option<AST>),
-  IfElse(AST, Box<Stmt>, Box<Stmt>),
+  IfElse(AST, Box<Stmt>, Option<Box<Stmt>>),
   For(Option<AST>, Option<AST>, Option<AST>, Box<Stmt>),
   Break,
   Cont,
@@ -256,9 +256,9 @@ fn parse_stmt(it: &mut Tokenizer) -> Expected<Stmt> {
     expect(it, ")")?;
     let then_stmt = Box::new(parse_stmt(it)?);
     let else_stmt = if consume_keyword(it, "else")? {
-      Box::new(parse_stmt(it)?)
+      Some(Box::new(parse_stmt(it)?))
     } else {
-      Box::new(Stmt::Block(Vec::new()))
+      None
     };
     Ok(Stmt::IfElse(cond, then_stmt, else_stmt))
   } else if consume_keyword(it, "for")? {

@@ -217,7 +217,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
 
     // verify
     if !has_terminator {
-      return err!("gen_fun: no terminator in function");
+      return err!("no terminator in function");
     }
 
     if fn_value.verify(true) {
@@ -225,7 +225,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     } else {
       // TODO: 前方宣言後の定義ならば定義のみ消す。前方宣言なしの定義ならば宣言ごと消す
       // unsafe { fn_value.delete(); }
-      err!("gen_fun: failed to verify function")
+      err!("failed to verify function")
     }
   }
 
@@ -247,7 +247,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
         }
         Ok(false)
       }
-      Stmt::IfElse(cond, then, else_) => self.gen_if_else(cond, *then, *else_),
+      Stmt::IfElse(cond, then, else_) => self.gen_if_else(cond, then, else_),
       Stmt::For(init, cond, inc, body) => self.gen_for(init, cond, inc, *body),
       Stmt::Break => {
         self
@@ -285,7 +285,12 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     }
   }
 
-  fn gen_if_else(&mut self, cond: AST, then: Stmt, else_: Stmt) -> Expected<bool> {
+  fn gen_if_else(
+    &mut self,
+    cond: AST,
+    then: Box<Stmt>,
+    else_: Option<Box<Stmt>>,
+  ) -> Expected<bool> {
     /* `if (A) B else C`
      *   A != 0 ? goto then : goto else;
      * then:
@@ -299,7 +304,11 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     let current_block = self.get_current_basic_block();
     let then_block = self.context.insert_basic_block_after(current_block, "then");
     let else_block = self.context.insert_basic_block_after(then_block, "else");
-    let merge_block = self.context.insert_basic_block_after(else_block, "merge");
+    let merge_block = if else_.is_some() {
+      self.context.insert_basic_block_after(else_block, "cont")
+    } else {
+      else_block
+    };
 
     // cond:
     let lhs = self.gen_expr_into_int_value(cond)?;
@@ -313,17 +322,22 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
 
     // then:
     self.builder.position_at_end(then_block);
-    let has_terminator_in_then = self.gen_stmt(then)?;
+    let has_terminator_in_then = self.gen_stmt(*then)?;
     if !has_terminator_in_then {
       self.builder.build_unconditional_branch(merge_block);
     }
 
     // else:
-    self.builder.position_at_end(else_block);
-    let has_terminator_in_else = self.gen_stmt(else_)?;
-    if !has_terminator_in_else {
-      self.builder.build_unconditional_branch(merge_block);
-    }
+    let has_terminator_in_else = if let Some(else_) = else_ {
+      self.builder.position_at_end(else_block);
+      let has_terminator = self.gen_stmt(*else_)?;
+      if !has_terminator {
+        self.builder.build_unconditional_branch(merge_block);
+      }
+      has_terminator
+    } else {
+      false
+    };
 
     // merge:
     self.builder.position_at_end(merge_block);
