@@ -2,7 +2,6 @@ mod codegen;
 mod common;
 mod irgen;
 mod parse;
-mod tgt;
 mod tokenize;
 use common::Expected;
 use inkwell::context::Context;
@@ -30,12 +29,12 @@ fn read_file(path: String) -> Expected<String> {
 }
 
 fn main() -> Expected<()> {
-  let mut use_inkwell = false;
+  let mut target_ll = false;
   let mut path = String::new();
   for arg in std::env::args().skip(1) {
     match arg.as_str() {
-      "-inkwell" => {
-        use_inkwell = true;
+      "-ll" => {
+        target_ll = true;
       }
       _ => {
         path = arg;
@@ -47,12 +46,12 @@ fn main() -> Expected<()> {
   let it = tokenize::Tokenizer::new(&input);
   let funs = parse::parse(it)?;
 
-  let code = if use_inkwell {
+  let code = if target_ll {
     let context = Context::create();
-    codegen::CodeGen::new(&context).codegen(funs)?
+    codegen::ll::CodeGen::new(&context).codegen(funs)?
   } else {
     let module = irgen::irgen(funs)?;
-    tgt::c::codegen(&module)
+    codegen::c::codegen(&module)
   };
 
   println!("{}", code);

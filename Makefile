@@ -1,10 +1,10 @@
 try-rust:
 	cargo build
 
-test: try-rust
-	./test.sh
+test-ll: try-rust
+	./test-ll.sh
 
-test2: try-rust
-	./test2.sh
+test-c: try-rust
+	./test-c.sh
 
 .PHONY: test

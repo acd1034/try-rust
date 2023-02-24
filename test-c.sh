@@ -1,4 +1,5 @@
 #!/bin/bash
+# usage: LLVM_SYS_120_PREFIX=/opt/homebrew/opt/llvm@12 ./test-c.sh
 cat <<EOF | clang -xc -c -o tmp2.o -
 int ret3() { return 3; }
 int ret5() { return 5; }

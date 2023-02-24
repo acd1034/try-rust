@@ -1,5 +1,5 @@
 #!/bin/bash
-# usage: LLVM_SYS_120_PREFIX=/opt/homebrew/opt/llvm@12 ./test.sh
+# usage: LLVM_SYS_120_PREFIX=/opt/homebrew/opt/llvm@12 ./test-ll.sh
 cat <<EOF | $LLVM_SYS_120_PREFIX/bin/clang -xc -c -o tmp2.o -
 int ret3() { return 3; }
 int ret5() { return 5; }
@@ -11,7 +11,7 @@ assert() {
   input="$2"
   echo -en "$ESC[32m$input\n$ESC[m=> "
 
-  echo "$input" | ./target/debug/try-rust "-inkwell" - > tmp.ll || exit
+  echo "$input" | ./target/debug/try-rust "-ll" - > tmp.ll || exit
   $LLVM_SYS_120_PREFIX/bin/clang -o tmp tmp.ll tmp2.o -Wno-override-module
   ./tmp
   actual="$?"
@@ -27,7 +27,7 @@ assert_fail() {
   input="$1"
   echo -en "$ESC[31m$input\n$ESC[m=> "
 
-  echo "$input" | ./target/debug/try-rust "-inkwell" - > /dev/null && echo "Error: unexpected success in compiling"
+  echo "$input" | ./target/debug/try-rust "-ll" - > /dev/null && echo "Error: unexpected success in compiling"
 }
 
 # TODO:
