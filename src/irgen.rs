@@ -70,6 +70,7 @@ pub enum Inst {
   Div(Val, Val, Val),
   Alloca(MemId),
   Store(MemId, Val),
+  Load(Val, MemId),
   Ret(Val),
 }
 
@@ -88,6 +89,7 @@ impl fmt::Display for Inst {
       Inst::Div(v0, v1, v2) => write!(f, "{} = div {}, {}", v0, v1, v2),
       Inst::Alloca(m0) => write!(f, "m{} = alloca", m0),
       Inst::Store(m1, v2) => write!(f, "store m{}, {}", m1, v2),
+      Inst::Load(v1, m2) => write!(f, "load {}, m{}", v1, m2),
       Inst::Ret(v1) => write!(f, "ret {}", v1),
     }
   }
@@ -182,7 +184,6 @@ impl GenFun {
   // ----- gen_fun -----
 
   fn gen_fun(mut self, fun: parse::Fun) -> Expected<Fun> {
-    eprintln!("{:?}", fun);
     match fun {
       parse::Fun::FunDecl(_ret_ty, _name, _param_tys) => todo!(),
       parse::Fun::FunDef(_ret_ty, name, _param_tys, _param_names, body) => {
@@ -231,6 +232,10 @@ impl GenFun {
       Stmt::Return(expr) => {
         let v1 = self.gen_expr(expr, bb)?;
         self.push_inst(Inst::Ret(v1), bb);
+        Ok(bb)
+      }
+      Stmt::Expr(expr) => {
+        self.gen_expr(expr, bb)?;
         Ok(bb)
       }
       _ => todo!(),
@@ -320,12 +325,49 @@ impl GenFun {
         Ok(v0)
       }
       AST::Num(n) => Ok(Val::Imm(n)),
+      AST::Assign(..) | AST::Ident(..) => {
+        let mem = self.gen_addr(expr, bb)?;
+        // TODO: check if mem.get_type().get_element_type().is_array_type()
+        if false {
+          todo!()
+          // Ok(self.gen_array_addr_impl(mem))
+        } else {
+          let v0 = self.new_reg();
+          self.push_inst(Inst::Load(v0.clone(), mem), bb);
+          Ok(v0)
+        }
+      }
       _ => todo!(),
     }
   }
 
+  // ----- gen_addr -----
+
+  fn gen_addr(&mut self, expr: AST, bb: BBId) -> Expected<MemId> {
+    match expr {
+      AST::Assign(n, m) => {
+        let rhs = self.gen_expr(*m, bb)?;
+        let lhs = self.gen_addr(*n, bb)?;
+        self.gen_assign_impl(lhs, rhs, bb)
+      }
+      // AST::Deref(n) => {
+      //   let ptr = self.gen_expr(*n, bb)?;
+      //   if ptr.is_pointer_value() {
+      //     Ok(ptr.into_pointer_value())
+      //   } else {
+      //     err!("cannot dereference int value")
+      //   }
+      // }
+      AST::Ident(name) => match self.scope.get_all(&name) {
+        Some(&mem) => Ok(mem),
+        None => err!("variable should be declared before its first use"),
+      },
+      _ => err!("cannot obtain address of rvalue"),
+    }
+  }
+
   fn gen_assign_impl(&mut self, mem: MemId, rhs: Val, bb: BBId) -> Expected<MemId> {
-    // TODO: type check
+    // TODO: check if lhs.get_type().get_element_type() == rhs.get_type().as_any_type_enum()
     if true {
       self.push_inst(Inst::Store(mem, rhs), bb);
       Ok(mem)

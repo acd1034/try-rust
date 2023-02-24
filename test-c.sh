@@ -77,20 +77,25 @@ assert 1 'int main() { return 0!=1; }'
 assert 0 'int main() { return 42!=42; }'
 assert 1 'int main() { return (1==1)==(1==1); }'
 assert 1 'int main() { return (1==1)==1; }'
-exit 0
+# variable definition
+assert 0 'int main() { int a; return 0; }'
+# variable use
+assert 42 'int main() { int a=42; return a; }'
+assert 42 'int main() { int _123=42; return _123; }'
+assert 8 'int main() { int a=3; int b=5; return a+b; }'
+assert 6 'int main() { int a=3; int b=a; return a+b; }'
 # assign
 assert 42 'int main() { int foo123; return foo123=42; }'
 assert 2 'int main() { int a; return a=a=2; }'
 assert 2 'int main() { int x; return (x=1)=2; }'
+assert 6 'int main() { int b; int a=b=3; return a+b; }'
 assert_fail 'int main() { return 1=2; }'
 assert_fail 'int main() { return a; }'
 assert_fail 'int main() { return a=2; }'
-# variable declaration
-assert 42 'int main() { int _123=42; return _123; }'
-assert 8 'int main() { int a=3; int b=5; return a+b; }'
-assert 6 'int main() { int a=3; int b=a; return a+b; }'
-assert 6 'int main() { int b; int a=b=3; return a+b; }'
+# expression statement
 assert 2 'int main() { int x=1; x=2; return x; }'
+assert 2 'int main() { int x=1; x=x+1; return x; }'
+exit 0
 # return
 assert 1 'int main() { return 1; 2; 3; }'
 assert 2 'int main() { 1; return 2; 3; }'
