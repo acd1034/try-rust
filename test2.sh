@@ -40,18 +40,19 @@ assert_fail() {
 # num
 assert 0 'int main() { return 0; }'
 assert 42 'int main() { return 42; }'
+# mul
+assert 2 'int main() { return 1*2; }'
+assert 2 'int main() { return 2/1; }'
+assert 24 'int main() { return 1*2*3*4; }'
+assert 4 'int main() { return 3*4/6*2; }'
 # add
 assert 3 'int main() { return 1+2; }'
 assert 1 'int main() { return 2-1; }'
 assert 10 'int main() { return 1+2+3+4; }'
 assert 4 'int main() { return 1+2-3+4; }'
-exit
-# term
-assert 24 'int main() { return 1*2*3*4; }'
-assert 4 'int main() { return 3*4/6*2; }'
-# expr
 assert 44 'int main() { return 1*2+3*4+5*6; }'
 assert 20 'int main() { return 1*2-6/3+4*5; }'
+exit
 # primary
 assert 15 'int main() { return 5*(9-6); }'
 assert 4 'int main() { return (3+5)/2; }'

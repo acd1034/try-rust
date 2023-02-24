@@ -59,6 +59,8 @@ impl BB {
 pub enum Inst {
   Add(Val, Val, Val),
   Sub(Val, Val, Val),
+  Mul(Val, Val, Val),
+  Div(Val, Val, Val),
   Ret(Val),
 }
 
@@ -69,6 +71,8 @@ impl fmt::Display for Inst {
     match self {
       Inst::Add(v0, v1, v2) => write!(f, "{} = add {}, {}", v0, v1, v2),
       Inst::Sub(v0, v1, v2) => write!(f, "{} = sub {}, {}", v0, v1, v2),
+      Inst::Mul(v0, v1, v2) => write!(f, "{} = mul {}, {}", v0, v1, v2),
+      Inst::Div(v0, v1, v2) => write!(f, "{} = div {}, {}", v0, v1, v2),
       Inst::Ret(v1) => write!(f, "ret {}", v1),
     }
   }
@@ -193,6 +197,20 @@ impl GenFun {
         let v2 = self.gen_expr(*m, bb)?;
         let v0 = self.new_reg();
         self.push_inst(Inst::Sub(v0.clone(), v1, v2), bb);
+        Ok(v0)
+      }
+      AST::Mul(n, m) => {
+        let v1 = self.gen_expr(*n, bb)?;
+        let v2 = self.gen_expr(*m, bb)?;
+        let v0 = self.new_reg();
+        self.push_inst(Inst::Mul(v0.clone(), v1, v2), bb);
+        Ok(v0)
+      }
+      AST::Div(n, m) => {
+        let v1 = self.gen_expr(*n, bb)?;
+        let v2 = self.gen_expr(*m, bb)?;
+        let v0 = self.new_reg();
+        self.push_inst(Inst::Div(v0.clone(), v1, v2), bb);
         Ok(v0)
       }
       AST::Num(n) => Ok(Val::Imm(n)),
