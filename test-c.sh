@@ -102,11 +102,11 @@ assert 3 'int main() { 1; 2; return 3; }'
 assert 0 'int main() { return 0; return 1; }'
 assert 0 'int main() { int a=0; return a; a=1; }'
 assert_fail 'int main() { 1; }'
-exit 0
 # block
 assert 3 'int main() { {1; {2;} return 3;} }'
 # null
 assert 5 'int main() { ;;; return 5; }'
+exit 0
 # if
 assert 1 'int main() { int x=0; if (1) x=1; return x; }'
 assert 1 'int main() { int x=0; if (1) x=1; else x=2; return x; }'

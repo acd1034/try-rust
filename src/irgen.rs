@@ -251,6 +251,18 @@ impl GenFun {
         self.push_inst(Inst::Ret(v1));
         Ok(true)
       }
+      Stmt::Block(stmts) => {
+        self.scope.push();
+        let mut has_terminator = false;
+        for stmt in stmts {
+          has_terminator = self.gen_stmt(stmt)?;
+          if has_terminator {
+            break;
+          }
+        }
+        self.scope.pop();
+        Ok(has_terminator)
+      }
       Stmt::Expr(expr) => {
         self.gen_expr(expr)?;
         Ok(false)

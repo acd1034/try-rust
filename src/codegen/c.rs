@@ -10,7 +10,7 @@ pub fn codegen(module: &Mod) -> String {
 }
 
 fn gen_fun(fun: &Fun) -> String {
-  let mut ret = format!("\nint {}() {{", fun.name);
+  let mut ret = format!("\n\nint {}() {{", fun.name);
   for &bb in &fun.bbs {
     ret += format!("\nbb{}:;", bb).as_str();
     for &inst in &fun.bb_arena[bb].insts {
