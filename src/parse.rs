@@ -249,6 +249,7 @@ fn parse_stmt(it: &mut Tokenizer) -> Expected<Stmt> {
     } else {
       None
     };
+    expect(it, ";")?;
     Ok(Stmt::VarDef(ty, name, init))
   } else if consume_keyword(it, "if")? {
     expect(it, "(")?;
