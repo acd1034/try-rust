@@ -57,6 +57,8 @@ impl BB {
 }
 
 pub enum Inst {
+  Lt(Val, Val, Val),
+  Le(Val, Val, Val),
   Add(Val, Val, Val),
   Sub(Val, Val, Val),
   Mul(Val, Val, Val),
@@ -69,6 +71,8 @@ pub type InstId = usize;
 impl fmt::Display for Inst {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
+      Inst::Lt(v0, v1, v2) => write!(f, "{} = lt {}, {}", v0, v1, v2),
+      Inst::Le(v0, v1, v2) => write!(f, "{} = le {}, {}", v0, v1, v2),
       Inst::Add(v0, v1, v2) => write!(f, "{} = add {}, {}", v0, v1, v2),
       Inst::Sub(v0, v1, v2) => write!(f, "{} = sub {}, {}", v0, v1, v2),
       Inst::Mul(v0, v1, v2) => write!(f, "{} = mul {}, {}", v0, v1, v2),
@@ -185,6 +189,20 @@ impl GenFun {
 
   pub fn gen_expr(&mut self, expr: AST, bb: BBId) -> Expected<Val> {
     match expr {
+      AST::Lt(n, m) => {
+        let v1 = self.gen_expr(*n, bb)?;
+        let v2 = self.gen_expr(*m, bb)?;
+        let v0 = self.new_reg();
+        self.push_inst(Inst::Lt(v0.clone(), v1, v2), bb);
+        Ok(v0)
+      }
+      AST::Le(n, m) => {
+        let v1 = self.gen_expr(*n, bb)?;
+        let v2 = self.gen_expr(*m, bb)?;
+        let v0 = self.new_reg();
+        self.push_inst(Inst::Le(v0.clone(), v1, v2), bb);
+        Ok(v0)
+      }
       AST::Add(n, m) => {
         let v1 = self.gen_expr(*n, bb)?;
         let v2 = self.gen_expr(*m, bb)?;
