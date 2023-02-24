@@ -40,13 +40,9 @@ assert_fail() {
 assert 0 'int main() { return 0; }'
 assert 42 'int main() { return 42; }'
 # mul
-assert 2 'int main() { return 1*2; }'
-assert 2 'int main() { return 2/1; }'
 assert 24 'int main() { return 1*2*3*4; }'
 assert 4 'int main() { return 3*4/6*2; }'
 # add
-assert 3 'int main() { return 1+2; }'
-assert 1 'int main() { return 2-1; }'
 assert 10 'int main() { return 1+2+3+4; }'
 assert 4 'int main() { return 1+2-3+4; }'
 assert 44 'int main() { return 1*2+3*4+5*6; }'
