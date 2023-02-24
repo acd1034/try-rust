@@ -2,6 +2,7 @@ use crate::irgen::*;
 
 pub fn codegen(module: &Mod) -> String {
   let mut ret = format!("// ModuleName = '{}'", module.name);
+  ret += "\nint m[1 << 16];";
   for fun in &module.funs {
     ret += gen_fun(fun).as_str();
   }
@@ -30,6 +31,8 @@ fn gen_inst(inst: &Inst) -> String {
     Inst::Sub(v0, v1, v2) => format!("\n  int {} = {} - {};", v0, v1, v2),
     Inst::Mul(v0, v1, v2) => format!("\n  int {} = {} * {};", v0, v1, v2),
     Inst::Div(v0, v1, v2) => format!("\n  int {} = {} / {};", v0, v1, v2),
+    Inst::Alloca(..) => String::new(),
+    Inst::Store(m1, v2) => format!("\n  m[{}] = {};", m1, v2),
     Inst::Ret(v1) => format!("\n  return {};", v1),
   }
 }

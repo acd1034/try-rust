@@ -1,6 +1,8 @@
-use crate::common::Expected;
-use crate::parse::{self, Stmt, AST};
+use crate::codegen::common;
+use crate::parse::{self, Stmt, Type, AST};
+use crate::{common::Expected, err};
 use std::fmt;
+type Scope = common::Scope<MemId>;
 
 pub struct Mod {
   pub name: String,
@@ -23,6 +25,7 @@ pub struct Fun {
   pub bb_arena: Vec<BB>,
   pub inst_arena: Vec<Inst>,
   pub reg_arena: Vec<Reg>,
+  pub mem_arena: Vec<Mem>,
 }
 
 impl fmt::Display for Fun {
@@ -65,6 +68,8 @@ pub enum Inst {
   Sub(Val, Val, Val),
   Mul(Val, Val, Val),
   Div(Val, Val, Val),
+  Alloca(MemId),
+  Store(MemId, Val),
   Ret(Val),
 }
 
@@ -81,6 +86,8 @@ impl fmt::Display for Inst {
       Inst::Sub(v0, v1, v2) => write!(f, "{} = sub {}, {}", v0, v1, v2),
       Inst::Mul(v0, v1, v2) => write!(f, "{} = mul {}, {}", v0, v1, v2),
       Inst::Div(v0, v1, v2) => write!(f, "{} = div {}, {}", v0, v1, v2),
+      Inst::Alloca(m0) => write!(f, "m{} = alloca", m0),
+      Inst::Store(m1, v2) => write!(f, "store m{}, {}", m1, v2),
       Inst::Ret(v1) => write!(f, "ret {}", v1),
     }
   }
@@ -108,6 +115,13 @@ pub struct Reg {
 
 pub type RegId = usize;
 
+pub struct Mem {
+  pub def: InstId,
+  pub use_: Vec<InstId>,
+}
+
+pub type MemId = usize;
+
 // ----- irgen -----
 
 pub fn irgen(funs: Vec<parse::Fun>) -> Expected<Mod> {
@@ -124,6 +138,9 @@ struct GenFun {
   bb_arena: Vec<BB>,
   inst_arena: Vec<Inst>,
   reg_arena: Vec<Reg>,
+  mem_arena: Vec<Mem>,
+  // sema
+  scope: Scope,
 }
 
 impl GenFun {
@@ -133,6 +150,8 @@ impl GenFun {
       bb_arena: Vec::new(),
       inst_arena: Vec::new(),
       reg_arena: Vec::new(),
+      mem_arena: Vec::new(),
+      scope: Scope::new(),
     }
   }
 
@@ -143,43 +162,10 @@ impl GenFun {
     bb_id
   }
 
-  fn gen_fun(mut self, fun: parse::Fun) -> Expected<Fun> {
-    match fun {
-      parse::Fun::FunDecl(_ret_ty, _name, _param_tys) => todo!(),
-      parse::Fun::FunDef(_ret_ty, name, _param_tys, _param_names, body) => {
-        let bb = self.new_bb();
-
-        // Generate function body
-        for stmt in body {
-          self.gen_stmt(stmt, bb)?;
-        }
-
-        Ok(Fun {
-          name,
-          bbs: self.bbs,
-          bb_arena: self.bb_arena,
-          inst_arena: self.inst_arena,
-          reg_arena: self.reg_arena,
-        })
-      }
-    }
-  }
-
   fn push_inst(&mut self, inst: Inst, bb: BBId) {
     let inst_id = self.inst_arena.len();
     self.inst_arena.push(inst);
     self.bb_arena[bb].insts.push(inst_id);
-  }
-
-  fn gen_stmt(&mut self, stmt: Stmt, bb: BBId) -> Expected<BBId> {
-    match stmt {
-      Stmt::Return(expr) => {
-        let v1 = self.gen_expr(expr, bb)?;
-        self.push_inst(Inst::Ret(v1), bb);
-        Ok(bb)
-      }
-      _ => todo!(),
-    }
   }
 
   fn new_reg(&mut self) -> Val {
@@ -192,6 +178,88 @@ impl GenFun {
     self.reg_arena.push(reg);
     Val::Reg(reg_id)
   }
+
+  // ----- gen_fun -----
+
+  fn gen_fun(mut self, fun: parse::Fun) -> Expected<Fun> {
+    eprintln!("{:?}", fun);
+    match fun {
+      parse::Fun::FunDecl(_ret_ty, _name, _param_tys) => todo!(),
+      parse::Fun::FunDef(_ret_ty, name, _param_tys, _param_names, body) => {
+        // Create entry block
+        let bb = self.new_bb();
+
+        // Push first scope
+        self.scope.push();
+
+        // Generate function body
+        for stmt in body {
+          self.gen_stmt(stmt, bb)?;
+        }
+
+        // Pop first scope
+        self.scope.pop();
+
+        Ok(Fun {
+          name,
+          bbs: self.bbs,
+          bb_arena: self.bb_arena,
+          inst_arena: self.inst_arena,
+          reg_arena: self.reg_arena,
+          mem_arena: self.mem_arena,
+        })
+      }
+    }
+  }
+
+  // ----- gen_stmt -----
+
+  fn gen_stmt(&mut self, stmt: Stmt, bb: BBId) -> Expected<BBId> {
+    match stmt {
+      Stmt::VarDef(ty, name, init) => {
+        if self.scope.get(&name).is_some() {
+          return err!("variable already exists");
+        }
+
+        let mem = self.create_entry_block_alloca(ty, name);
+        if let Some(expr) = init {
+          let rhs = self.gen_expr(expr, bb)?;
+          self.gen_assign_impl(mem, rhs, bb)?;
+        }
+        Ok(bb)
+      }
+      Stmt::Return(expr) => {
+        let v1 = self.gen_expr(expr, bb)?;
+        self.push_inst(Inst::Ret(v1), bb);
+        Ok(bb)
+      }
+      _ => todo!(),
+    }
+  }
+
+  fn create_entry_block_alloca(&mut self, ty: Type, name: String) -> MemId {
+    // Push mem_arena
+    let mem_id = self.mem_arena.len();
+    let inst_id = self.inst_arena.len();
+    let mem = Mem {
+      def: inst_id,
+      use_: Vec::new(),
+    };
+    self.mem_arena.push(mem);
+
+    // Push Alloca
+    let &entry_block = self.bbs.first().unwrap();
+    let alloca = Inst::Alloca(mem_id);
+    self.inst_arena.push(alloca);
+    self.bb_arena[entry_block].insts.insert(0, inst_id);
+
+    // Insert scope
+    self.scope.insert(name, mem_id);
+
+    mem_id
+  }
+
+  // ----- gen_expr -----
 
   fn gen_expr(&mut self, expr: AST, bb: BBId) -> Expected<Val> {
     match expr {
@@ -253,6 +321,16 @@ impl GenFun {
       }
       AST::Num(n) => Ok(Val::Imm(n)),
       _ => todo!(),
+    }
+  }
+
+  fn gen_assign_impl(&mut self, mem: MemId, rhs: Val, bb: BBId) -> Expected<MemId> {
+    // TODO: type check
+    if true {
+      self.push_inst(Inst::Store(mem, rhs), bb);
+      Ok(mem)
+    } else {
+      err!("inconsistent types in operands of assignment")
     }
   }
 }
