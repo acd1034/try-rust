@@ -1,5 +1,6 @@
 mod codegen;
 mod common;
+mod irgen;
 mod parse;
 mod tokenize;
 use common::Expected;
@@ -49,7 +50,7 @@ fn main() -> Expected<()> {
     let context = Context::create();
     codegen::CodeGen::new(&context).codegen(funs)?
   } else {
-    todo!()
+    format!("{}", irgen::irgen(funs)?)
   };
 
   println!("{}", code);
