@@ -376,8 +376,8 @@ impl GenFun {
     match expr {
       AST::Assign(n, m) => {
         let rhs = self.gen_expr(*m)?;
-        let lhs = self.gen_addr(*n)?;
-        self.gen_assign_impl(lhs, rhs)
+        let mem = self.gen_addr(*n)?;
+        self.gen_assign_impl(mem, rhs)
       }
       // AST::Deref(n) => {
       //   let ptr = self.gen_expr(*n)?;
