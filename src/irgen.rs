@@ -137,6 +137,8 @@ pub fn irgen(funs: Vec<parse::Fun>) -> Expected<Mod> {
 
 struct GenFun {
   bbs: Vec<BBId>,
+  current_bb: Option<BBId>,
+  // arena
   bb_arena: Vec<BB>,
   inst_arena: Vec<Inst>,
   reg_arena: Vec<Reg>,
@@ -149,6 +151,7 @@ impl GenFun {
   fn new() -> GenFun {
     GenFun {
       bbs: Vec::new(),
+      current_bb: None,
       bb_arena: Vec::new(),
       inst_arena: Vec::new(),
       reg_arena: Vec::new(),
@@ -164,10 +167,14 @@ impl GenFun {
     bb_id
   }
 
-  fn push_inst(&mut self, inst: Inst, bb: BBId) {
+  fn position_at_end(&mut self, bb: BBId) {
+    self.current_bb = Some(bb);
+  }
+
+  fn push_inst(&mut self, inst: Inst) {
     let inst_id = self.inst_arena.len();
     self.inst_arena.push(inst);
-    self.bb_arena[bb].insts.push(inst_id);
+    self.bb_arena[self.current_bb.unwrap()].insts.push(inst_id);
   }
 
   fn new_reg(&mut self) -> Val {
@@ -189,17 +196,27 @@ impl GenFun {
       parse::Fun::FunDef(_ret_ty, name, _param_tys, _param_names, body) => {
         // Create entry block
         let bb = self.new_bb();
+        self.position_at_end(bb);
 
         // Push first scope
         self.scope.push();
 
         // Generate function body
+        let mut has_terminator = false;
         for stmt in body {
-          self.gen_stmt(stmt, bb)?;
+          has_terminator = self.gen_stmt(stmt)?;
+          if has_terminator {
+            break;
+          }
         }
 
         // Pop first scope
         self.scope.pop();
+
+        // Check terminator
+        if !has_terminator {
+          return err!("no terminator in function");
+        }
 
         Ok(Fun {
           name,
@@ -215,7 +232,7 @@ impl GenFun {
 
   // ----- gen_stmt -----
 
-  fn gen_stmt(&mut self, stmt: Stmt, bb: BBId) -> Expected<BBId> {
+  fn gen_stmt(&mut self, stmt: Stmt) -> Expected<bool> {
     match stmt {
       Stmt::VarDef(ty, name, init) => {
         if self.scope.get(&name).is_some() {
@@ -224,19 +241,19 @@ impl GenFun {
 
         let mem = self.create_entry_block_alloca(ty, name);
         if let Some(expr) = init {
-          let rhs = self.gen_expr(expr, bb)?;
-          self.gen_assign_impl(mem, rhs, bb)?;
+          let rhs = self.gen_expr(expr)?;
+          self.gen_assign_impl(mem, rhs)?;
         }
-        Ok(bb)
+        Ok(false)
       }
       Stmt::Return(expr) => {
-        let v1 = self.gen_expr(expr, bb)?;
-        self.push_inst(Inst::Ret(v1), bb);
-        Ok(bb)
+        let v1 = self.gen_expr(expr)?;
+        self.push_inst(Inst::Ret(v1));
+        Ok(true)
       }
       Stmt::Expr(expr) => {
-        self.gen_expr(expr, bb)?;
-        Ok(bb)
+        self.gen_expr(expr)?;
+        Ok(false)
       }
       _ => todo!(),
     }
@@ -266,74 +283,74 @@ impl GenFun {
 
   // ----- gen_expr -----
 
-  fn gen_expr(&mut self, expr: AST, bb: BBId) -> Expected<Val> {
+  fn gen_expr(&mut self, expr: AST) -> Expected<Val> {
     match expr {
       AST::Eq(n, m) => {
-        let v1 = self.gen_expr(*n, bb)?;
-        let v2 = self.gen_expr(*m, bb)?;
+        let v1 = self.gen_expr(*n)?;
+        let v2 = self.gen_expr(*m)?;
         let v0 = self.new_reg();
-        self.push_inst(Inst::Eq(v0.clone(), v1, v2), bb);
+        self.push_inst(Inst::Eq(v0.clone(), v1, v2));
         Ok(v0)
       }
       AST::Ne(n, m) => {
-        let v1 = self.gen_expr(*n, bb)?;
-        let v2 = self.gen_expr(*m, bb)?;
+        let v1 = self.gen_expr(*n)?;
+        let v2 = self.gen_expr(*m)?;
         let v0 = self.new_reg();
-        self.push_inst(Inst::Ne(v0.clone(), v1, v2), bb);
+        self.push_inst(Inst::Ne(v0.clone(), v1, v2));
         Ok(v0)
       }
       AST::Lt(n, m) => {
-        let v1 = self.gen_expr(*n, bb)?;
-        let v2 = self.gen_expr(*m, bb)?;
+        let v1 = self.gen_expr(*n)?;
+        let v2 = self.gen_expr(*m)?;
         let v0 = self.new_reg();
-        self.push_inst(Inst::Lt(v0.clone(), v1, v2), bb);
+        self.push_inst(Inst::Lt(v0.clone(), v1, v2));
         Ok(v0)
       }
       AST::Le(n, m) => {
-        let v1 = self.gen_expr(*n, bb)?;
-        let v2 = self.gen_expr(*m, bb)?;
+        let v1 = self.gen_expr(*n)?;
+        let v2 = self.gen_expr(*m)?;
         let v0 = self.new_reg();
-        self.push_inst(Inst::Le(v0.clone(), v1, v2), bb);
+        self.push_inst(Inst::Le(v0.clone(), v1, v2));
         Ok(v0)
       }
       AST::Add(n, m) => {
-        let v1 = self.gen_expr(*n, bb)?;
-        let v2 = self.gen_expr(*m, bb)?;
+        let v1 = self.gen_expr(*n)?;
+        let v2 = self.gen_expr(*m)?;
         let v0 = self.new_reg();
-        self.push_inst(Inst::Add(v0.clone(), v1, v2), bb);
+        self.push_inst(Inst::Add(v0.clone(), v1, v2));
         Ok(v0)
       }
       AST::Sub(n, m) => {
-        let v1 = self.gen_expr(*n, bb)?;
-        let v2 = self.gen_expr(*m, bb)?;
+        let v1 = self.gen_expr(*n)?;
+        let v2 = self.gen_expr(*m)?;
         let v0 = self.new_reg();
-        self.push_inst(Inst::Sub(v0.clone(), v1, v2), bb);
+        self.push_inst(Inst::Sub(v0.clone(), v1, v2));
         Ok(v0)
       }
       AST::Mul(n, m) => {
-        let v1 = self.gen_expr(*n, bb)?;
-        let v2 = self.gen_expr(*m, bb)?;
+        let v1 = self.gen_expr(*n)?;
+        let v2 = self.gen_expr(*m)?;
         let v0 = self.new_reg();
-        self.push_inst(Inst::Mul(v0.clone(), v1, v2), bb);
+        self.push_inst(Inst::Mul(v0.clone(), v1, v2));
         Ok(v0)
       }
       AST::Div(n, m) => {
-        let v1 = self.gen_expr(*n, bb)?;
-        let v2 = self.gen_expr(*m, bb)?;
+        let v1 = self.gen_expr(*n)?;
+        let v2 = self.gen_expr(*m)?;
         let v0 = self.new_reg();
-        self.push_inst(Inst::Div(v0.clone(), v1, v2), bb);
+        self.push_inst(Inst::Div(v0.clone(), v1, v2));
         Ok(v0)
       }
       AST::Num(n) => Ok(Val::Imm(n)),
       AST::Assign(..) | AST::Ident(..) => {
-        let mem = self.gen_addr(expr, bb)?;
+        let mem = self.gen_addr(expr)?;
         // TODO: check if mem.get_type().get_element_type().is_array_type()
         if false {
           todo!()
           // Ok(self.gen_array_addr_impl(mem))
         } else {
           let v0 = self.new_reg();
-          self.push_inst(Inst::Load(v0.clone(), mem), bb);
+          self.push_inst(Inst::Load(v0.clone(), mem));
           Ok(v0)
         }
       }
@@ -343,15 +360,15 @@ impl GenFun {
 
   // ----- gen_addr -----
 
-  fn gen_addr(&mut self, expr: AST, bb: BBId) -> Expected<MemId> {
+  fn gen_addr(&mut self, expr: AST) -> Expected<MemId> {
     match expr {
       AST::Assign(n, m) => {
-        let rhs = self.gen_expr(*m, bb)?;
-        let lhs = self.gen_addr(*n, bb)?;
-        self.gen_assign_impl(lhs, rhs, bb)
+        let rhs = self.gen_expr(*m)?;
+        let lhs = self.gen_addr(*n)?;
+        self.gen_assign_impl(lhs, rhs)
       }
       // AST::Deref(n) => {
-      //   let ptr = self.gen_expr(*n, bb)?;
+      //   let ptr = self.gen_expr(*n)?;
       //   if ptr.is_pointer_value() {
       //     Ok(ptr.into_pointer_value())
       //   } else {
@@ -366,10 +383,10 @@ impl GenFun {
     }
   }
 
-  fn gen_assign_impl(&mut self, mem: MemId, rhs: Val, bb: BBId) -> Expected<MemId> {
+  fn gen_assign_impl(&mut self, mem: MemId, rhs: Val) -> Expected<MemId> {
     // TODO: check if lhs.get_type().get_element_type() == rhs.get_type().as_any_type_enum()
     if true {
-      self.push_inst(Inst::Store(mem, rhs), bb);
+      self.push_inst(Inst::Store(mem, rhs));
       Ok(mem)
     } else {
       err!("inconsistent types in operands of assignment")

@@ -179,7 +179,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     // Remove first scope
     self.scope.pop();
 
-    // verify
+    // Check terminator
     if !has_terminator {
       return err!("no terminator in function");
     }

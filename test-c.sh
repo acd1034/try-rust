@@ -95,7 +95,6 @@ assert_fail 'int main() { return a=2; }'
 # expression statement
 assert 2 'int main() { int x=1; x=2; return x; }'
 assert 2 'int main() { int x=1; x=x+1; return x; }'
-exit 0
 # return
 assert 1 'int main() { return 1; 2; 3; }'
 assert 2 'int main() { 1; return 2; 3; }'
@@ -103,6 +102,7 @@ assert 3 'int main() { 1; 2; return 3; }'
 assert 0 'int main() { return 0; return 1; }'
 assert 0 'int main() { int a=0; return a; a=1; }'
 assert_fail 'int main() { 1; }'
+exit 0
 # block
 assert 3 'int main() { {1; {2;} return 3;} }'
 # null
