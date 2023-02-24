@@ -1,10 +1,10 @@
-use crate::parse::{self, Stmt, Type, AST};
-use crate::{common::Expected, err};
+use crate::common::Expected;
+use crate::parse::{self, Stmt, AST};
 use std::fmt;
 
 pub struct Mod {
-  name: String,
-  funs: Vec<Fun>,
+  pub name: String,
+  pub funs: Vec<Fun>,
 }
 
 impl fmt::Display for Mod {
@@ -18,11 +18,11 @@ impl fmt::Display for Mod {
 }
 
 pub struct Fun {
-  name: String,
-  bbs: Vec<BBId>,
-  bb_arena: Vec<BB>,
-  inst_arena: Vec<Inst>,
-  reg_arena: Vec<Reg>,
+  pub name: String,
+  pub bbs: Vec<BBId>,
+  pub bb_arena: Vec<BB>,
+  pub inst_arena: Vec<Inst>,
+  pub reg_arena: Vec<Reg>,
 }
 
 impl fmt::Display for Fun {
@@ -39,15 +39,15 @@ impl fmt::Display for Fun {
 }
 
 pub struct BB {
-  insts: Vec<InstId>,
-  pred: Vec<BBId>,
-  succ: Vec<BBId>,
+  pub insts: Vec<InstId>,
+  pub pred: Vec<BBId>,
+  pub succ: Vec<BBId>,
 }
 
 pub type BBId = usize;
 
 impl BB {
-  pub fn new() -> BB {
+  fn new() -> BB {
     BB {
       insts: Vec::new(),
       pred: Vec::new(),
@@ -102,11 +102,13 @@ impl fmt::Display for Val {
 }
 
 pub struct Reg {
-  def: InstId,
-  use_: Vec<InstId>,
+  pub def: InstId,
+  pub use_: Vec<InstId>,
 }
 
 pub type RegId = usize;
+
+// ----- irgen -----
 
 pub fn irgen(funs: Vec<parse::Fun>) -> Expected<Mod> {
   let name = "mod".to_string();
@@ -125,7 +127,7 @@ struct GenFun {
 }
 
 impl GenFun {
-  pub fn new() -> GenFun {
+  fn new() -> GenFun {
     GenFun {
       bbs: Vec::new(),
       bb_arena: Vec::new(),
@@ -134,17 +136,17 @@ impl GenFun {
     }
   }
 
-  pub fn new_bb(&mut self) -> BBId {
+  fn new_bb(&mut self) -> BBId {
     let bb_id = self.bb_arena.len();
     self.bb_arena.push(BB::new());
     self.bbs.push(bb_id);
     bb_id
   }
 
-  pub fn gen_fun(mut self, fun: parse::Fun) -> Expected<Fun> {
+  fn gen_fun(mut self, fun: parse::Fun) -> Expected<Fun> {
     match fun {
-      parse::Fun::FunDecl(ret_ty, name, param_tys) => todo!(),
-      parse::Fun::FunDef(ret_ty, name, param_tys, param_names, body) => {
+      parse::Fun::FunDecl(_ret_ty, _name, _param_tys) => todo!(),
+      parse::Fun::FunDef(_ret_ty, name, _param_tys, _param_names, body) => {
         let bb = self.new_bb();
 
         // Generate function body
@@ -163,13 +165,13 @@ impl GenFun {
     }
   }
 
-  pub fn push_inst(&mut self, inst: Inst, bb: BBId) {
+  fn push_inst(&mut self, inst: Inst, bb: BBId) {
     let inst_id = self.inst_arena.len();
     self.inst_arena.push(inst);
     self.bb_arena[bb].insts.push(inst_id);
   }
 
-  pub fn gen_stmt(&mut self, stmt: Stmt, bb: BBId) -> Expected<BBId> {
+  fn gen_stmt(&mut self, stmt: Stmt, bb: BBId) -> Expected<BBId> {
     match stmt {
       Stmt::Return(expr) => {
         let v1 = self.gen_expr(expr, bb)?;
@@ -180,7 +182,7 @@ impl GenFun {
     }
   }
 
-  pub fn new_reg(&mut self) -> Val {
+  fn new_reg(&mut self) -> Val {
     let reg_id = self.reg_arena.len();
     let inst_id = self.inst_arena.len();
     let reg = Reg {
@@ -191,7 +193,7 @@ impl GenFun {
     Val::Reg(reg_id)
   }
 
-  pub fn gen_expr(&mut self, expr: AST, bb: BBId) -> Expected<Val> {
+  fn gen_expr(&mut self, expr: AST, bb: BBId) -> Expected<Val> {
     match expr {
       AST::Eq(n, m) => {
         let v1 = self.gen_expr(*n, bb)?;
