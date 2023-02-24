@@ -1,33 +1,32 @@
 #!/bin/bash
-# usage: LLVM_SYS_120_PREFIX=/opt/homebrew/opt/llvm@12 ./test.sh
-# cat <<EOF | $LLVM_SYS_120_PREFIX/bin/clang -xc -c -o tmp2.o -
-# int ret3() { return 3; }
-# int ret5() { return 5; }
-# EOF
+cat <<EOF | clang -xc -c -o tmp2.o -
+int ret3() { return 3; }
+int ret5() { return 5; }
+EOF
 
 ESC=$(printf '\033')
 assert() {
   expected="$1"
   input="$2"
-  # echo -en "$ESC[32m$input\n$ESC[m=> "
+  echo -en "$ESC[32m$input\n$ESC[m=> "
 
-  echo "$input" | ./target/debug/try-rust - || exit
-  # $LLVM_SYS_120_PREFIX/bin/clang -o tmp tmp.ll tmp2.o -Wno-override-module
-  # ./tmp
-  # actual="$?"
+  echo "$input" | ./target/debug/try-rust - > tmp.c || exit
+  clang -o tmp tmp.c tmp2.o
+  ./tmp
+  actual="$?"
 
-  # if [ "$actual" = "$expected" ]; then
-  #   echo "$actual"
-  # else
-  #   echo "unexpected $actual, expecting $expected"
-  #   exit 1
-  # fi
+  if [ "$actual" = "$expected" ]; then
+    echo "$actual"
+  else
+    echo "unexpected $actual, expecting $expected"
+    exit 1
+  fi
 }
 assert_fail() {
   input="$1"
-  # echo -en "$ESC[31m$input\n$ESC[m=> "
+  echo -en "$ESC[31m$input\n$ESC[m=> "
 
-  echo "$input" | ./target/debug/try-rust - && echo "Error: unexpected success in compiling"
+  echo "$input" | ./target/debug/try-rust - > /dev/null && echo "Error: unexpected success in compiling"
 }
 
 # TODO:

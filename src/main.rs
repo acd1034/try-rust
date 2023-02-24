@@ -2,6 +2,7 @@ mod codegen;
 mod common;
 mod irgen;
 mod parse;
+mod tgt;
 mod tokenize;
 use common::Expected;
 use inkwell::context::Context;
@@ -50,7 +51,8 @@ fn main() -> Expected<()> {
     let context = Context::create();
     codegen::CodeGen::new(&context).codegen(funs)?
   } else {
-    format!("{}", irgen::irgen(funs)?)
+    let module = irgen::irgen(funs)?;
+    tgt::c::codegen(&module)
   };
 
   println!("{}", code);
