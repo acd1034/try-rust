@@ -1,3 +1,4 @@
+use crate::codegen::common;
 use crate::parse::{Fun, Stmt, Type, AST};
 use crate::{common::Expected, err};
 use inkwell::basic_block::BasicBlock;
@@ -8,7 +9,7 @@ use inkwell::types::*;
 use inkwell::values::*;
 use inkwell::AddressSpace;
 use inkwell::IntPredicate;
-use std::collections::HashMap;
+type Scope<'a> = common::Scope<PointerValue<'a>>;
 
 // Module ⊇ Function ⊇ BasicBlock ⊇ Instruction
 pub struct CodeGen<'ctx> {
@@ -26,43 +27,6 @@ impl<'ctx> CodeGen<'ctx> {
       GenFun::new(self.context, &module).gen_fun(fun)?;
     }
     Ok(module.to_string())
-  }
-}
-
-struct Scope<'ctx> {
-  vars: Vec<HashMap<String, PointerValue<'ctx>>>,
-}
-
-impl<'ctx> Scope<'ctx> {
-  fn new() -> Scope<'ctx> {
-    let vars = Vec::new();
-    Scope { vars }
-  }
-
-  fn push(&mut self) {
-    self.vars.push(HashMap::new());
-  }
-
-  fn pop(&mut self) {
-    self.vars.pop();
-  }
-
-  fn insert(&mut self, k: String, v: PointerValue<'ctx>) -> Option<PointerValue<'ctx>> {
-    self.vars.last_mut().unwrap().insert(k, v)
-  }
-
-  fn get(&self, k: &str) -> Option<&PointerValue<'ctx>> {
-    self.vars.last().unwrap().get(k)
-  }
-
-  fn get_all(&self, k: &str) -> Option<&PointerValue<'ctx>> {
-    for vars in self.vars.iter().rev() {
-      let var = vars.get(k);
-      if var.is_some() {
-        return var;
-      }
-    }
-    None
   }
 }
 
