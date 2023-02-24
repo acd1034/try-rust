@@ -74,7 +74,6 @@ assert 0 'int main() { return 1>2; }'
 assert 1 'int main() { return 1>=0; }'
 assert 1 'int main() { return 1>=1; }'
 assert 0 'int main() { return 1>=2; }'
-exit 0
 # equality
 assert 0 'int main() { return 0==1; }'
 assert 1 'int main() { return 42==42; }'
@@ -82,6 +81,7 @@ assert 1 'int main() { return 0!=1; }'
 assert 0 'int main() { return 42!=42; }'
 assert 1 'int main() { return (1==1)==(1==1); }'
 assert 1 'int main() { return (1==1)==1; }'
+exit 0
 # assign
 assert 42 'int main() { int foo123; return foo123=42; }'
 assert 2 'int main() { int a; return a=a=2; }'
