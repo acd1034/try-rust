@@ -98,8 +98,8 @@ impl Fun {
   fn new_mem(&mut self) -> MemId {
     let mem_id = self.mem_arena.len();
     let mem = Mem {
-      id: mem_id,
-      use_: Vec::new(),
+      store: Vec::new(),
+      load: Vec::new(),
     };
     self.mem_arena.push(mem);
     mem_id
@@ -166,8 +166,8 @@ pub struct Reg {
 pub type RegId = usize;
 
 pub struct Mem {
-  pub id: MemId,
-  pub use_: Vec<InstId>,
+  pub store: Vec<InstId>,
+  pub load: Vec<InstId>,
 }
 
 pub type MemId = usize;
@@ -187,8 +187,8 @@ impl fmt::Display for Mod {
 impl fmt::Display for Fun {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "{}()", self.name)?;
-    for mem in &self.mem_arena {
-      write!(f, "\n  m{} = alloca", mem.id)?;
+    for mem_id in 0..self.mem_arena.len() {
+      write!(f, "\n  m{} = alloca", mem_id)?;
     }
     for &bb in &self.bbs {
       write!(f, "\nbb{}:", bb)?;
