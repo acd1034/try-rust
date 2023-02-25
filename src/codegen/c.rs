@@ -23,16 +23,16 @@ fn gen_fun(fun: &Fun) -> String {
 
 fn gen_inst(inst: &Inst) -> String {
   match inst {
-    Inst::Eq(v0, v1, v2) => format!("\n  int {} = {} == {};", v0, v1, v2),
-    Inst::Ne(v0, v1, v2) => format!("\n  int {} = {} != {};", v0, v1, v2),
-    Inst::Lt(v0, v1, v2) => format!("\n  int {} = {} < {};", v0, v1, v2),
-    Inst::Le(v0, v1, v2) => format!("\n  int {} = {} <= {};", v0, v1, v2),
-    Inst::Add(v0, v1, v2) => format!("\n  int {} = {} + {};", v0, v1, v2),
-    Inst::Sub(v0, v1, v2) => format!("\n  int {} = {} - {};", v0, v1, v2),
-    Inst::Mul(v0, v1, v2) => format!("\n  int {} = {} * {};", v0, v1, v2),
-    Inst::Div(v0, v1, v2) => format!("\n  int {} = {} / {};", v0, v1, v2),
+    Inst::Eq(r0, v1, v2) => format!("\n  int r{} = {} == {};", r0, v1, v2),
+    Inst::Ne(r0, v1, v2) => format!("\n  int r{} = {} != {};", r0, v1, v2),
+    Inst::Lt(r0, v1, v2) => format!("\n  int r{} = {} < {};", r0, v1, v2),
+    Inst::Le(r0, v1, v2) => format!("\n  int r{} = {} <= {};", r0, v1, v2),
+    Inst::Add(r0, v1, v2) => format!("\n  int r{} = {} + {};", r0, v1, v2),
+    Inst::Sub(r0, v1, v2) => format!("\n  int r{} = {} - {};", r0, v1, v2),
+    Inst::Mul(r0, v1, v2) => format!("\n  int r{} = {} * {};", r0, v1, v2),
+    Inst::Div(r0, v1, v2) => format!("\n  int r{} = {} / {};", r0, v1, v2),
     Inst::Store(m1, v2) => format!("\n  m[{}] = {};", m1, v2),
-    Inst::Load(v1, m2) => format!("\n  int {} = m[{}];", v1, m2),
+    Inst::Load(r0, m1) => format!("\n  int r{} = m[{}];", r0, m1),
     Inst::Ret(v1) => format!("\n  return {};", v1),
   }
 }

@@ -122,50 +122,50 @@ impl GenFun {
       AST::Eq(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let v0 = self.fun.build_inst(InstArgs::Eq(v1, v2));
-        Ok(v0)
+        let r0 = self.fun.build_inst(InstArgs::Eq(v1, v2));
+        Ok(Val::Reg(r0))
       }
       AST::Ne(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let v0 = self.fun.build_inst(InstArgs::Ne(v1, v2));
-        Ok(v0)
+        let r0 = self.fun.build_inst(InstArgs::Ne(v1, v2));
+        Ok(Val::Reg(r0))
       }
       AST::Lt(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let v0 = self.fun.build_inst(InstArgs::Lt(v1, v2));
-        Ok(v0)
+        let r0 = self.fun.build_inst(InstArgs::Lt(v1, v2));
+        Ok(Val::Reg(r0))
       }
       AST::Le(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let v0 = self.fun.build_inst(InstArgs::Le(v1, v2));
-        Ok(v0)
+        let r0 = self.fun.build_inst(InstArgs::Le(v1, v2));
+        Ok(Val::Reg(r0))
       }
       AST::Add(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let v0 = self.fun.build_inst(InstArgs::Add(v1, v2));
-        Ok(v0)
+        let r0 = self.fun.build_inst(InstArgs::Add(v1, v2));
+        Ok(Val::Reg(r0))
       }
       AST::Sub(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let v0 = self.fun.build_inst(InstArgs::Sub(v1, v2));
-        Ok(v0)
+        let r0 = self.fun.build_inst(InstArgs::Sub(v1, v2));
+        Ok(Val::Reg(r0))
       }
       AST::Mul(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let v0 = self.fun.build_inst(InstArgs::Mul(v1, v2));
-        Ok(v0)
+        let r0 = self.fun.build_inst(InstArgs::Mul(v1, v2));
+        Ok(Val::Reg(r0))
       }
       AST::Div(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let v0 = self.fun.build_inst(InstArgs::Div(v1, v2));
-        Ok(v0)
+        let r0 = self.fun.build_inst(InstArgs::Div(v1, v2));
+        Ok(Val::Reg(r0))
       }
       AST::Num(n) => Ok(Val::Imm(n)),
       AST::Assign(..) | AST::Ident(..) => {
@@ -175,8 +175,8 @@ impl GenFun {
           todo!()
           // Ok(self.gen_array_addr_impl(mem))
         } else {
-          let v0 = self.fun.build_inst(InstArgs::Load(mem));
-          Ok(v0)
+          let r0 = self.fun.build_inst(InstArgs::Load(mem));
+          Ok(Val::Reg(r0))
         }
       }
       _ => todo!(),

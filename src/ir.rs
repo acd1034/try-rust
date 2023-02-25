@@ -46,22 +46,22 @@ impl Fun {
 
   // ----- inst -----
 
-  pub fn build_inst(&mut self, inst_args: InstArgs) -> Val {
+  pub fn build_inst(&mut self, inst_args: InstArgs) -> RegId {
     let inst_id = self.inst_arena.len();
-    let v0 = self.new_reg(inst_id);
+    let r0 = self.new_reg(inst_id);
     let inst = match inst_args {
-      InstArgs::Eq(v1, v2) => Inst::Eq(v0.clone(), v1, v2),
-      InstArgs::Ne(v1, v2) => Inst::Ne(v0.clone(), v1, v2),
-      InstArgs::Lt(v1, v2) => Inst::Lt(v0.clone(), v1, v2),
-      InstArgs::Le(v1, v2) => Inst::Le(v0.clone(), v1, v2),
-      InstArgs::Add(v1, v2) => Inst::Add(v0.clone(), v1, v2),
-      InstArgs::Sub(v1, v2) => Inst::Sub(v0.clone(), v1, v2),
-      InstArgs::Mul(v1, v2) => Inst::Mul(v0.clone(), v1, v2),
-      InstArgs::Div(v1, v2) => Inst::Div(v0.clone(), v1, v2),
-      InstArgs::Load(m1) => Inst::Load(v0.clone(), m1),
+      InstArgs::Eq(v1, v2) => Inst::Eq(r0.clone(), v1, v2),
+      InstArgs::Ne(v1, v2) => Inst::Ne(r0.clone(), v1, v2),
+      InstArgs::Lt(v1, v2) => Inst::Lt(r0.clone(), v1, v2),
+      InstArgs::Le(v1, v2) => Inst::Le(r0.clone(), v1, v2),
+      InstArgs::Add(v1, v2) => Inst::Add(r0.clone(), v1, v2),
+      InstArgs::Sub(v1, v2) => Inst::Sub(r0.clone(), v1, v2),
+      InstArgs::Mul(v1, v2) => Inst::Mul(r0.clone(), v1, v2),
+      InstArgs::Div(v1, v2) => Inst::Div(r0.clone(), v1, v2),
+      InstArgs::Load(m1) => Inst::Load(r0.clone(), m1),
     };
     self.push_inst(inst, inst_id);
-    v0
+    r0
   }
 
   pub fn build_alloca(&mut self) -> MemId {
@@ -85,14 +85,14 @@ impl Fun {
 
   // ----- reg, mem -----
 
-  fn new_reg(&mut self, inst_id: InstId) -> Val {
+  fn new_reg(&mut self, inst_id: InstId) -> RegId {
     let reg_id = self.reg_arena.len();
     let reg = Reg {
       def: inst_id,
       use_: Vec::new(),
     };
     self.reg_arena.push(reg);
-    Val::Reg(reg_id)
+    reg_id
   }
 
   fn new_mem(&mut self) -> MemId {
@@ -125,16 +125,16 @@ impl BB {
 }
 
 pub enum Inst {
-  Eq(Val, Val, Val),
-  Ne(Val, Val, Val),
-  Lt(Val, Val, Val),
-  Le(Val, Val, Val),
-  Add(Val, Val, Val),
-  Sub(Val, Val, Val),
-  Mul(Val, Val, Val),
-  Div(Val, Val, Val),
+  Eq(RegId, Val, Val),
+  Ne(RegId, Val, Val),
+  Lt(RegId, Val, Val),
+  Le(RegId, Val, Val),
+  Add(RegId, Val, Val),
+  Sub(RegId, Val, Val),
+  Mul(RegId, Val, Val),
+  Div(RegId, Val, Val),
   Store(MemId, Val),
-  Load(Val, MemId),
+  Load(RegId, MemId),
   Ret(Val),
 }
 
@@ -203,16 +203,16 @@ impl fmt::Display for Fun {
 impl fmt::Display for Inst {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      Inst::Eq(v0, v1, v2) => write!(f, "{} = eq {}, {}", v0, v1, v2),
-      Inst::Ne(v0, v1, v2) => write!(f, "{} = ne {}, {}", v0, v1, v2),
-      Inst::Lt(v0, v1, v2) => write!(f, "{} = lt {}, {}", v0, v1, v2),
-      Inst::Le(v0, v1, v2) => write!(f, "{} = le {}, {}", v0, v1, v2),
-      Inst::Add(v0, v1, v2) => write!(f, "{} = add {}, {}", v0, v1, v2),
-      Inst::Sub(v0, v1, v2) => write!(f, "{} = sub {}, {}", v0, v1, v2),
-      Inst::Mul(v0, v1, v2) => write!(f, "{} = mul {}, {}", v0, v1, v2),
-      Inst::Div(v0, v1, v2) => write!(f, "{} = div {}, {}", v0, v1, v2),
+      Inst::Eq(r0, v1, v2) => write!(f, "r{} = eq {}, {}", r0, v1, v2),
+      Inst::Ne(r0, v1, v2) => write!(f, "r{} = ne {}, {}", r0, v1, v2),
+      Inst::Lt(r0, v1, v2) => write!(f, "r{} = lt {}, {}", r0, v1, v2),
+      Inst::Le(r0, v1, v2) => write!(f, "r{} = le {}, {}", r0, v1, v2),
+      Inst::Add(r0, v1, v2) => write!(f, "r{} = add {}, {}", r0, v1, v2),
+      Inst::Sub(r0, v1, v2) => write!(f, "r{} = sub {}, {}", r0, v1, v2),
+      Inst::Mul(r0, v1, v2) => write!(f, "r{} = mul {}, {}", r0, v1, v2),
+      Inst::Div(r0, v1, v2) => write!(f, "r{} = div {}, {}", r0, v1, v2),
       Inst::Store(m1, v2) => write!(f, "store m{}, {}", m1, v2),
-      Inst::Load(v1, m2) => write!(f, "load {}, m{}", v1, m2),
+      Inst::Load(r0, m1) => write!(f, "r{} = load m{}", r0, m1),
       Inst::Ret(v1) => write!(f, "ret {}", v1),
     }
   }
