@@ -5,16 +5,6 @@ pub struct Mod {
   pub funs: Vec<Fun>,
 }
 
-impl fmt::Display for Mod {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "; ModuleName = '{}'", self.name)?;
-    for fun in &self.funs {
-      write!(f, "\n{}", fun)?;
-    }
-    Ok(())
-  }
-}
-
 pub struct Fun {
   pub name: String,
   pub bbs: Vec<BBId>,
@@ -22,19 +12,6 @@ pub struct Fun {
   pub inst_arena: Vec<Inst>,
   pub reg_arena: Vec<Reg>,
   pub mem_arena: Vec<Mem>,
-}
-
-impl fmt::Display for Fun {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "{}()", self.name)?;
-    for &bb in &self.bbs {
-      write!(f, "\nbb{}:", bb)?;
-      for &inst in &self.bb_arena[bb].insts {
-        write!(f, "\n  {}", self.inst_arena[inst])?;
-      }
-    }
-    Ok(())
-  }
 }
 
 pub struct BB {
@@ -72,6 +49,51 @@ pub enum Inst {
 
 pub type InstId = usize;
 
+#[derive(Clone)]
+pub enum Val {
+  Reg(RegId),
+  Imm(u64),
+}
+
+pub struct Reg {
+  pub def: InstId,
+  pub use_: Vec<InstId>,
+}
+
+pub type RegId = usize;
+
+pub struct Mem {
+  pub def: InstId,
+  pub use_: Vec<InstId>,
+}
+
+pub type MemId = usize;
+
+// ----- fmt::Display -----
+
+impl fmt::Display for Mod {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "; ModuleName = '{}'", self.name)?;
+    for fun in &self.funs {
+      write!(f, "\n{}", fun)?;
+    }
+    Ok(())
+  }
+}
+
+impl fmt::Display for Fun {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "{}()", self.name)?;
+    for &bb in &self.bbs {
+      write!(f, "\nbb{}:", bb)?;
+      for &inst in &self.bb_arena[bb].insts {
+        write!(f, "\n  {}", self.inst_arena[inst])?;
+      }
+    }
+    Ok(())
+  }
+}
+
 impl fmt::Display for Inst {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
@@ -91,12 +113,6 @@ impl fmt::Display for Inst {
   }
 }
 
-#[derive(Clone)]
-pub enum Val {
-  Reg(RegId),
-  Imm(u64),
-}
-
 impl fmt::Display for Val {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
@@ -105,17 +121,3 @@ impl fmt::Display for Val {
     }
   }
 }
-
-pub struct Reg {
-  pub def: InstId,
-  pub use_: Vec<InstId>,
-}
-
-pub type RegId = usize;
-
-pub struct Mem {
-  pub def: InstId,
-  pub use_: Vec<InstId>,
-}
-
-pub type MemId = usize;
