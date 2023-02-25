@@ -1,5 +1,6 @@
 mod codegen;
 mod common;
+mod ir;
 mod irgen;
 mod parse;
 mod sema;

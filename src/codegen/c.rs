@@ -1,4 +1,4 @@
-use crate::irgen::*;
+use crate::ir::*;
 
 pub fn codegen(module: &Mod) -> String {
   let mut ret = format!("// ModuleName = '{}'", module.name);
