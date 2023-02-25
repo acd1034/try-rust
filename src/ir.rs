@@ -1,3 +1,4 @@
+use crate::common::JoinView;
 use std::fmt;
 
 pub struct Mod {
@@ -231,11 +232,13 @@ impl fmt::Display for Mod {
 impl fmt::Display for Fun {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "{}()", self.name)?;
-    for mem_id in 0..self.mem_arena.len() {
-      write!(f, "\n  m{} = alloca", mem_id)?;
-    }
+    let alloca = JoinView::new(0..self.mem_arena.len(), ",");
+    write!(f, "\n  ; alloca={}", alloca)?;
     for &bb in &self.bbs {
-      write!(f, "\nbb{}:", bb)?;
+      let bb_label = format!("bb{}:", bb);
+      let pred = JoinView::new(self.bb_arena[bb].pred.iter(), ",");
+      let succ = JoinView::new(self.bb_arena[bb].succ.iter(), ",");
+      write!(f, "\n{:<40}; pred={} succ={}", bb_label, pred, succ)?;
       for &inst in &self.bb_arena[bb].insts {
         write!(f, "\n  {}", self.inst_arena[inst])?;
       }
