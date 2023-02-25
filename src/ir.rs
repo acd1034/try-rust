@@ -12,6 +12,98 @@ pub struct Fun {
   pub inst_arena: Vec<Inst>,
   pub reg_arena: Vec<Reg>,
   pub mem_arena: Vec<Mem>,
+  // modify
+  current_bb: Option<BBId>,
+}
+
+impl Fun {
+  pub fn new() -> Fun {
+    Fun {
+      name: String::new(),
+      bbs: Vec::new(),
+      bb_arena: Vec::new(),
+      inst_arena: Vec::new(),
+      reg_arena: Vec::new(),
+      mem_arena: Vec::new(),
+      current_bb: None,
+    }
+  }
+
+  // ----- bb -----
+
+  pub fn append_basic_block(&mut self) -> BBId {
+    let bb_id = self.bb_arena.len();
+    self.bb_arena.push(BB::new());
+    self.bbs.push(bb_id);
+    bb_id
+  }
+
+  // ----- current_bb -----
+
+  pub fn position_at_end(&mut self, bb: BBId) {
+    self.current_bb = Some(bb);
+  }
+
+  // ----- inst -----
+
+  pub fn build_inst(&mut self, inst_args: InstArgs) -> Val {
+    let inst_id = self.inst_arena.len();
+    let v0 = self.new_reg(inst_id);
+    let inst = match inst_args {
+      InstArgs::Eq(v1, v2) => Inst::Eq(v0.clone(), v1, v2),
+      InstArgs::Ne(v1, v2) => Inst::Ne(v0.clone(), v1, v2),
+      InstArgs::Lt(v1, v2) => Inst::Lt(v0.clone(), v1, v2),
+      InstArgs::Le(v1, v2) => Inst::Le(v0.clone(), v1, v2),
+      InstArgs::Add(v1, v2) => Inst::Add(v0.clone(), v1, v2),
+      InstArgs::Sub(v1, v2) => Inst::Sub(v0.clone(), v1, v2),
+      InstArgs::Mul(v1, v2) => Inst::Mul(v0.clone(), v1, v2),
+      InstArgs::Div(v1, v2) => Inst::Div(v0.clone(), v1, v2),
+      InstArgs::Load(m1) => Inst::Load(v0.clone(), m1),
+    };
+    self.push_inst(inst, inst_id);
+    v0
+  }
+
+  pub fn build_alloca(&mut self) -> MemId {
+    self.new_mem()
+  }
+
+  pub fn build_store(&mut self, m1: MemId, v2: Val) {
+    let inst_id = self.inst_arena.len();
+    self.push_inst(Inst::Store(m1, v2), inst_id);
+  }
+
+  pub fn build_ret(&mut self, v1: Val) {
+    let inst_id = self.inst_arena.len();
+    self.push_inst(Inst::Ret(v1), inst_id);
+  }
+
+  fn push_inst(&mut self, inst: Inst, inst_id: InstId) {
+    self.inst_arena.push(inst);
+    self.bb_arena[self.current_bb.unwrap()].insts.push(inst_id);
+  }
+
+  // ----- reg, mem -----
+
+  fn new_reg(&mut self, inst_id: InstId) -> Val {
+    let reg_id = self.reg_arena.len();
+    let reg = Reg {
+      def: inst_id,
+      use_: Vec::new(),
+    };
+    self.reg_arena.push(reg);
+    Val::Reg(reg_id)
+  }
+
+  fn new_mem(&mut self) -> MemId {
+    let mem_id = self.mem_arena.len();
+    let mem = Mem {
+      id: mem_id,
+      use_: Vec::new(),
+    };
+    self.mem_arena.push(mem);
+    mem_id
+  }
 }
 
 pub struct BB {
@@ -49,6 +141,18 @@ pub enum Inst {
 
 pub type InstId = usize;
 
+pub enum InstArgs {
+  Eq(Val, Val),
+  Ne(Val, Val),
+  Lt(Val, Val),
+  Le(Val, Val),
+  Add(Val, Val),
+  Sub(Val, Val),
+  Mul(Val, Val),
+  Div(Val, Val),
+  Load(MemId),
+}
+
 #[derive(Clone)]
 pub enum Val {
   Reg(RegId),
@@ -63,7 +167,7 @@ pub struct Reg {
 pub type RegId = usize;
 
 pub struct Mem {
-  pub def: InstId,
+  pub id: MemId,
   pub use_: Vec<InstId>,
 }
 
@@ -84,6 +188,9 @@ impl fmt::Display for Mod {
 impl fmt::Display for Fun {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "{}()", self.name)?;
+    for mem in &self.mem_arena {
+      write!(f, "\n  m{} = alloca", mem.id)?;
+    }
     for &bb in &self.bbs {
       write!(f, "\nbb{}:", bb)?;
       for &inst in &self.bb_arena[bb].insts {

@@ -16,56 +16,16 @@ pub fn irgen(funs: Vec<parse::Fun>) -> Expected<Mod> {
 }
 
 struct GenFun {
-  bbs: Vec<BBId>,
-  current_bb: Option<BBId>,
-  // arena
-  bb_arena: Vec<BB>,
-  inst_arena: Vec<Inst>,
-  reg_arena: Vec<Reg>,
-  mem_arena: Vec<Mem>,
-  // sema
+  fun: Fun,
   scope: Scope,
 }
 
 impl GenFun {
   fn new() -> GenFun {
     GenFun {
-      bbs: Vec::new(),
-      current_bb: None,
-      bb_arena: Vec::new(),
-      inst_arena: Vec::new(),
-      reg_arena: Vec::new(),
-      mem_arena: Vec::new(),
+      fun: Fun::new(),
       scope: Scope::new(),
     }
-  }
-
-  fn new_bb(&mut self) -> BBId {
-    let bb_id = self.bb_arena.len();
-    self.bb_arena.push(BB::new());
-    self.bbs.push(bb_id);
-    bb_id
-  }
-
-  fn position_at_end(&mut self, bb: BBId) {
-    self.current_bb = Some(bb);
-  }
-
-  fn push_inst(&mut self, inst: Inst) {
-    let inst_id = self.inst_arena.len();
-    self.inst_arena.push(inst);
-    self.bb_arena[self.current_bb.unwrap()].insts.push(inst_id);
-  }
-
-  fn new_reg(&mut self) -> Val {
-    let reg_id = self.reg_arena.len();
-    let inst_id = self.inst_arena.len();
-    let reg = Reg {
-      def: inst_id,
-      use_: Vec::new(),
-    };
-    self.reg_arena.push(reg);
-    Val::Reg(reg_id)
   }
 
   // ----- gen_fun -----
@@ -74,9 +34,12 @@ impl GenFun {
     match fun {
       parse::Fun::FunDecl(_ret_ty, _name, _param_tys) => todo!(),
       parse::Fun::FunDef(_ret_ty, name, _param_tys, _param_names, body) => {
+        // Add name
+        self.fun.name = name;
+
         // Create entry block
-        let bb = self.new_bb();
-        self.position_at_end(bb);
+        let bb = self.fun.append_basic_block();
+        self.fun.position_at_end(bb);
 
         // Push first scope
         self.scope.push();
@@ -98,14 +61,7 @@ impl GenFun {
           return err!("no terminator in function");
         }
 
-        Ok(Fun {
-          name,
-          bbs: self.bbs,
-          bb_arena: self.bb_arena,
-          inst_arena: self.inst_arena,
-          reg_arena: self.reg_arena,
-          mem_arena: self.mem_arena,
-        })
+        Ok(self.fun)
       }
     }
   }
@@ -128,7 +84,7 @@ impl GenFun {
       }
       Stmt::Return(expr) => {
         let v1 = self.gen_expr(expr)?;
-        self.push_inst(Inst::Ret(v1));
+        self.fun.build_ret(v1);
         Ok(true)
       }
       Stmt::Block(stmts) => {
@@ -153,23 +109,9 @@ impl GenFun {
 
   fn create_entry_block_alloca(&mut self, ty: Type, name: String) -> MemId {
     // Push mem_arena
-    let mem_id = self.mem_arena.len();
-    let inst_id = self.inst_arena.len();
-    let mem = Mem {
-      def: inst_id,
-      use_: Vec::new(),
-    };
-    self.mem_arena.push(mem);
-
-    // Push Alloca
-    let &entry_block = self.bbs.first().unwrap();
-    let alloca = Inst::Alloca(mem_id);
-    self.inst_arena.push(alloca);
-    self.bb_arena[entry_block].insts.insert(0, inst_id);
-
+    let mem_id = self.fun.build_alloca();
     // Insert scope
     self.scope.insert(name, mem_id);
-
     mem_id
   }
 
@@ -180,57 +122,49 @@ impl GenFun {
       AST::Eq(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let v0 = self.new_reg();
-        self.push_inst(Inst::Eq(v0.clone(), v1, v2));
+        let v0 = self.fun.build_inst(InstArgs::Eq(v1, v2));
         Ok(v0)
       }
       AST::Ne(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let v0 = self.new_reg();
-        self.push_inst(Inst::Ne(v0.clone(), v1, v2));
+        let v0 = self.fun.build_inst(InstArgs::Ne(v1, v2));
         Ok(v0)
       }
       AST::Lt(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let v0 = self.new_reg();
-        self.push_inst(Inst::Lt(v0.clone(), v1, v2));
+        let v0 = self.fun.build_inst(InstArgs::Lt(v1, v2));
         Ok(v0)
       }
       AST::Le(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let v0 = self.new_reg();
-        self.push_inst(Inst::Le(v0.clone(), v1, v2));
+        let v0 = self.fun.build_inst(InstArgs::Le(v1, v2));
         Ok(v0)
       }
       AST::Add(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let v0 = self.new_reg();
-        self.push_inst(Inst::Add(v0.clone(), v1, v2));
+        let v0 = self.fun.build_inst(InstArgs::Add(v1, v2));
         Ok(v0)
       }
       AST::Sub(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let v0 = self.new_reg();
-        self.push_inst(Inst::Sub(v0.clone(), v1, v2));
+        let v0 = self.fun.build_inst(InstArgs::Sub(v1, v2));
         Ok(v0)
       }
       AST::Mul(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let v0 = self.new_reg();
-        self.push_inst(Inst::Mul(v0.clone(), v1, v2));
+        let v0 = self.fun.build_inst(InstArgs::Mul(v1, v2));
         Ok(v0)
       }
       AST::Div(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let v0 = self.new_reg();
-        self.push_inst(Inst::Div(v0.clone(), v1, v2));
+        let v0 = self.fun.build_inst(InstArgs::Div(v1, v2));
         Ok(v0)
       }
       AST::Num(n) => Ok(Val::Imm(n)),
@@ -241,8 +175,7 @@ impl GenFun {
           todo!()
           // Ok(self.gen_array_addr_impl(mem))
         } else {
-          let v0 = self.new_reg();
-          self.push_inst(Inst::Load(v0.clone(), mem));
+          let v0 = self.fun.build_inst(InstArgs::Load(mem));
           Ok(v0)
         }
       }
@@ -278,7 +211,7 @@ impl GenFun {
   fn gen_assign_impl(&mut self, mem: MemId, rhs: Val) -> Expected<MemId> {
     // TODO: check if lhs.get_type().get_element_type() == rhs.get_type().as_any_type_enum()
     if true {
-      self.push_inst(Inst::Store(mem, rhs));
+      self.fun.build_store(mem, rhs);
       Ok(mem)
     } else {
       err!("inconsistent types in operands of assignment")
