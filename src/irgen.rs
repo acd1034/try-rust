@@ -1,8 +1,8 @@
-use crate::codegen::common;
 use crate::parse::{self, Stmt, Type, AST};
+use crate::sema;
 use crate::{common::Expected, err};
 use std::fmt;
-type Scope = common::Scope<MemId>;
+type Scope = sema::Scope<MemId>;
 
 pub struct Mod {
   pub name: String,

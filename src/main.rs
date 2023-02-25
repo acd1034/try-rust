@@ -2,6 +2,7 @@ mod codegen;
 mod common;
 mod irgen;
 mod parse;
+mod sema;
 mod tokenize;
 use common::Expected;
 use inkwell::context::Context;
