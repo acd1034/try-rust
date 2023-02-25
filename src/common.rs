@@ -33,9 +33,9 @@ where
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     let mut iter = self.iter.clone();
     if let Some(item) = iter.next() {
-      write!(f, "{}", item);
+      write!(f, "{}", item)?;
       for item in iter {
-        write!(f, "{}{}", self.dlm, item);
+        write!(f, "{}{}", self.dlm, item)?;
       }
     }
     Ok(())

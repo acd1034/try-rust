@@ -88,6 +88,18 @@ impl GenFun {
       }
       Stmt::IfElse(cond, then, else_) => self.gen_if_else(cond, then, else_),
       Stmt::For(init, cond, inc, body) => self.gen_for(init, cond, inc, *body),
+      Stmt::Break => {
+        self
+          .fun
+          .build_unconditional_branch(*self.break_label.last().unwrap());
+        Ok(true)
+      }
+      Stmt::Cont => {
+        self
+          .fun
+          .build_unconditional_branch(*self.cont_label.last().unwrap());
+        Ok(true)
+      }
       Stmt::Return(expr) => {
         let v1 = self.gen_expr(expr)?;
         self.fun.build_ret(v1);
@@ -109,7 +121,6 @@ impl GenFun {
         self.gen_expr(expr)?;
         Ok(false)
       }
-      _ => todo!(),
     }
   }
 

@@ -139,7 +139,6 @@ assert 2 'int main() { int x=0; for (;;) if (x) return 1; else return 2; }'
 assert 5 'int main() { int x=0; for (;;) { if (x==5) return x; x=x+1; } }'
 # while
 assert 10 'int main() { int i=0; while(i<10) { i=i+1; } return i; }'
-exit 0
 # break
 assert 3 'int main() { int i=0; for(;i<10;i++) { if (i == 3) break; } return i; }'
 assert 4 'int main() { int i=0; while (1) { if (i++ == 3) break; } return i; }'
@@ -152,6 +151,7 @@ assert 11 'int main() { int i=0; int j=0; while (i++<10) { if (i>5) continue; j+
 assert 5 'int main() { int i=0; int j=0; while (i++<10) { if (i>5) continue; j++; } return j; }'
 assert 10 'int main() { int i=0; int j=0; for(;i==0;) { for (;j!=10;j++) continue; break; } return j; }'
 assert 11 'int main() { int i=0; int j=0; while(i==0) { while (j++!=10) continue; break; } return j; }'
+exit 0
 # defunc
 assert 6 'int sub() { return 4; } int main() { int b=3; int a=b; return a+b; }'
 assert_fail 'int main() { return 4; } int main() { int b=3; int a=b; return a+b; }'
