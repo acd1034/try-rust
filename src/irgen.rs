@@ -132,12 +132,10 @@ impl GenFun {
     };
 
     // cond:
-    let lhs = self.gen_expr(cond)?;
-    let zero = Val::Imm(0);
-    let comp = self.fun.build_inst(InstArgs::Ne(lhs, zero));
+    let expr = self.gen_expr(cond)?;
     self
       .fun
-      .build_conditional_branch(Val::Reg(comp), then_block, else_block);
+      .build_conditional_branch(expr, then_block, else_block);
 
     // then:
     self.fun.position_at_end(then_block);

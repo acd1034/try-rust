@@ -109,6 +109,7 @@ assert 5 'int main() { ;;; return 5; }'
 # if
 assert 1 'int main() { int x=0; if (1) x=1; return x; }'
 assert 1 'int main() { int x=0; if (1) x=1; else x=2; return x; }'
+assert 2 'int main() { int x=-1; if (x) x=2; else x=3; return x; }'
 assert 4 'int main() { int x=-1; if (x==0) x=2; else if (x==1) x=3; else x=4; return x; }'
 assert 3 'int main() { if (0) return 2; return 3; }'
 assert 3 'int main() { if (1-1) return 2; return 3; }'
