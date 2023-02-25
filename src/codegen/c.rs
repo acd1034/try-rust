@@ -31,6 +31,8 @@ fn gen_inst(inst: &Inst) -> String {
     Inst::Sub(r0, v1, v2) => format!("\n  int r{} = {} - {};", r0, v1, v2),
     Inst::Mul(r0, v1, v2) => format!("\n  int r{} = {} * {};", r0, v1, v2),
     Inst::Div(r0, v1, v2) => format!("\n  int r{} = {} / {};", r0, v1, v2),
+    Inst::Br(v1, bb1, bb2) => format!("\n  if ({}) goto bb{}; else goto bb{};", v1, bb1, bb2),
+    Inst::Jmp(bb1) => format!("\n  goto bb{};", bb1),
     Inst::Store(m1, v2) => format!("\n  m[{}] = {};", m1, v2),
     Inst::Load(r0, m1) => format!("\n  int r{} = m[{}];", r0, m1),
     Inst::Ret(v1) => format!("\n  return {};", v1),

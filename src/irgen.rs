@@ -82,6 +82,7 @@ impl GenFun {
         }
         Ok(false)
       }
+      Stmt::IfElse(cond, then, else_) => self.gen_if_else(cond, then, else_),
       Stmt::Return(expr) => {
         let v1 = self.gen_expr(expr)?;
         self.fun.build_ret(v1);
@@ -113,6 +114,58 @@ impl GenFun {
     // Insert scope
     self.scope.insert(name, mem_id);
     mem_id
+  }
+
+  fn gen_if_else(
+    &mut self,
+    cond: AST,
+    then: Box<Stmt>,
+    else_: Option<Box<Stmt>>,
+  ) -> Expected<bool> {
+    let current_block = self.fun.get_insert_block().unwrap();
+    let then_block = self.fun.insert_basic_block_after(current_block).unwrap();
+    let else_block = self.fun.insert_basic_block_after(then_block).unwrap();
+    let merge_block = if else_.is_some() {
+      self.fun.insert_basic_block_after(else_block).unwrap()
+    } else {
+      else_block
+    };
+
+    // cond:
+    let lhs = self.gen_expr(cond)?;
+    let zero = Val::Imm(0);
+    let comp = self.fun.build_inst(InstArgs::Ne(lhs, zero));
+    self
+      .fun
+      .build_conditional_branch(Val::Reg(comp), then_block, else_block);
+
+    // then:
+    self.fun.position_at_end(then_block);
+    let has_terminator_in_then = self.gen_stmt(*then)?;
+    if !has_terminator_in_then {
+      self.fun.build_unconditional_branch(merge_block);
+    }
+
+    // else:
+    let has_terminator_in_else = if let Some(else_) = else_ {
+      self.fun.position_at_end(else_block);
+      let has_terminator = self.gen_stmt(*else_)?;
+      if !has_terminator {
+        self.fun.build_unconditional_branch(merge_block);
+      }
+      has_terminator
+    } else {
+      false
+    };
+
+    // merge:
+    if has_terminator_in_then && has_terminator_in_else {
+      self.fun.remove_basic_block(merge_block);
+      Ok(true)
+    } else {
+      self.fun.position_at_end(merge_block);
+      Ok(false)
+    }
   }
 
   // ----- gen_expr -----

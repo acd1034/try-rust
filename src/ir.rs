@@ -32,13 +32,47 @@ impl Fun {
   // ----- bb -----
 
   pub fn append_basic_block(&mut self) -> BBId {
-    let bb_id = self.bb_arena.len();
-    self.bb_arena.push(BB::new());
+    let bb_id = self.new_bb();
     self.bbs.push(bb_id);
     bb_id
   }
 
+  pub fn insert_basic_block_after(&mut self, bb: BBId) -> Option<BBId> {
+    let index = self.find_bb(bb)?;
+    let bb_id = self.new_bb();
+    self.bbs.insert(index + 1, bb_id);
+    Some(bb_id)
+  }
+
+  pub fn remove_basic_block(&mut self, bb: BBId) -> bool {
+    if let Some(index) = self.find_bb(bb) {
+      self.bbs.remove(index);
+      true
+    } else {
+      false
+    }
+  }
+
+  fn new_bb(&mut self) -> BBId {
+    let bb_id = self.bb_arena.len();
+    let bb = BB {
+      insts: Vec::new(),
+      pred: Vec::new(),
+      succ: Vec::new(),
+    };
+    self.bb_arena.push(bb);
+    bb_id
+  }
+
+  fn find_bb(&self, bb: BBId) -> Option<usize> {
+    self.bbs.iter().position(|&x| x == bb)
+  }
+
   // ----- current_bb -----
+
+  pub fn get_insert_block(&self) -> Option<BBId> {
+    self.current_bb
+  }
 
   pub fn position_at_end(&mut self, bb: BBId) {
     self.current_bb = Some(bb);
@@ -62,6 +96,16 @@ impl Fun {
     };
     self.push_inst(inst, inst_id);
     r0
+  }
+
+  pub fn build_conditional_branch(&mut self, v1: Val, bb1: BBId, bb2: BBId) {
+    let inst_id = self.inst_arena.len();
+    self.push_inst(Inst::Br(v1, bb1, bb2), inst_id);
+  }
+
+  pub fn build_unconditional_branch(&mut self, bb1: BBId) {
+    let inst_id = self.inst_arena.len();
+    self.push_inst(Inst::Jmp(bb1), inst_id);
   }
 
   pub fn build_alloca(&mut self) -> MemId {
@@ -114,16 +158,6 @@ pub struct BB {
 
 pub type BBId = usize;
 
-impl BB {
-  pub fn new() -> BB {
-    BB {
-      insts: Vec::new(),
-      pred: Vec::new(),
-      succ: Vec::new(),
-    }
-  }
-}
-
 pub enum Inst {
   Eq(RegId, Val, Val),
   Ne(RegId, Val, Val),
@@ -133,6 +167,8 @@ pub enum Inst {
   Sub(RegId, Val, Val),
   Mul(RegId, Val, Val),
   Div(RegId, Val, Val),
+  Br(Val, BBId, BBId),
+  Jmp(BBId),
   Store(MemId, Val),
   Load(RegId, MemId),
   Ret(Val),
@@ -211,6 +247,8 @@ impl fmt::Display for Inst {
       Inst::Sub(r0, v1, v2) => write!(f, "r{} = sub {}, {}", r0, v1, v2),
       Inst::Mul(r0, v1, v2) => write!(f, "r{} = mul {}, {}", r0, v1, v2),
       Inst::Div(r0, v1, v2) => write!(f, "r{} = div {}, {}", r0, v1, v2),
+      Inst::Br(v1, bb1, bb2) => write!(f, "br {}, bb{}, bb{}", v1, bb1, bb2),
+      Inst::Jmp(bb1) => write!(f, "jmp bb{}", bb1),
       Inst::Store(m1, v2) => write!(f, "store m{}, {}", m1, v2),
       Inst::Load(r0, m1) => write!(f, "r{} = load m{}", r0, m1),
       Inst::Ret(v1) => write!(f, "ret {}", v1),

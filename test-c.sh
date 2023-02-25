@@ -106,7 +106,6 @@ assert_fail 'int main() { 1; }'
 assert 3 'int main() { {1; {2;} return 3;} }'
 # null
 assert 5 'int main() { ;;; return 5; }'
-exit 0
 # if
 assert 1 'int main() { int x=0; if (1) x=1; return x; }'
 assert 1 'int main() { int x=0; if (1) x=1; else x=2; return x; }'
@@ -131,6 +130,7 @@ assert 3 'int main() { int x=0; if (x) { if (x) x=1; else x=2; } else x=3; retur
 assert 2 'int main() { int x=0; if (x) x=1; else { x=2; } return x; }'
 assert 0 'int main() { int x=0; if (x) x=1; else { if (x) x=2; } return x; }'
 assert 3 'int main() { int x=0; if (x) x=1; else { if (x) x=2; else x=3; } return x; }'
+exit 0
 # for
 assert 3 'int main() { for (;;) return 3; return 5; }'
 assert 55 'int main() { int i; int j=0; for (i=0; i<=10; i=i+1) j=i+j; return j; }'
