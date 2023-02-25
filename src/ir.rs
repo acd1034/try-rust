@@ -99,11 +99,19 @@ impl Fun {
   }
 
   pub fn build_conditional_branch(&mut self, v1: Val, bb1: BBId, bb2: BBId) {
+    let bb0 = self.current_bb.unwrap();
+    self.bb_arena[bb0].succ.push(bb1);
+    self.bb_arena[bb0].succ.push(bb2);
+    self.bb_arena[bb1].pred.push(bb0);
+    self.bb_arena[bb2].pred.push(bb0);
     let inst_id = self.inst_arena.len();
     self.push_inst(Inst::Br(v1, bb1, bb2), inst_id);
   }
 
   pub fn build_unconditional_branch(&mut self, bb1: BBId) {
+    let bb0 = self.current_bb.unwrap();
+    self.bb_arena[bb0].succ.push(bb1);
+    self.bb_arena[bb1].pred.push(bb0);
     let inst_id = self.inst_arena.len();
     self.push_inst(Inst::Jmp(bb1), inst_id);
   }

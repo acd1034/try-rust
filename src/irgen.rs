@@ -18,6 +18,8 @@ pub fn irgen(funs: Vec<parse::Fun>) -> Expected<Mod> {
 struct GenFun {
   fun: Fun,
   scope: Scope,
+  break_label: Vec<BBId>,
+  cont_label: Vec<BBId>,
 }
 
 impl GenFun {
@@ -25,6 +27,8 @@ impl GenFun {
     GenFun {
       fun: Fun::new(),
       scope: Scope::new(),
+      break_label: Vec::new(),
+      cont_label: Vec::new(),
     }
   }
 
@@ -53,13 +57,13 @@ impl GenFun {
           }
         }
 
-        // Pop first scope
-        self.scope.pop();
-
         // Check terminator
         if !has_terminator {
           return err!("no terminator in function");
         }
+
+        // Pop first scope
+        self.scope.pop();
 
         Ok(self.fun)
       }
@@ -83,6 +87,7 @@ impl GenFun {
         Ok(false)
       }
       Stmt::IfElse(cond, then, else_) => self.gen_if_else(cond, then, else_),
+      Stmt::For(init, cond, inc, body) => self.gen_for(init, cond, inc, *body),
       Stmt::Return(expr) => {
         let v1 = self.gen_expr(expr)?;
         self.fun.build_ret(v1);
@@ -164,6 +169,65 @@ impl GenFun {
       self.fun.position_at_end(merge_block);
       Ok(false)
     }
+  }
+
+  fn gen_for(
+    &mut self,
+    init: Option<AST>,
+    cond: Option<AST>,
+    inc: Option<AST>,
+    body: Stmt,
+  ) -> Expected<bool> {
+    let current_block = self.fun.get_insert_block().unwrap();
+    let cond_block = self.fun.insert_basic_block_after(current_block).unwrap();
+    let body_block = self.fun.insert_basic_block_after(cond_block).unwrap();
+    let inc_block = self.fun.insert_basic_block_after(body_block).unwrap();
+    let end_block = self.fun.insert_basic_block_after(inc_block).unwrap();
+    self.break_label.push(end_block.clone());
+    self.cont_label.push(inc_block.clone());
+
+    // init:
+    if let Some(expr) = init {
+      self.gen_expr(expr)?;
+    }
+    self.fun.build_unconditional_branch(cond_block);
+
+    // cond:
+    self.fun.position_at_end(cond_block);
+    if let Some(expr) = cond {
+      let expr = self.gen_expr(expr)?;
+      self
+        .fun
+        .build_conditional_branch(expr, body_block, end_block);
+    } else {
+      self.fun.build_unconditional_branch(body_block);
+    }
+
+    // body:
+    self.fun.position_at_end(body_block);
+    let has_terminator_in_body = self.gen_stmt(body)?;
+    if !has_terminator_in_body {
+      self.fun.build_unconditional_branch(inc_block);
+    }
+
+    // inc:
+    self.fun.position_at_end(inc_block);
+    if let Some(expr) = inc {
+      self.gen_expr(expr)?;
+    }
+    self.fun.build_unconditional_branch(cond_block);
+
+    // end:
+    let has_no_branch_to_end = self.fun.bb_arena[end_block].pred.is_empty();
+    if has_no_branch_to_end {
+      self.fun.remove_basic_block(end_block);
+    } else {
+      self.fun.position_at_end(end_block);
+    }
+
+    self.break_label.pop();
+    self.cont_label.pop();
+    Ok(has_no_branch_to_end)
   }
 
   // ----- gen_expr -----

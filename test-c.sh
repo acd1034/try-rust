@@ -132,7 +132,6 @@ assert 3 'int main() { int x=0; if (x) { if (x) x=1; else x=2; } else x=3; retur
 assert 2 'int main() { int x=0; if (x) x=1; else { x=2; } return x; }'
 assert 0 'int main() { int x=0; if (x) x=1; else { if (x) x=2; } return x; }'
 assert 3 'int main() { int x=0; if (x) x=1; else { if (x) x=2; else x=3; } return x; }'
-exit 0
 # for
 assert 3 'int main() { for (;;) return 3; return 5; }'
 assert 55 'int main() { int i; int j=0; for (i=0; i<=10; i=i+1) j=i+j; return j; }'
@@ -140,6 +139,7 @@ assert 2 'int main() { int x=0; for (;;) if (x) return 1; else return 2; }'
 assert 5 'int main() { int x=0; for (;;) { if (x==5) return x; x=x+1; } }'
 # while
 assert 10 'int main() { int i=0; while(i<10) { i=i+1; } return i; }'
+exit 0
 # break
 assert 3 'int main() { int i=0; for(;i<10;i++) { if (i == 3) break; } return i; }'
 assert 4 'int main() { int i=0; while (1) { if (i++ == 3) break; } return i; }'
