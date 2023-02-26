@@ -37,9 +37,11 @@ impl GenFun {
   fn gen_fun(mut self, fun: parse::Fun) -> Expected<Fun> {
     match fun {
       parse::Fun::FunDecl(_ret_ty, _name, _param_tys) => todo!(),
-      parse::Fun::FunDef(_ret_ty, name, _param_tys, _param_names, body) => {
-        // Add name
+      parse::Fun::FunDef(ret_ty, name, param_tys, param_names, body) => {
+        // Add name and type
         self.fun.name = name;
+        self.fun.ret_ty = ret_ty;
+        self.fun.param_tys = param_tys.clone();
 
         // Create entry block
         let bb = self.fun.append_basic_block();
@@ -47,6 +49,15 @@ impl GenFun {
 
         // Push first scope
         self.scope.push();
+
+        // Add function parameters
+        for (ty, name) in std::iter::zip(param_tys, param_names) {
+          if self.scope.get(&name).is_none() {
+            self.create_entry_block_alloca(ty, name);
+          } else {
+            return err!("function parameter already exists");
+          }
+        }
 
         // Generate function body
         let mut has_terminator = false;

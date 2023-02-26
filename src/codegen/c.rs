@@ -1,16 +1,36 @@
+use crate::common::JoinView;
 use crate::ir::*;
+use crate::parse::Type;
 
 pub fn codegen(module: &Mod) -> String {
   let mut ret = format!("// ModuleName = '{}'", module.name);
-  ret += "\nint m[1 << 16];";
   for fun in &module.funs {
     ret += gen_fun(fun).as_str();
   }
   ret
 }
 
+fn gen_type(ty: &Type) -> String {
+  match ty {
+    Type::Int => "int".to_string(),
+    _ => todo!(),
+  }
+}
+
 fn gen_fun(fun: &Fun) -> String {
-  let mut ret = format!("\n\nint {}() {{", fun.name);
+  let params = fun
+    .param_tys
+    .iter()
+    .enumerate()
+    .map(|(i, ty)| format!("{} a{}", gen_type(ty), i));
+  let params = JoinView::new(params, ", ");
+  let mut ret = format!("\n\n{} {}({}) {{", gen_type(&fun.ret_ty), fun.name, params);
+  if !fun.mem_arena.is_empty() {
+    ret += format!("\n  int m[{}];", fun.mem_arena.len()).as_str();
+  }
+  for i in 0..fun.param_tys.len() {
+    ret += format!("\n  m[{i}] = a{i};").as_str();
+  }
   for &bb in &fun.bbs {
     ret += format!("\nbb{}:;", bb).as_str();
     for &inst in &fun.bb_arena[bb].insts {

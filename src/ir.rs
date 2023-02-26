@@ -1,4 +1,5 @@
 use crate::common::JoinView;
+use crate::parse::Type;
 use std::fmt;
 
 pub struct Mod {
@@ -8,6 +9,8 @@ pub struct Mod {
 
 pub struct Fun {
   pub name: String,
+  pub ret_ty: Type,
+  pub param_tys: Vec<Type>,
   pub bbs: Vec<BBId>,
   pub bb_arena: Vec<BB>,
   pub inst_arena: Vec<Inst>,
@@ -21,6 +24,8 @@ impl Fun {
   pub fn new() -> Fun {
     Fun {
       name: String::new(),
+      ret_ty: Type::Int,
+      param_tys: Vec::new(),
       bbs: Vec::new(),
       bb_arena: Vec::new(),
       inst_arena: Vec::new(),
