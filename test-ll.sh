@@ -27,7 +27,7 @@ assert_fail() {
   input="$1"
   echo -en "$ESC[31m$input\n$ESC[m=> "
 
-  echo "$input" | ./target/debug/try-rust "-ll" - > /dev/null && echo "Error: unexpected success in compiling"
+  echo "$input" | ./target/debug/try-rust "-ll" - > /dev/null && echo "Error: unexpected success in compiling" && exit 1
 }
 
 # TODO:
