@@ -533,17 +533,17 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
             .map(|expr| self.gen_expr(expr))
             .collect::<Result<Vec<_>, _>>()?;
           let arg_types: Vec<_> = args.iter().map(|arg| arg.get_type()).collect();
-          if arg_types == stored_param_types {
-            let args: Vec<_> = args.into_iter().map(|arg| arg.into()).collect();
-            let res = self
-              .builder
-              .build_call(callee, args.as_slice(), "tmpcall")
-              .try_as_basic_value()
-              .unwrap_left();
-            Ok(res)
-          } else {
-            err!("argument types mismatch function parameter types")
+          if arg_types != stored_param_types {
+            return err!("argument types mismatch function parameter types");
           }
+
+          let args: Vec<_> = args.into_iter().map(|arg| arg.into()).collect();
+          let res = self
+            .builder
+            .build_call(callee, args.as_slice(), "tmpcall")
+            .try_as_basic_value()
+            .unwrap_left();
+          Ok(res)
         } else {
           err!("function does not exist")
         }
