@@ -52,7 +52,7 @@ fn main() -> Expected<()> {
     let context = Context::create();
     codegen::ll::CodeGen::new(&context).codegen(funs)?
   } else {
-    let module = irgen::irgen(funs)?;
+    let module = irgen::IRGen::new("mod".to_string()).irgen(funs)?;
     codegen::c::codegen(&module)
   };
 

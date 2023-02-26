@@ -7,6 +7,25 @@ pub struct Mod {
   pub funs: Vec<Fun>,
 }
 
+impl Mod {
+  pub fn new(name: String) -> Mod {
+    Mod {
+      name,
+      funs: Vec::new(),
+    }
+  }
+
+  pub fn get_function(&self, name: &str) -> Option<FunId> {
+    self.funs.iter().position(|fun| fun.name == name)
+  }
+
+  pub fn add_function(&mut self, fun: Fun) -> FunId {
+    let fun_id = self.funs.len();
+    self.funs.push(fun);
+    fun_id
+  }
+}
+
 pub struct Fun {
   pub name: String,
   pub ret_ty: Type,
@@ -20,12 +39,14 @@ pub struct Fun {
   current_bb: Option<BBId>,
 }
 
+pub type FunId = usize;
+
 impl Fun {
-  pub fn new() -> Fun {
+  pub fn new(name: String, ret_ty: Type, param_tys: Vec<Type>) -> Fun {
     Fun {
-      name: String::new(),
-      ret_ty: Type::Int,
-      param_tys: Vec::new(),
+      name,
+      ret_ty,
+      param_tys,
       bbs: Vec::new(),
       bb_arena: Vec::new(),
       inst_arena: Vec::new(),

@@ -151,12 +151,12 @@ assert 11 'int main() { int i=0; int j=0; while (i++<10) { if (i>5) continue; j+
 assert 5 'int main() { int i=0; int j=0; while (i++<10) { if (i>5) continue; j++; } return j; }'
 assert 10 'int main() { int i=0; int j=0; for(;i==0;) { for (;j!=10;j++) continue; break; } return j; }'
 assert 11 'int main() { int i=0; int j=0; while(i==0) { while (j++!=10) continue; break; } return j; }'
-exit 0
 # defunc
 assert 6 'int sub() { return 4; } int main() { int b=3; int a=b; return a+b; }'
 assert_fail 'int main() { return 4; } int main() { int b=3; int a=b; return a+b; }'
 assert 0 'int sub(int a, int b, int c, int d, int e, int f) { return a+b+c+d+e+f; } int main() { return 0; }'
 assert_fail 'int sub(int a, int a) { return a; } int main() { return 0; }'
+exit 0
 # funcall
 assert 8 'int sub() { return 4; } int main() { int b=sub(); int a=b; return a+b; }'
 assert_fail 'int main() { int b=sub(); int a=b; return a+b; }'

@@ -1,7 +1,7 @@
 use crate::tokenize::{Token, Tokenizer};
 use crate::{common::Expected, err};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Type {
   Int,
   Pointer(Box<Type>),
