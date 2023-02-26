@@ -27,16 +27,15 @@ impl IRGen {
 
 struct GenFun<'a> {
   module: &'a mut Mod,
-  current_fun: Option<FunId>,
+  insert_fun: FunId,
   scope: Scope,
   break_label: Vec<BBId>,
   cont_label: Vec<BBId>,
 }
 
-// TODO: rename
-macro_rules! funs {
+macro_rules! insert_fun {
   ($x:expr) => {
-    $x.module.funs[$x.current_fun.unwrap()]
+    $x.module.funs[$x.insert_fun]
   };
 }
 
@@ -44,16 +43,15 @@ impl<'a> GenFun<'a> {
   fn new(module: &'a mut Mod) -> GenFun<'a> {
     GenFun {
       module,
-      current_fun: None,
+      insert_fun: 0,
       scope: Scope::new(),
       break_label: Vec::new(),
       cont_label: Vec::new(),
     }
   }
 
-  // TODO: rename
   fn set_insert_function(&mut self, fun: FunId) {
-    self.current_fun = Some(fun);
+    self.insert_fun = fun;
   }
 
   // ----- gen_fun -----
@@ -67,13 +65,13 @@ impl<'a> GenFun<'a> {
         self.set_insert_function(fn_id);
 
         // Check function is not defined
-        if funs!(self).bbs.len() != 0 {
+        if insert_fun!(self).bbs.len() != 0 {
           return err!("function already exists");
         }
 
         // Create entry block
-        let bb = funs!(self).append_basic_block();
-        funs!(self).position_at_end(bb);
+        let bb = insert_fun!(self).append_basic_block();
+        insert_fun!(self).position_at_end(bb);
 
         // Push first scope
         self.scope.push();
@@ -104,7 +102,7 @@ impl<'a> GenFun<'a> {
         // Pop first scope
         self.scope.pop();
 
-        Ok(fn_id)
+        Ok(self.insert_fun)
       }
     }
   }
@@ -144,16 +142,16 @@ impl<'a> GenFun<'a> {
       Stmt::IfElse(cond, then, else_) => self.gen_if_else(cond, then, else_),
       Stmt::For(init, cond, inc, body) => self.gen_for(init, cond, inc, *body),
       Stmt::Break => {
-        funs!(self).build_unconditional_branch(*self.break_label.last().unwrap());
+        insert_fun!(self).build_unconditional_branch(*self.break_label.last().unwrap());
         Ok(true)
       }
       Stmt::Cont => {
-        funs!(self).build_unconditional_branch(*self.cont_label.last().unwrap());
+        insert_fun!(self).build_unconditional_branch(*self.cont_label.last().unwrap());
         Ok(true)
       }
       Stmt::Return(expr) => {
         let v1 = self.gen_expr(expr)?;
-        funs!(self).build_ret(v1);
+        insert_fun!(self).build_ret(v1);
         Ok(true)
       }
       Stmt::Block(stmts) => {
@@ -177,7 +175,7 @@ impl<'a> GenFun<'a> {
 
   fn create_entry_block_alloca(&mut self, ty: Type, name: String) -> MemId {
     // Push mem_arena
-    let mem_id = funs!(self).build_alloca();
+    let mem_id = insert_fun!(self).build_alloca();
     // Insert scope
     self.scope.insert(name, mem_id);
     mem_id
@@ -189,32 +187,38 @@ impl<'a> GenFun<'a> {
     then: Box<Stmt>,
     else_: Option<Box<Stmt>>,
   ) -> Expected<bool> {
-    let current_block = funs!(self).get_insert_block().unwrap();
-    let then_block = funs!(self).insert_basic_block_after(current_block).unwrap();
-    let else_block = funs!(self).insert_basic_block_after(then_block).unwrap();
+    let current_block = insert_fun!(self).get_insert_block();
+    let then_block = insert_fun!(self)
+      .insert_basic_block_after(current_block)
+      .unwrap();
+    let else_block = insert_fun!(self)
+      .insert_basic_block_after(then_block)
+      .unwrap();
     let merge_block = if else_.is_some() {
-      funs!(self).insert_basic_block_after(else_block).unwrap()
+      insert_fun!(self)
+        .insert_basic_block_after(else_block)
+        .unwrap()
     } else {
       else_block
     };
 
     // cond:
     let expr = self.gen_expr(cond)?;
-    funs!(self).build_conditional_branch(expr, then_block, else_block);
+    insert_fun!(self).build_conditional_branch(expr, then_block, else_block);
 
     // then:
-    funs!(self).position_at_end(then_block);
+    insert_fun!(self).position_at_end(then_block);
     let has_terminator_in_then = self.gen_stmt(*then)?;
     if !has_terminator_in_then {
-      funs!(self).build_unconditional_branch(merge_block);
+      insert_fun!(self).build_unconditional_branch(merge_block);
     }
 
     // else:
     let has_terminator_in_else = if let Some(else_) = else_ {
-      funs!(self).position_at_end(else_block);
+      insert_fun!(self).position_at_end(else_block);
       let has_terminator = self.gen_stmt(*else_)?;
       if !has_terminator {
-        funs!(self).build_unconditional_branch(merge_block);
+        insert_fun!(self).build_unconditional_branch(merge_block);
       }
       has_terminator
     } else {
@@ -223,10 +227,10 @@ impl<'a> GenFun<'a> {
 
     // merge:
     if has_terminator_in_then && has_terminator_in_else {
-      funs!(self).remove_basic_block(merge_block);
+      insert_fun!(self).remove_basic_block(merge_block);
       Ok(true)
     } else {
-      funs!(self).position_at_end(merge_block);
+      insert_fun!(self).position_at_end(merge_block);
       Ok(false)
     }
   }
@@ -238,11 +242,19 @@ impl<'a> GenFun<'a> {
     inc: Option<AST>,
     body: Stmt,
   ) -> Expected<bool> {
-    let current_block = funs!(self).get_insert_block().unwrap();
-    let cond_block = funs!(self).insert_basic_block_after(current_block).unwrap();
-    let body_block = funs!(self).insert_basic_block_after(cond_block).unwrap();
-    let inc_block = funs!(self).insert_basic_block_after(body_block).unwrap();
-    let end_block = funs!(self).insert_basic_block_after(inc_block).unwrap();
+    let current_block = insert_fun!(self).get_insert_block();
+    let cond_block = insert_fun!(self)
+      .insert_basic_block_after(current_block)
+      .unwrap();
+    let body_block = insert_fun!(self)
+      .insert_basic_block_after(cond_block)
+      .unwrap();
+    let inc_block = insert_fun!(self)
+      .insert_basic_block_after(body_block)
+      .unwrap();
+    let end_block = insert_fun!(self)
+      .insert_basic_block_after(inc_block)
+      .unwrap();
     self.break_label.push(end_block.clone());
     self.cont_label.push(inc_block.clone());
 
@@ -250,37 +262,37 @@ impl<'a> GenFun<'a> {
     if let Some(expr) = init {
       self.gen_expr(expr)?;
     }
-    funs!(self).build_unconditional_branch(cond_block);
+    insert_fun!(self).build_unconditional_branch(cond_block);
 
     // cond:
-    funs!(self).position_at_end(cond_block);
+    insert_fun!(self).position_at_end(cond_block);
     if let Some(expr) = cond {
       let expr = self.gen_expr(expr)?;
-      funs!(self).build_conditional_branch(expr, body_block, end_block);
+      insert_fun!(self).build_conditional_branch(expr, body_block, end_block);
     } else {
-      funs!(self).build_unconditional_branch(body_block);
+      insert_fun!(self).build_unconditional_branch(body_block);
     }
 
     // body:
-    funs!(self).position_at_end(body_block);
+    insert_fun!(self).position_at_end(body_block);
     let has_terminator_in_body = self.gen_stmt(body)?;
     if !has_terminator_in_body {
-      funs!(self).build_unconditional_branch(inc_block);
+      insert_fun!(self).build_unconditional_branch(inc_block);
     }
 
     // inc:
-    funs!(self).position_at_end(inc_block);
+    insert_fun!(self).position_at_end(inc_block);
     if let Some(expr) = inc {
       self.gen_expr(expr)?;
     }
-    funs!(self).build_unconditional_branch(cond_block);
+    insert_fun!(self).build_unconditional_branch(cond_block);
 
     // end:
-    let has_no_branch_to_end = funs!(self).bb_arena[end_block].pred.is_empty();
+    let has_no_branch_to_end = insert_fun!(self).bb_arena[end_block].pred.is_empty();
     if has_no_branch_to_end {
-      funs!(self).remove_basic_block(end_block);
+      insert_fun!(self).remove_basic_block(end_block);
     } else {
-      funs!(self).position_at_end(end_block);
+      insert_fun!(self).position_at_end(end_block);
     }
 
     self.break_label.pop();
@@ -295,49 +307,49 @@ impl<'a> GenFun<'a> {
       AST::Eq(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let r0 = funs!(self).build_inst(InstArgs::Eq(v1, v2));
+        let r0 = insert_fun!(self).build_inst(InstArgs::Eq(v1, v2));
         Ok(Val::Reg(r0))
       }
       AST::Ne(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let r0 = funs!(self).build_inst(InstArgs::Ne(v1, v2));
+        let r0 = insert_fun!(self).build_inst(InstArgs::Ne(v1, v2));
         Ok(Val::Reg(r0))
       }
       AST::Lt(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let r0 = funs!(self).build_inst(InstArgs::Lt(v1, v2));
+        let r0 = insert_fun!(self).build_inst(InstArgs::Lt(v1, v2));
         Ok(Val::Reg(r0))
       }
       AST::Le(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let r0 = funs!(self).build_inst(InstArgs::Le(v1, v2));
+        let r0 = insert_fun!(self).build_inst(InstArgs::Le(v1, v2));
         Ok(Val::Reg(r0))
       }
       AST::Add(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let r0 = funs!(self).build_inst(InstArgs::Add(v1, v2));
+        let r0 = insert_fun!(self).build_inst(InstArgs::Add(v1, v2));
         Ok(Val::Reg(r0))
       }
       AST::Sub(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let r0 = funs!(self).build_inst(InstArgs::Sub(v1, v2));
+        let r0 = insert_fun!(self).build_inst(InstArgs::Sub(v1, v2));
         Ok(Val::Reg(r0))
       }
       AST::Mul(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let r0 = funs!(self).build_inst(InstArgs::Mul(v1, v2));
+        let r0 = insert_fun!(self).build_inst(InstArgs::Mul(v1, v2));
         Ok(Val::Reg(r0))
       }
       AST::Div(n, m) => {
         let v1 = self.gen_expr(*n)?;
         let v2 = self.gen_expr(*m)?;
-        let r0 = funs!(self).build_inst(InstArgs::Div(v1, v2));
+        let r0 = insert_fun!(self).build_inst(InstArgs::Div(v1, v2));
         Ok(Val::Reg(r0))
       }
       AST::Num(n) => Ok(Val::Imm(n)),
@@ -348,7 +360,7 @@ impl<'a> GenFun<'a> {
           todo!()
           // Ok(self.gen_array_addr_impl(mem))
         } else {
-          let r0 = funs!(self).build_inst(InstArgs::Load(mem));
+          let r0 = insert_fun!(self).build_inst(InstArgs::Load(mem));
           Ok(Val::Reg(r0))
         }
       }
@@ -384,7 +396,7 @@ impl<'a> GenFun<'a> {
   fn gen_assign_impl(&mut self, mem: MemId, rhs: Val) -> Expected<MemId> {
     // TODO: check if lhs.get_type().get_element_type() == rhs.get_type().as_any_type_enum()
     if true {
-      funs!(self).build_store(mem, rhs);
+      insert_fun!(self).build_store(mem, rhs);
       Ok(mem)
     } else {
       err!("inconsistent types in operands of assignment")

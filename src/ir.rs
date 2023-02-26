@@ -36,7 +36,7 @@ pub struct Fun {
   pub reg_arena: Vec<Reg>,
   pub mem_arena: Vec<Mem>,
   // modify
-  current_bb: Option<BBId>,
+  insert_bb: BBId,
 }
 
 pub type FunId = usize;
@@ -52,7 +52,7 @@ impl Fun {
       inst_arena: Vec::new(),
       reg_arena: Vec::new(),
       mem_arena: Vec::new(),
-      current_bb: None,
+      insert_bb: 0,
     }
   }
 
@@ -95,14 +95,14 @@ impl Fun {
     self.bbs.iter().position(|&x| x == bb)
   }
 
-  // ----- current_bb -----
+  // ----- insert_bb -----
 
-  pub fn get_insert_block(&self) -> Option<BBId> {
-    self.current_bb
+  pub fn get_insert_block(&self) -> BBId {
+    self.insert_bb
   }
 
   pub fn position_at_end(&mut self, bb: BBId) {
-    self.current_bb = Some(bb);
+    self.insert_bb = bb;
   }
 
   // ----- inst -----
@@ -126,7 +126,7 @@ impl Fun {
   }
 
   pub fn build_conditional_branch(&mut self, v1: Val, bb1: BBId, bb2: BBId) {
-    let bb0 = self.current_bb.unwrap();
+    let bb0 = self.insert_bb;
     self.bb_arena[bb0].succ.push(bb1);
     self.bb_arena[bb0].succ.push(bb2);
     self.bb_arena[bb1].pred.push(bb0);
@@ -136,7 +136,7 @@ impl Fun {
   }
 
   pub fn build_unconditional_branch(&mut self, bb1: BBId) {
-    let bb0 = self.current_bb.unwrap();
+    let bb0 = self.insert_bb;
     self.bb_arena[bb0].succ.push(bb1);
     self.bb_arena[bb1].pred.push(bb0);
     let inst_id = self.inst_arena.len();
@@ -159,7 +159,7 @@ impl Fun {
 
   fn push_inst(&mut self, inst: Inst, inst_id: InstId) {
     self.inst_arena.push(inst);
-    self.bb_arena[self.current_bb.unwrap()].insts.push(inst_id);
+    self.bb_arena[self.insert_bb].insts.push(inst_id);
   }
 
   // ----- reg, mem -----
