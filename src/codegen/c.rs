@@ -10,22 +10,15 @@ pub fn codegen(module: &Mod) -> String {
   ret
 }
 
-fn gen_type(ty: &Type) -> String {
-  match ty {
-    Type::Int => "int".to_string(),
-    _ => todo!(),
-  }
-}
-
 fn gen_fun(fun: &Fun, ctx: &[Fun]) -> String {
   // Emit function return type, name and parameters
   let params = fun
     .param_tys
     .iter()
     .enumerate()
-    .map(|(i, ty)| format!("{} a{}", gen_type(ty), i));
+    .map(|(i, ty)| format!("{} a{}", ty, i));
   let params = JoinView::new(params, ", ");
-  let mut ret = format!("\n\n{} {}({}) {{", gen_type(&fun.ret_ty), fun.name, params);
+  let mut ret = format!("\n\n{} {}({}) {{", fun.ret_ty, fun.name, params);
 
   // Allocate memory
   if !fun.mem_arena.is_empty() {
