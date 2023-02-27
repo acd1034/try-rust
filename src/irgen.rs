@@ -352,6 +352,25 @@ impl<'a> GenFun<'a> {
         let r0 = insert_fun!(self).build_inst(InstArgs::Div(v1, v2));
         Ok(Val::Reg(r0))
       }
+      AST::Call(name, args) => {
+        if let Some(fun) = self.module.get_function(&name) {
+          let args = args
+            .into_iter()
+            .map(|expr| self.gen_expr(expr))
+            .collect::<Result<Vec<_>, _>>()?;
+          // TODO: type check
+          // let arg_types: Vec<_> = args.iter().map(|arg| arg.get_type()).collect();
+          // let stored_param_types = &self.module.funs[fun].param_tys;
+          // if arg_types != stored_param_types {
+          //   return err!("argument types mismatch function parameter types");
+          // }
+
+          let r0 = insert_fun!(self).build_inst(InstArgs::Call(fun, args));
+          Ok(Val::Reg(r0))
+        } else {
+          err!("function does not exist")
+        }
+      }
       AST::Num(n) => Ok(Val::Imm(n)),
       AST::Assign(..) | AST::Ident(..) => {
         let mem = self.gen_addr(expr)?;

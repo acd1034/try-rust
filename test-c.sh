@@ -156,11 +156,11 @@ assert 6 'int sub() { return 4; } int main() { int b=3; int a=b; return a+b; }'
 assert_fail 'int main() { return 4; } int main() { int b=3; int a=b; return a+b; }'
 assert 0 'int sub(int a, int b, int c, int d, int e, int f) { return a+b+c+d+e+f; } int main() { return 0; }'
 assert_fail 'int sub(int a, int a) { return a; } int main() { return 0; }'
-exit 0
 # funcall
 assert 8 'int sub() { return 4; } int main() { int b=sub(); int a=b; return a+b; }'
 assert_fail 'int main() { int b=sub(); int a=b; return a+b; }'
 assert 21 'int sub(int a, int b, int c, int d, int e, int f) { return a+b+c+d+e+f; } int main() { return sub(1,2,3,4,5,6); }'
+exit 0
 # prototype
 assert 3 'int ret3(); int main() { return ret3(); }'
 assert 5 'int ret5(); int main() { return ret5(); }'

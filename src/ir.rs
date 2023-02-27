@@ -120,6 +120,7 @@ impl Fun {
       InstArgs::Mul(v1, v2) => Inst::Mul(r0.clone(), v1, v2),
       InstArgs::Div(v1, v2) => Inst::Div(r0.clone(), v1, v2),
       InstArgs::Load(m1) => Inst::Load(r0.clone(), m1),
+      InstArgs::Call(fun, args) => Inst::Call(r0.clone(), fun, args),
     };
     self.push_inst(inst, inst_id);
     r0
@@ -206,6 +207,7 @@ pub enum Inst {
   Jmp(BBId),
   Store(MemId, Val),
   Load(RegId, MemId),
+  Call(RegId, FunId, Vec<Val>),
   Ret(Val),
 }
 
@@ -221,6 +223,7 @@ pub enum InstArgs {
   Mul(Val, Val),
   Div(Val, Val),
   Load(MemId),
+  Call(FunId, Vec<Val>),
 }
 
 #[derive(Clone)]
@@ -288,6 +291,14 @@ impl fmt::Display for Inst {
       Inst::Jmp(bb1) => write!(f, "jmp bb{}", bb1),
       Inst::Store(m1, v2) => write!(f, "store m{}, {}", m1, v2),
       Inst::Load(r0, m1) => write!(f, "r{} = load m{}", r0, m1),
+      Inst::Call(r0, fun, args) => {
+        if args.is_empty() {
+          write!(f, "r{} = call !Fun{}!", r0, fun)
+        } else {
+          let args = JoinView::new(args.iter(), ", ");
+          write!(f, "r{} = call !Fun{}!, {}", r0, fun, args)
+        }
+      }
       Inst::Ret(v1) => write!(f, "ret {}", v1),
     }
   }
