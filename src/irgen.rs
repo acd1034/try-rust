@@ -109,9 +109,9 @@ impl<'a> GenFun<'a> {
 
   fn gen_fun_decl(&mut self, ret_ty: Type, name: String, param_tys: Vec<Type>) -> Expected<FunId> {
     if let Some(fn_id) = self.module.get_function(&name) {
-      let stored_ret_ty = &self.module.funs[fn_id].ret_ty;
-      let stored_param_tys = &self.module.funs[fn_id].param_tys;
-      if &ret_ty == stored_ret_ty && &param_tys == stored_param_tys {
+      let previous_ret_ty = &self.module.funs[fn_id].ret_ty;
+      let previous_param_tys = &self.module.funs[fn_id].param_tys;
+      if &ret_ty == previous_ret_ty && &param_tys == previous_param_tys {
         Ok(fn_id)
       } else {
         err!("function type differs from the previous declaration")
@@ -360,8 +360,8 @@ impl<'a> GenFun<'a> {
             .collect::<Result<Vec<_>, _>>()?;
           // TODO: type check
           // let arg_types: Vec<_> = args.iter().map(|arg| arg.get_type()).collect();
-          // let stored_param_types = &self.module.funs[fun].param_tys;
-          // if arg_types != stored_param_types {
+          // let param_types = &self.module.funs[fun].param_tys;
+          // if arg_types != param_types {
           //   return err!("argument types mismatch function parameter types");
           // }
 

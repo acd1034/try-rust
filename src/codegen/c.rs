@@ -11,34 +11,41 @@ pub fn codegen(f: &mut fmt::Formatter, module: &Mod) -> fmt::Result {
 }
 
 fn gen_fun(f: &mut fmt::Formatter, fun: &Fun, funs: &[Fun]) -> fmt::Result {
-  // Emit function return type, name and parameters
-  let iter = fun
-    .param_tys
-    .iter()
-    .enumerate()
-    .map(|(i, ty)| format!("{} a{}", ty, i));
-  let param_tys = JoinView::new(iter, ", ");
-  write!(f, "\n\n{} {}({}) {{", fun.ret_ty, fun.name, param_tys)?;
+  if fun.bbs.is_empty() {
+    // Emit function declaration
+    let iter = fun.param_tys.iter().map(|ty| format!("{}", ty));
+    let param_tys = JoinView::new(iter, ", ");
+    write!(f, "\n\n{} {}({});", fun.ret_ty, fun.name, param_tys)
+  } else {
+    // Emit function return type, name and parameters
+    let iter = fun
+      .param_tys
+      .iter()
+      .enumerate()
+      .map(|(i, ty)| format!("{} a{}", ty, i));
+    let param_tys = JoinView::new(iter, ", ");
+    write!(f, "\n\n{} {}({}) {{", fun.ret_ty, fun.name, param_tys)?;
 
-  // Allocate memory
-  if !fun.mem_arena.is_empty() {
-    write!(f, "\n  int m[{}];", fun.mem_arena.len())?;
-  }
-
-  // Store function parameters to memory
-  for i in 0..fun.param_tys.len() {
-    write!(f, "\n  m[{i}] = a{i};")?;
-  }
-
-  // Emit function body
-  for &bb in &fun.bbs {
-    write!(f, "\nbb{}:;", bb)?;
-    for &inst in &fun.bb_arena[bb].insts {
-      gen_inst(f, &fun.inst_arena[inst], funs)?;
+    // Allocate memory
+    if !fun.mem_arena.is_empty() {
+      write!(f, "\n  int m[{}];", fun.mem_arena.len())?;
     }
-  }
 
-  write!(f, "\n}}")
+    // Store function parameters to memory
+    for i in 0..fun.param_tys.len() {
+      write!(f, "\n  m[{i}] = a{i};")?;
+    }
+
+    // Emit function body
+    for &bb in &fun.bbs {
+      write!(f, "\nbb{}:;", bb)?;
+      for &inst in &fun.bb_arena[bb].insts {
+        gen_inst(f, &fun.inst_arena[inst], funs)?;
+      }
+    }
+
+    write!(f, "\n}}")
+  }
 }
 
 fn gen_inst(f: &mut fmt::Formatter, inst: &Inst, funs: &[Fun]) -> fmt::Result {

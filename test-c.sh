@@ -151,23 +151,24 @@ assert 11 'int main() { int i=0; int j=0; while (i++<10) { if (i>5) continue; j+
 assert 5 'int main() { int i=0; int j=0; while (i++<10) { if (i>5) continue; j++; } return j; }'
 assert 10 'int main() { int i=0; int j=0; for(;i==0;) { for (;j!=10;j++) continue; break; } return j; }'
 assert 11 'int main() { int i=0; int j=0; while(i==0) { while (j++!=10) continue; break; } return j; }'
-# defunc
+# function definition
 assert 6 'int sub() { return 4; } int main() { int b=3; int a=b; return a+b; }'
 assert_fail 'int main() { return 4; } int main() { int b=3; int a=b; return a+b; }'
 assert 0 'int sub(int a, int b, int c, int d, int e, int f) { return a+b+c+d+e+f; } int main() { return 0; }'
 assert_fail 'int sub(int a, int a) { return a; } int main() { return 0; }'
-# funcall
+# function call
 assert 8 'int sub() { return 4; } int main() { int b=sub(); int a=b; return a+b; }'
 assert_fail 'int main() { int b=sub(); int a=b; return a+b; }'
+assert 4 'int sub(int a, int b) { return a+b; } int main() { int x=2; return sub(x,x); }'
 assert 21 'int sub(int a, int b, int c, int d, int e, int f) { return a+b+c+d+e+f; } int main() { return sub(1,2,3,4,5,6); }'
-exit 0
-# prototype
+# function declaration
 assert 3 'int ret3(); int main() { return ret3(); }'
 assert 5 'int ret5(); int main() { return ret5(); }'
 assert 4 'int sub(); int sub(); int sub() { return 4; } int main() { return sub(); }'
 assert 0 'int sub(int a); int sub(int b) { return b; } int main() { return sub(0); }'
 assert_fail 'int sub(); int sub(int a) { return a; } int main() { return 0; }'
 assert 21 'int sub(int a, int b, int c, int d, int e, int f); int sub(int g, int h, int i, int j, int k, int l) { return g+h+i+j+k+l; } int main() { return sub(1,2,3,4,5,6); }'
+exit 0
 # addr & deref
 assert 3 'int main() { int x=3; return *&x; }'
 assert 3 'int main() { int x=3; int* y=&x; int** z=&y; return **z; }'

@@ -263,25 +263,32 @@ fn irdump(f: &mut fmt::Formatter, module: &Mod) -> fmt::Result {
 }
 
 fn gen_fun(f: &mut fmt::Formatter, fun: &Fun, funs: &[Fun]) -> fmt::Result {
-  // Emit function return type, name and parameters
-  write!(f, "\n\n{}:", fun.name)?;
+  let iter = fun.param_tys.iter().map(|ty| format!("{}", ty));
+  let param_tys = JoinView::new(iter, ", ");
 
-  // Allocate memory
-  let alloca = JoinView::new(0..fun.mem_arena.len(), ",");
-  write!(f, "\n  ; alloca={}", alloca)?;
+  if fun.bbs.is_empty() {
+    write!(f, "\n\ndeclare {}({})", fun.name, param_tys)
+  } else {
+    // Emit function return type, name and parameters
+    write!(f, "\n\n{}({}):", fun.name, param_tys)?;
 
-  // Emit function body
-  for &bb in &fun.bbs {
-    let bb_label = format!(".bb{}:", bb);
-    let pred = JoinView::new(fun.bb_arena[bb].pred.iter(), ",");
-    let succ = JoinView::new(fun.bb_arena[bb].succ.iter(), ",");
-    write!(f, "\n{:<40}; pred={} succ={}", bb_label, pred, succ)?;
-    for &inst in &fun.bb_arena[bb].insts {
-      gen_inst(f, &fun.inst_arena[inst], funs)?;
+    // Allocate memory
+    let alloca = JoinView::new(0..fun.mem_arena.len(), ",");
+    write!(f, "\n  ; alloca={}", alloca)?;
+
+    // Emit function body
+    for &bb in &fun.bbs {
+      let bb_label = format!(".bb{}:", bb);
+      let pred = JoinView::new(fun.bb_arena[bb].pred.iter(), ",");
+      let succ = JoinView::new(fun.bb_arena[bb].succ.iter(), ",");
+      write!(f, "\n{:<40}; pred={} succ={}", bb_label, pred, succ)?;
+      for &inst in &fun.bb_arena[bb].insts {
+        gen_inst(f, &fun.inst_arena[inst], funs)?;
+      }
     }
-  }
 
-  Ok(())
+    Ok(())
+  }
 }
 
 fn gen_inst(f: &mut fmt::Formatter, inst: &Inst, funs: &[Fun]) -> fmt::Result {
