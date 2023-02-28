@@ -12,13 +12,13 @@ pub fn codegen(f: &mut fmt::Formatter, module: &Mod) -> fmt::Result {
 
 fn gen_fun(f: &mut fmt::Formatter, fun: &Fun, funs: &[Fun]) -> fmt::Result {
   // Emit function return type, name and parameters
-  let params = fun
+  let iter = fun
     .param_tys
     .iter()
     .enumerate()
     .map(|(i, ty)| format!("{} a{}", ty, i));
-  let params = JoinView::new(params, ", ");
-  write!(f, "\n\n{} {}({}) {{", fun.ret_ty, fun.name, params)?;
+  let param_tys = JoinView::new(iter, ", ");
+  write!(f, "\n\n{} {}({}) {{", fun.ret_ty, fun.name, param_tys)?;
 
   // Allocate memory
   if !fun.mem_arena.is_empty() {

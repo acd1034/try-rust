@@ -246,61 +246,63 @@ pub struct Mem {
 
 pub type MemId = usize;
 
-// ----- fmt::Display -----
+// ----- irdump -----
 
 impl fmt::Display for Mod {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "; ModuleName = '{}'", self.name)?;
-    for fun in &self.funs {
-      write!(f, "\n{}", fun)?;
-    }
-    Ok(())
+    irdump(f, self)
   }
 }
 
-impl fmt::Display for Fun {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "{}()", self.name)?;
-    let alloca = JoinView::new(0..self.mem_arena.len(), ",");
-    write!(f, "\n  ; alloca={}", alloca)?;
-    for &bb in &self.bbs {
-      let bb_label = format!("bb{}:", bb);
-      let pred = JoinView::new(self.bb_arena[bb].pred.iter(), ",");
-      let succ = JoinView::new(self.bb_arena[bb].succ.iter(), ",");
-      write!(f, "\n{:<40}; pred={} succ={}", bb_label, pred, succ)?;
-      for &inst in &self.bb_arena[bb].insts {
-        write!(f, "\n  {}", self.inst_arena[inst])?;
-      }
-    }
-    Ok(())
+fn irdump(f: &mut fmt::Formatter, module: &Mod) -> fmt::Result {
+  write!(f, "; ModuleName = '{}'", module.name)?;
+  for fun in &module.funs {
+    gen_fun(f, fun, module.funs.as_slice())?;
   }
+  Ok(())
 }
 
-impl fmt::Display for Inst {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      Inst::Eq(r0, v1, v2) => write!(f, "r{} = eq {}, {}", r0, v1, v2),
-      Inst::Ne(r0, v1, v2) => write!(f, "r{} = ne {}, {}", r0, v1, v2),
-      Inst::Lt(r0, v1, v2) => write!(f, "r{} = lt {}, {}", r0, v1, v2),
-      Inst::Le(r0, v1, v2) => write!(f, "r{} = le {}, {}", r0, v1, v2),
-      Inst::Add(r0, v1, v2) => write!(f, "r{} = add {}, {}", r0, v1, v2),
-      Inst::Sub(r0, v1, v2) => write!(f, "r{} = sub {}, {}", r0, v1, v2),
-      Inst::Mul(r0, v1, v2) => write!(f, "r{} = mul {}, {}", r0, v1, v2),
-      Inst::Div(r0, v1, v2) => write!(f, "r{} = div {}, {}", r0, v1, v2),
-      Inst::Br(v1, bb1, bb2) => write!(f, "br {}, bb{}, bb{}", v1, bb1, bb2),
-      Inst::Jmp(bb1) => write!(f, "jmp bb{}", bb1),
-      Inst::Store(m1, v2) => write!(f, "store m{}, {}", m1, v2),
-      Inst::Load(r0, m1) => write!(f, "r{} = load m{}", r0, m1),
-      Inst::Call(r0, fun, args) => {
-        if args.is_empty() {
-          write!(f, "r{} = call !Fun{}!", r0, fun)
-        } else {
-          let args = JoinView::new(args.iter(), ", ");
-          write!(f, "r{} = call !Fun{}!, {}", r0, fun, args)
-        }
-      }
-      Inst::Ret(v1) => write!(f, "ret {}", v1),
+fn gen_fun(f: &mut fmt::Formatter, fun: &Fun, funs: &[Fun]) -> fmt::Result {
+  // Emit function return type, name and parameters
+  write!(f, "\n\n{}:", fun.name)?;
+
+  // Allocate memory
+  let alloca = JoinView::new(0..fun.mem_arena.len(), ",");
+  write!(f, "\n  ; alloca={}", alloca)?;
+
+  // Emit function body
+  for &bb in &fun.bbs {
+    let bb_label = format!(".bb{}:", bb);
+    let pred = JoinView::new(fun.bb_arena[bb].pred.iter(), ",");
+    let succ = JoinView::new(fun.bb_arena[bb].succ.iter(), ",");
+    write!(f, "\n{:<40}; pred={} succ={}", bb_label, pred, succ)?;
+    for &inst in &fun.bb_arena[bb].insts {
+      gen_inst(f, &fun.inst_arena[inst], funs)?;
     }
+  }
+
+  Ok(())
+}
+
+fn gen_inst(f: &mut fmt::Formatter, inst: &Inst, funs: &[Fun]) -> fmt::Result {
+  match inst {
+    Inst::Eq(r0, v1, v2) => write!(f, "\n  r{} = eq {}, {}", r0, v1, v2),
+    Inst::Ne(r0, v1, v2) => write!(f, "\n  r{} = ne {}, {}", r0, v1, v2),
+    Inst::Lt(r0, v1, v2) => write!(f, "\n  r{} = lt {}, {}", r0, v1, v2),
+    Inst::Le(r0, v1, v2) => write!(f, "\n  r{} = le {}, {}", r0, v1, v2),
+    Inst::Add(r0, v1, v2) => write!(f, "\n  r{} = add {}, {}", r0, v1, v2),
+    Inst::Sub(r0, v1, v2) => write!(f, "\n  r{} = sub {}, {}", r0, v1, v2),
+    Inst::Mul(r0, v1, v2) => write!(f, "\n  r{} = mul {}, {}", r0, v1, v2),
+    Inst::Div(r0, v1, v2) => write!(f, "\n  r{} = div {}, {}", r0, v1, v2),
+    Inst::Br(v1, bb1, bb2) => write!(f, "\n  br {}, bb{}, bb{}", v1, bb1, bb2),
+    Inst::Jmp(bb1) => write!(f, "\n  jmp bb{}", bb1),
+    Inst::Store(m1, v2) => write!(f, "\n  store m{}, {}", m1, v2),
+    Inst::Load(r0, m1) => write!(f, "\n  r{} = load m{}", r0, m1),
+    Inst::Call(r0, fun, args) => {
+      let args = JoinView::new(args.iter(), ", ");
+      write!(f, "\n  r{} = call {}({});", r0, funs[*fun].name, args)
+    }
+    Inst::Ret(v1) => write!(f, "\n  ret {}", v1),
   }
 }
 
