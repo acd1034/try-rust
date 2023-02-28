@@ -27,7 +27,14 @@ assert_fail() {
   input="$1"
   echo -en "$ESC[31m$input\n$ESC[m=> "
 
-  echo "$input" | ./target/debug/try-rust "-ll" - > /dev/null && echo "Error: unexpected success in compiling" && exit 1
+  echo "$input" | ./target/debug/try-rust - > /dev/null
+
+  if [ $? -eq 0 ]; then
+    echo "Error: unexpected success in compiling"
+    exit 1
+  else
+    :
+  fi
 }
 
 # TODO:
@@ -84,15 +91,22 @@ assert 42 'int main() { int a=42; return a; }'
 assert 42 'int main() { int _123=42; return _123; }'
 assert 8 'int main() { int a=3; int b=5; return a+b; }'
 assert 6 'int main() { int a=3; int b=a; return a+b; }'
+# variable scope
+assert 2 'int main() { int x=2; { int x=3; } return x; }'
+assert 2 'int main() { int x=2; { int x=3; } { int y=4; return x; }}'
+assert 3 'int main() { int x=2; { x=3; } return x; }'
+assert_fail 'int main() { { int x=3; } return x; }'
 # assign
 assert 42 'int main() { int foo123; return foo123=42; }'
 assert 2 'int main() { int a; return a=a=2; }'
 assert 2 'int main() { int x; return (x=1)=2; }'
 assert 6 'int main() { int b; int a=b=3; return a+b; }'
-assert 2 'int main() { int x=1; x=2; return x; }'
 assert_fail 'int main() { return 1=2; }'
 assert_fail 'int main() { return a; }'
 assert_fail 'int main() { return a=2; }'
+# expression statement
+assert 2 'int main() { int x=1; x=2; return x; }'
+assert 2 'int main() { int x=1; x=x+1; return x; }'
 # return
 assert 1 'int main() { return 1; 2; 3; }'
 assert 2 'int main() { 1; return 2; 3; }'
@@ -149,16 +163,17 @@ assert 11 'int main() { int i=0; int j=0; while (i++<10) { if (i>5) continue; j+
 assert 5 'int main() { int i=0; int j=0; while (i++<10) { if (i>5) continue; j++; } return j; }'
 assert 10 'int main() { int i=0; int j=0; for(;i==0;) { for (;j!=10;j++) continue; break; } return j; }'
 assert 11 'int main() { int i=0; int j=0; while(i==0) { while (j++!=10) continue; break; } return j; }'
-# defunc
+# function definition
 assert 6 'int sub() { return 4; } int main() { int b=3; int a=b; return a+b; }'
 assert_fail 'int main() { return 4; } int main() { int b=3; int a=b; return a+b; }'
 assert 0 'int sub(int a, int b, int c, int d, int e, int f) { return a+b+c+d+e+f; } int main() { return 0; }'
 assert_fail 'int sub(int a, int a) { return a; } int main() { return 0; }'
-# funcall
+# function call
 assert 8 'int sub() { return 4; } int main() { int b=sub(); int a=b; return a+b; }'
 assert_fail 'int main() { int b=sub(); int a=b; return a+b; }'
+assert 4 'int sub(int a, int b) { return a+b; } int main() { int x=2; return sub(x,x); }'
 assert 21 'int sub(int a, int b, int c, int d, int e, int f) { return a+b+c+d+e+f; } int main() { return sub(1,2,3,4,5,6); }'
-# prototype
+# function declaration
 assert 3 'int ret3(); int main() { return ret3(); }'
 assert 5 'int ret5(); int main() { return ret5(); }'
 assert 4 'int sub(); int sub(); int sub() { return 4; } int main() { return sub(); }'
@@ -206,10 +221,6 @@ assert 5 'int main() { int x[3]; *x=3; x[1]=4; x[2]=5; return *(x+2); }'
 assert 5 'int main() { int x[3]; *x=3; x[1]=4; x[2]=5; return *(x+2); }'
 assert 5 'int main() { int x[3]; *x=3; x[1]=4; 2[x]=5; return *(x+2); }'
 assert 4 'int main() { int x[5]; int i=0; for(;i<5;i=i+1) x[i]=i; return x[i-1]; }'
-# scope
-assert 2 'int main() { int x=2; { int x=3; } return x; }'
-assert 2 'int main() { int x=2; { int x=3; } { int y=4; return x; }}'
-assert 3 'int main() { int x=2; { x=3; } return x; }'
 # compound assignment
 assert 7 'int main() { int i=2; i+=5; return i; }'
 assert 7 'int main() { int i=2; return i+=5; }'
