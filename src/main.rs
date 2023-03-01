@@ -5,6 +5,7 @@ mod irgen;
 mod parse;
 mod sema;
 mod tokenize;
+mod ty;
 use common::Expected;
 use inkwell::context::Context;
 use std::fs::File;

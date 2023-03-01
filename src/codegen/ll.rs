@@ -1,5 +1,6 @@
-use crate::parse::{Fun, Stmt, Type, AST};
+use crate::parse::{Fun, Stmt, AST};
 use crate::sema;
+use crate::ty::Type;
 use crate::{common::Expected, err};
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;

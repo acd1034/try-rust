@@ -1,6 +1,7 @@
 use crate::ir::*;
-use crate::parse::{self, Stmt, Type, AST};
+use crate::parse::{self, Stmt, AST};
 use crate::sema;
+use crate::ty::Type;
 use crate::{common::Expected, err};
 type Scope = sema::Scope<MemId>;
 

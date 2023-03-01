@@ -1,5 +1,5 @@
 use crate::common::JoinView;
-use crate::parse::Type;
+use crate::ty::Type;
 use std::fmt;
 
 pub struct Mod {
