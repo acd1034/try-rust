@@ -1,5 +1,6 @@
-// https://github.com/aamine/cbc/blob/f339ad28bc826ddcaabfdafa3a84bc539a80f4d1/net/loveruby/cflat/parser/Parser.jj
-// clang-format off
+```hs
+-- https://github.com/aamine/cbc/blob/f339ad28bc826ddcaabfdafa3a84bc539a80f4d1/net/loveruby/cflat/parser/Parser.jj
+-- clang-format off
 compilation_unit = import_stmts top_defs <EOF>
 import_stmts = import_stmt*
 import_stmt = name ("." name)* ";"
@@ -27,8 +28,8 @@ slot = type name
 typedef = <TYPEDEF> typeref <IDENT> ";"
 type = typeref
 typeref = typeref_base
-        (LOOKAHEAD(2) "[" "]" // 長さが指定されていない配列、`int[] x`
-        | "[" <INTEGER> "]"   // 長さが指定されている配列、`int[5] x`
+        (LOOKAHEAD(2) "[" "]" -- 長さが指定されていない配列、`int[] x`
+        | "[" <INTEGER> "]"   -- 長さが指定されている配列、`int[5] x`
         | "*"
         | "(" param_typerefs ")"
         )*
@@ -107,8 +108,8 @@ unary = "++" unary
       | "~" term
       | "*" term
       | "&" term
-      | LOOKAHEAD(3) <SIZEOF> "(" type ")" // sizeof(型)
-      | <SIZEOF> unary                     // sizeof 式
+      | LOOKAHEAD(3) <SIZEOF> "(" type ")" -- sizeof(型)
+      | <SIZEOF> unary                     -- sizeof 式
       | postfix
 postfix = primary
         ( "++"
@@ -124,3 +125,4 @@ primary = <INTEGER>
         | STRING
         | INDENT
         | "(" expr ")"
+```
