@@ -2,6 +2,8 @@ use std::fs;
 use std::io;
 use std::num;
 
+// ----- Combine error types -----
+
 enum CliError {
   IoError(io::Error),
   ParseError(num::ParseIntError),
@@ -25,20 +27,7 @@ fn open_and_parse_file(file_name: &str) -> Result<i32, CliError> {
   Ok(num)
 }
 
-enum Message {
-  Quit,
-  Write(String),
-  Move { x: i32, y: i32 },
-}
-
-fn print_msg() {
-  let m = Message::Move { x: 0, y: 1 };
-  match m {
-    Message::Quit => println!("Quit!"),
-    Message::Write(s) => println!("Write: {}", s),
-    Message::Move { x, y } => println!("Move: ({}, {})", x, y),
-  }
-}
+// ----- err macro -----
 
 macro_rules! err {
   ($x:expr) => {
@@ -46,10 +35,31 @@ macro_rules! err {
   };
 }
 
-fn cat_literal() -> Result<i64, &'static str> {
+fn try_err() -> Result<i64, &'static str> {
+  err!("file not exists")
+}
+
+// ----- print hyperlink -----
+
+fn cat_literal() {
   println!(
     "[\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\]",
     "http://example.com", "Hyperlink"
   );
-  err!("file not exists")
+}
+
+// ----- Add method to build-in types -----
+
+pub trait Scream {
+  fn scream(&self);
+}
+
+impl Scream for i32 {
+  fn scream(&self) {
+    println!("I am {}!", self);
+  }
+}
+
+fn try_scream_i32() {
+  42.scream();
 }
