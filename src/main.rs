@@ -3,7 +3,6 @@ mod common;
 mod ir;
 mod irgen;
 mod parse;
-mod sema;
 mod tokenize;
 mod ty;
 use common::Expected;

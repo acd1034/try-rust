@@ -1,9 +1,9 @@
+use crate::common::{self, Expected};
+use crate::err;
 use crate::ir::*;
 use crate::parse::{self, Stmt, AST};
-use crate::sema;
 use crate::ty::Type;
-use crate::{common::Expected, err};
-type Scope = sema::Scope<MemId>;
+type Scope = common::Scope<MemId>;
 
 // ----- irgen -----
 

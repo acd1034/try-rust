@@ -1,7 +1,7 @@
+use crate::common::{self, Expected};
+use crate::err;
 use crate::parse::{Fun, Stmt, AST};
-use crate::sema;
 use crate::ty::Type;
-use crate::{common::Expected, err};
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
@@ -10,7 +10,7 @@ use inkwell::types::*;
 use inkwell::values::*;
 use inkwell::AddressSpace;
 use inkwell::IntPredicate;
-type Scope<'a> = sema::Scope<PointerValue<'a>>;
+type Scope<'a> = common::Scope<PointerValue<'a>>;
 
 // Module ⊇ Function ⊇ BasicBlock ⊇ Instruction
 pub struct CodeGen<'ctx> {
