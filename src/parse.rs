@@ -39,61 +39,61 @@ pub enum AST {
   Num(u64),
 }
 
-fn consume_eof(it: &mut Tokenizer) -> bool {
-  if it.current() == Token::Eof {
-    true
+fn consume_eof(it: &mut Tokenizer) -> Expected<bool> {
+  if it.current()? == Token::Eof {
+    Ok(true)
   } else {
-    false
+    Ok(false)
   }
 }
 
-fn consume_keyword(it: &mut Tokenizer, keyword: &str) -> bool {
-  if it.current() == Token::Keyword(keyword) {
+fn consume_keyword(it: &mut Tokenizer, keyword: &str) -> Expected<bool> {
+  if it.current()? == Token::Keyword(keyword) {
     it.advance();
-    true
+    Ok(true)
   } else {
-    false
+    Ok(false)
   }
 }
 
-fn consume_ident(it: &mut Tokenizer) -> Option<String> {
-  if let Token::Ident(name) = it.current() {
+fn consume_ident(it: &mut Tokenizer) -> Expected<Option<String>> {
+  if let Token::Ident(name) = it.current()? {
     it.advance();
-    Some(name)
+    Ok(Some(name.to_string()))
   } else {
-    None
+    Ok(None)
   }
 }
 
-fn consume_num(it: &mut Tokenizer) -> Option<u64> {
-  if let Token::Num(n) = it.current() {
+fn consume_num(it: &mut Tokenizer) -> Expected<Option<u64>> {
+  if let Token::Num(n) = it.current()? {
     it.advance();
-    Some(n)
+    Ok(Some(n))
   } else {
-    None
+    Ok(None)
   }
 }
 
-fn consume(it: &mut Tokenizer, op: &str) -> bool {
-  if it.current() == Token::Punct(op) {
+fn consume(it: &mut Tokenizer, op: &str) -> Expected<bool> {
+  if it.current()? == Token::Punct(op) {
     it.advance();
-    true
+    Ok(true)
   } else {
-    false
+    Ok(false)
   }
 }
 
 fn expect_ident(it: &mut Tokenizer) -> Expected<String> {
-  if let Token::Ident(name) = it.current() {
+  if let Token::Ident(name) = it.current()? {
     it.advance();
-    Ok(name)
+    Ok(name.to_string())
   } else {
     err!("unexpected token, expecting identifier")
   }
 }
 
 fn expect_num(it: &mut Tokenizer) -> Expected<u64> {
-  if let Token::Num(n) = it.current() {
+  if let Token::Num(n) = it.current()? {
     it.advance();
     Ok(n)
   } else {
@@ -102,7 +102,7 @@ fn expect_num(it: &mut Tokenizer) -> Expected<u64> {
 }
 
 fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
-  if it.current() == Token::Punct(op) {
+  if it.current()? == Token::Punct(op) {
     it.advance();
     Ok(())
   } else {
@@ -149,7 +149,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
 // program     = fun* eof
 pub fn parse(mut it: Tokenizer) -> Expected<Vec<Fun>> {
   let mut funs = Vec::new();
-  while !consume_eof(&mut it) {
+  while !consume_eof(&mut it)? {
     funs.push(parse_fun(&mut it)?);
   }
   Ok(funs)
@@ -161,11 +161,11 @@ fn parse_fun(it: &mut Tokenizer) -> Expected<Fun> {
   let ty = parse_declspec(it)?;
   let (ret_ty, name) = parse_declarator(it, ty)?;
   let (param_tys, param_names) = parse_fun_params(it)?;
-  if consume(it, ";") {
+  if consume(it, ";")? {
     Ok(Fun::FunDecl(ret_ty, name, param_tys))
-  } else if consume(it, "{") {
+  } else if consume(it, "{")? {
     let mut body = Vec::new();
-    while !consume(it, "}") {
+    while !consume(it, "}")? {
       body.push(parse_stmt(it)?);
     }
     Ok(Fun::FunDef(ret_ty, name, param_tys, param_names, body))
@@ -176,28 +176,28 @@ fn parse_fun(it: &mut Tokenizer) -> Expected<Fun> {
 
 // declspec    = "int"
 fn parse_declspec(it: &mut Tokenizer) -> Expected<Type> {
-  if consume_keyword(it, "int") {
+  if consume_keyword(it, "int")? {
     Ok(Type::Int)
   } else {
     err!("unexpected token, expecting `int`")
   }
 }
 
-fn consume_declspec(it: &mut Tokenizer) -> Option<Type> {
-  if consume_keyword(it, "int") {
-    Some(Type::Int)
+fn consume_declspec(it: &mut Tokenizer) -> Expected<Option<Type>> {
+  if consume_keyword(it, "int")? {
+    Ok(Some(Type::Int))
   } else {
-    None
+    Ok(None)
   }
 }
 
 // declarator  = "*"* ident ("[" num "]")?
 fn parse_declarator(it: &mut Tokenizer, mut ty: Type) -> Expected<(Type, String)> {
-  while consume(it, "*") {
+  while consume(it, "*")? {
     ty = Type::Pointer(Box::new(ty));
   }
   let name = expect_ident(it)?;
-  if consume(it, "[") {
+  if consume(it, "[")? {
     let n = expect_num(it)?;
     expect(it, "]")?;
     ty = Type::Array(Box::new(ty), n as u32);
@@ -209,9 +209,9 @@ fn parse_declarator(it: &mut Tokenizer, mut ty: Type) -> Expected<(Type, String)
 fn parse_fun_params(it: &mut Tokenizer) -> Expected<(Vec<Type>, Vec<String>)> {
   expect(it, "(")?;
   let mut params = Vec::new();
-  if !consume(it, ")") {
+  if !consume(it, ")")? {
     params.push(parse_param(it)?);
-    while !consume(it, ")") {
+    while !consume(it, ")")? {
       expect(it, ",")?;
       params.push(parse_param(it)?);
     }
@@ -236,27 +236,27 @@ fn parse_param(it: &mut Tokenizer) -> Expected<(Type, String)> {
 //             | ";"
 //             | expr ";"
 fn parse_stmt(it: &mut Tokenizer) -> Expected<Stmt> {
-  if let Some(ty) = consume_declspec(it) {
+  if let Some(ty) = consume_declspec(it)? {
     let (ty, name) = parse_declarator(it, ty)?;
-    let init = if consume(it, "=") {
+    let init = if consume(it, "=")? {
       Some(parse_expr(it)?)
     } else {
       None
     };
     expect(it, ";")?;
     Ok(Stmt::VarDef(ty, name, init))
-  } else if consume_keyword(it, "if") {
+  } else if consume_keyword(it, "if")? {
     expect(it, "(")?;
     let cond = parse_expr(it)?;
     expect(it, ")")?;
     let then_stmt = Box::new(parse_stmt(it)?);
-    let else_stmt = if consume_keyword(it, "else") {
+    let else_stmt = if consume_keyword(it, "else")? {
       Some(Box::new(parse_stmt(it)?))
     } else {
       None
     };
     Ok(Stmt::IfElse(cond, then_stmt, else_stmt))
-  } else if consume_keyword(it, "for") {
+  } else if consume_keyword(it, "for")? {
     expect(it, "(")?;
     let n1 = parse_expr(it).ok();
     expect(it, ";")?;
@@ -266,29 +266,29 @@ fn parse_stmt(it: &mut Tokenizer) -> Expected<Stmt> {
     expect(it, ")")?;
     let stmt = Box::new(parse_stmt(it)?);
     Ok(Stmt::For(n1, n2, n3, stmt))
-  } else if consume_keyword(it, "while") {
+  } else if consume_keyword(it, "while")? {
     expect(it, "(")?;
     let n2 = parse_expr(it).ok();
     expect(it, ")")?;
     let stmt = Box::new(parse_stmt(it)?);
     Ok(Stmt::For(None, n2, None, stmt))
-  } else if consume_keyword(it, "break") {
+  } else if consume_keyword(it, "break")? {
     expect(it, ";")?;
     Ok(Stmt::Break)
-  } else if consume_keyword(it, "continue") {
+  } else if consume_keyword(it, "continue")? {
     expect(it, ";")?;
     Ok(Stmt::Cont)
-  } else if consume_keyword(it, "return") {
+  } else if consume_keyword(it, "return")? {
     let n = parse_expr(it)?;
     expect(it, ";")?;
     Ok(Stmt::Return(n))
-  } else if consume(it, "{") {
+  } else if consume(it, "{")? {
     let mut stmts = Vec::new();
-    while !consume(it, "}") {
+    while !consume(it, "}")? {
       stmts.push(parse_stmt(it)?);
     }
     Ok(Stmt::Block(stmts))
-  } else if consume(it, ";") {
+  } else if consume(it, ";")? {
     Ok(Stmt::Block(Vec::new()))
   } else {
     let n = parse_expr(it)?;
@@ -305,7 +305,7 @@ fn parse_expr(it: &mut Tokenizer) -> Expected<AST> {
 // ternary     = assign ("?" expr ":" ternary)?
 fn parse_ternary(it: &mut Tokenizer) -> Expected<AST> {
   let cond = parse_assign(it)?;
-  if consume(it, "?") {
+  if consume(it, "?")? {
     let then = parse_expr(it)?;
     expect(it, ":")?;
     let else_ = parse_ternary(it)?;
@@ -322,25 +322,25 @@ fn parse_ternary(it: &mut Tokenizer) -> Expected<AST> {
 // assign      = equality ("=" assign | "+=" assign | "-=" assign | "*=" assign | "/=" assign)?
 fn parse_assign(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_equality(it)?;
-  if consume(it, "=") {
+  if consume(it, "=")? {
     let m = parse_assign(it)?;
     Ok(AST::Assign(Box::new(n), Box::new(m)))
-  } else if consume(it, "+=") {
+  } else if consume(it, "+=")? {
     // convert x+=y to x=x+y
     let m = parse_assign(it)?;
     let add = AST::Add(Box::new(n.clone()), Box::new(m));
     Ok(AST::Assign(Box::new(n), Box::new(add)))
-  } else if consume(it, "-=") {
+  } else if consume(it, "-=")? {
     // convert x-=y to x=x-y
     let m = parse_assign(it)?;
     let sub = AST::Sub(Box::new(n.clone()), Box::new(m));
     Ok(AST::Assign(Box::new(n), Box::new(sub)))
-  } else if consume(it, "*=") {
+  } else if consume(it, "*=")? {
     // convert x*=y to x=x*y
     let m = parse_assign(it)?;
     let mul = AST::Mul(Box::new(n.clone()), Box::new(m));
     Ok(AST::Assign(Box::new(n), Box::new(mul)))
-  } else if consume(it, "/=") {
+  } else if consume(it, "/=")? {
     // convert x/=y to x=x/y
     let m = parse_assign(it)?;
     let div = AST::Div(Box::new(n.clone()), Box::new(m));
@@ -357,10 +357,10 @@ fn parse_equality(it: &mut Tokenizer) -> Expected<AST> {
 }
 
 fn parse_equality_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
-  if consume(it, "==") {
+  if consume(it, "==")? {
     let m = parse_relational(it)?;
     parse_equality_impl(it, AST::Eq(Box::new(n), Box::new(m)))
-  } else if consume(it, "!=") {
+  } else if consume(it, "!=")? {
     let m = parse_relational(it)?;
     parse_equality_impl(it, AST::Ne(Box::new(n), Box::new(m)))
   } else {
@@ -375,16 +375,16 @@ fn parse_relational(it: &mut Tokenizer) -> Expected<AST> {
 }
 
 fn parse_relational_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
-  if consume(it, "<") {
+  if consume(it, "<")? {
     let m = parse_add(it)?;
     parse_relational_impl(it, AST::Lt(Box::new(n), Box::new(m)))
-  } else if consume(it, "<=") {
+  } else if consume(it, "<=")? {
     let m = parse_add(it)?;
     parse_relational_impl(it, AST::Le(Box::new(n), Box::new(m)))
-  } else if consume(it, ">") {
+  } else if consume(it, ">")? {
     let m = parse_add(it)?;
     parse_relational_impl(it, AST::Lt(Box::new(m), Box::new(n)))
-  } else if consume(it, ">=") {
+  } else if consume(it, ">=")? {
     let m = parse_add(it)?;
     parse_relational_impl(it, AST::Le(Box::new(m), Box::new(n)))
   } else {
@@ -399,10 +399,10 @@ fn parse_add(it: &mut Tokenizer) -> Expected<AST> {
 }
 
 fn parse_add_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
-  if consume(it, "+") {
+  if consume(it, "+")? {
     let m = parse_mul(it)?;
     parse_add_impl(it, AST::Add(Box::new(n), Box::new(m)))
-  } else if consume(it, "-") {
+  } else if consume(it, "-")? {
     let m = parse_mul(it)?;
     parse_add_impl(it, AST::Sub(Box::new(n), Box::new(m)))
   } else {
@@ -417,10 +417,10 @@ fn parse_mul(it: &mut Tokenizer) -> Expected<AST> {
 }
 
 fn parse_mul_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
-  if consume(it, "*") {
+  if consume(it, "*")? {
     let m = parse_unary(it)?;
     parse_mul_impl(it, AST::Mul(Box::new(n), Box::new(m)))
-  } else if consume(it, "/") {
+  } else if consume(it, "/")? {
     let m = parse_unary(it)?;
     parse_mul_impl(it, AST::Div(Box::new(n), Box::new(m)))
   } else {
@@ -431,25 +431,25 @@ fn parse_mul_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
 // unary       = ("+" | "-" | "&" | "*" | "++" | "--") unary
 //             | postfix
 fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
-  if consume(it, "+") {
+  if consume(it, "+")? {
     parse_unary(it)
-  } else if consume(it, "-") {
+  } else if consume(it, "-")? {
     let n = AST::Num(0);
     let m = parse_unary(it)?;
     Ok(AST::Sub(Box::new(n), Box::new(m)))
-  } else if consume(it, "&") {
+  } else if consume(it, "&")? {
     let n = parse_unary(it)?;
     Ok(AST::Addr(Box::new(n)))
-  } else if consume(it, "*") {
+  } else if consume(it, "*")? {
     let n = parse_unary(it)?;
     Ok(AST::Deref(Box::new(n)))
-  } else if consume(it, "++") {
+  } else if consume(it, "++")? {
     // convert ++i to i=i+1
     let n = parse_unary(it)?;
     let one = AST::Num(1);
     let add = AST::Add(Box::new(n.clone()), Box::new(one));
     Ok(AST::Assign(Box::new(n), Box::new(add)))
-  } else if consume(it, "--") {
+  } else if consume(it, "--")? {
     // convert --i to i=i-1
     let n = parse_unary(it)?;
     let one = AST::Num(1);
@@ -463,19 +463,19 @@ fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
 // postfix     = primary ("[" expr "]" | "++" | "--")?
 fn parse_postfix(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_primary(it)?;
-  if consume(it, "[") {
+  if consume(it, "[")? {
     // convert a[i] to *(a+i)
     let m = parse_expr(it)?;
     expect(it, "]")?;
     let add = AST::Add(Box::new(n), Box::new(m));
     Ok(AST::Deref(Box::new(add)))
-  } else if consume(it, "++") {
+  } else if consume(it, "++")? {
     // convert i++ to (i=i+1)-1
     let one = AST::Num(1);
     let add = AST::Add(Box::new(n.clone()), Box::new(one.clone()));
     let assign = AST::Assign(Box::new(n), Box::new(add));
     Ok(AST::Sub(Box::new(assign), Box::new(one)))
-  } else if consume(it, "--") {
+  } else if consume(it, "--")? {
     // convert i-- to (i=i-1)+1
     let one = AST::Num(1);
     let sub = AST::Sub(Box::new(n.clone()), Box::new(one.clone()));
@@ -491,18 +491,18 @@ fn parse_postfix(it: &mut Tokenizer) -> Expected<AST> {
 //             | ident
 //             | num
 fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
-  if consume(it, "(") {
+  if consume(it, "(")? {
     let n = parse_expr(it)?;
     expect(it, ")")?;
     Ok(n)
-  } else if let Some(name) = consume_ident(it) {
-    if consume(it, "(") {
+  } else if let Some(name) = consume_ident(it)? {
+    if consume(it, "(")? {
       let args = parse_fun_args(it)?;
       Ok(AST::Call(name, args))
     } else {
       Ok(AST::Ident(name))
     }
-  } else if let Some(n) = consume_num(it) {
+  } else if let Some(n) = consume_num(it)? {
     Ok(AST::Num(n))
   } else {
     err!("unexpected token, expecting `(`, identifier or number")
@@ -512,11 +512,11 @@ fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
 // fun_args    = (expr ("," expr)*)? ")"
 fn parse_fun_args(it: &mut Tokenizer) -> Expected<Vec<AST>> {
   let mut args = Vec::new();
-  if consume(it, ")") {
+  if consume(it, ")")? {
     Ok(args)
   } else {
     args.push(parse_expr(it)?);
-    while !consume(it, ")") {
+    while !consume(it, ")")? {
       expect(it, ",")?;
       args.push(parse_expr(it)?);
     }
