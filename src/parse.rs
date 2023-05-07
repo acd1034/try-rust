@@ -59,7 +59,7 @@ fn consume_keyword(it: &mut Tokenizer, keyword: &str) -> Expected<bool> {
 fn consume_ident(it: &mut Tokenizer) -> Expected<Option<String>> {
   if let Token::Ident(name) = it.current()? {
     it.advance();
-    Ok(Some(name.to_string()))
+    Ok(Some(name))
   } else {
     Ok(None)
   }
@@ -86,7 +86,7 @@ fn consume(it: &mut Tokenizer, op: &str) -> Expected<bool> {
 fn expect_ident(it: &mut Tokenizer) -> Expected<String> {
   if let Token::Ident(name) = it.current()? {
     it.advance();
-    Ok(name.to_string())
+    Ok(name)
   } else {
     err!("unexpected token, expecting identifier")
   }

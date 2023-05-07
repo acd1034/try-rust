@@ -4,18 +4,19 @@ use crate::{common::Expected, err};
 pub enum Token<'a> {
   Eof,
   Keyword(&'a str),
-  Ident(&'a str),
+  Ident(String),
   Num(u64),
   Punct(&'a str),
 }
 
-fn tokenize<'a>(s: &'a str) -> Expected<(Token, &'a str)> {
+fn tokenize<'a>(s: &'a str) -> (Expected<Token<'a>>, &'a str) {
   static KEYWORDS: [&str; 8] = [
     "return", "if", "else", "for", "while", "break", "continue", "int",
   ];
   static TWO_CHAR_OPS: [&str; 10] = ["==", "!=", "<=", ">=", "+=", "-=", "*=", "/=", "++", "--"];
+
   if s.is_empty() {
-    Ok((Token::Eof, s))
+    (Ok(Token::Eof), s)
   } else if s.starts_with(|c: char| c.is_ascii_whitespace()) {
     let pos = s
       .find(|c: char| !c.is_ascii_whitespace())
@@ -26,25 +27,28 @@ fn tokenize<'a>(s: &'a str) -> Expected<(Token, &'a str)> {
       .find(|c: char| c != '_' && !c.is_ascii_alphabetic() && !c.is_ascii_digit())
       .unwrap_or(s.len());
     if KEYWORDS.contains(&&s[..pos]) {
-      Ok((Token::Keyword(&s[..pos]), &s[pos..]))
+      (Ok(Token::Keyword(&s[..pos])), &s[pos..])
     } else {
-      Ok((Token::Ident(&s[..pos]), &s[pos..]))
+      (Ok(Token::Ident(s[..pos].to_string())), &s[pos..])
     }
   } else if s.starts_with(|c: char| c.is_ascii_digit()) {
     let pos = s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
-    let num: u64 = s[..pos].parse().map_err(|_| "failed to read integer")?;
-    Ok((Token::Num(num), &s[pos..]))
+    let tok = if let Ok(num) = s[..pos].parse() {
+      Ok(Token::Num(num))
+    } else {
+      err!("failed to read integer")
+    };
+    (tok, &s[pos..])
   } else if s.starts_with(|c: char| c.is_ascii_punctuation()) {
     if s.len() < 2 {
-      return Ok((Token::Punct(&s[..1]), &s[1..]));
-    }
-    if TWO_CHAR_OPS.contains(&&s[..2]) {
-      Ok((Token::Punct(&s[..2]), &s[2..]))
+      (Ok(Token::Punct(&s[..1])), &s[1..])
+    } else if TWO_CHAR_OPS.contains(&&s[..2]) {
+      (Ok(Token::Punct(&s[..2])), &s[2..])
     } else {
-      Ok((Token::Punct(&s[..1]), &s[1..]))
+      (Ok(Token::Punct(&s[..1])), &s[1..])
     }
   } else {
-    err!("unexpected character")
+    (err!("unexpected character"), &s[1..])
   }
 }
 
@@ -55,28 +59,14 @@ pub struct Tokenizer<'a> {
 
 impl<'a> Tokenizer<'a> {
   pub fn new(input: &'a str) -> Tokenizer {
-    match tokenize(input) {
-      Ok((tok, s)) => Tokenizer {
-        item: Ok(tok),
-        input: s,
-      },
-      Err(msg) => Tokenizer {
-        item: Err(msg),
-        input,
-      },
-    }
+    let (item, input) = tokenize(input);
+    Tokenizer { item, input }
   }
 
   pub fn advance(&mut self) -> () {
-    match tokenize(self.input) {
-      Ok((tok, s)) => {
-        self.item = Ok(tok);
-        self.input = s;
-      }
-      Err(msg) => {
-        self.item = Err(msg);
-      }
-    }
+    let (item, input) = tokenize(self.input);
+    self.item = item;
+    self.input = input;
   }
 
   pub fn current(&mut self) -> Expected<Token<'a>> {
