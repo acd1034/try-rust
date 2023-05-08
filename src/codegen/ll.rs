@@ -1,6 +1,6 @@
 use crate::common::{self, Expected};
 use crate::err;
-use crate::parse::{Fun, Stmt, AST};
+use crate::parse::{Stmt, TopLevel, AST};
 use crate::ty::Type;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
@@ -22,7 +22,7 @@ impl<'ctx> CodeGen<'ctx> {
     CodeGen { context }
   }
 
-  pub fn codegen(self, funs: Vec<Fun>) -> Expected<String> {
+  pub fn codegen(self, funs: Vec<TopLevel>) -> Expected<String> {
     let module = self.context.create_module("mod");
     for fun in funs {
       GenFun::new(self.context, &module).gen_fun(fun)?;
@@ -67,6 +67,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
         .into_inkwell_type(*ty)
         .array_type(size)
         .as_basic_type_enum(),
+      Type::FunTy(ret_ty, param_tys) => todo!(),
     }
   }
 
@@ -99,12 +100,13 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
 
   // ----- gen_fun -----
 
-  fn gen_fun(mut self, fun: Fun) -> Expected<FunctionValue<'ctx>> {
+  fn gen_fun(mut self, fun: TopLevel) -> Expected<FunctionValue<'ctx>> {
     match fun {
-      Fun::FunDecl(ret_ty, name, param_tys) => self.gen_fun_decl(ret_ty, &name, param_tys),
-      Fun::FunDef(ret_ty, name, param_tys, param_names, body) => {
+      TopLevel::FunDecl(ret_ty, name, param_tys) => self.gen_fun_decl(ret_ty, &name, param_tys),
+      TopLevel::FunDef(ret_ty, name, param_tys, param_names, body) => {
         self.gen_fun_def(ret_ty, &name, param_tys, param_names, body)
       }
+      TopLevel::VarDef(ty, name) => todo!(),
     }
   }
 

@@ -3,9 +3,10 @@ use crate::ty::Type;
 use crate::{common::Expected, err};
 
 #[derive(Debug)]
-pub enum Fun {
+pub enum TopLevel {
   FunDecl(Type, String, Vec<Type>),
   FunDef(Type, String, Vec<Type>, Vec<String>, Vec<Stmt>),
+  VarDef(Type, String),
 }
 
 #[derive(Debug)]
@@ -110,15 +111,18 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
   }
 }
 
-/* program     = fun* eof
- * fun         = declspec declarator fun_params ";"
- *             | declspec declarator fun_params "{" stmt* "}"
+/* program     = toplevel* eof
+ * toplevel    = declaration ";"
+ *             | declaration "{" stmt* "}"
+ * declaration = declspec declarator
  * declspec    = "int"
- * declarator  = "*"* ident ("[" num "]")?
- * fun_params  = "(" param (("," param)*)? ")"
- * param       = declspec declarator
+ * declarator  = "*"* ident type_suffix
+ * type_suffix = "[" num "]"
+ *             | "(" fun_params
+ *             | ε
+ * fun_params  = declaration (("," declaration)*)? ")"
  *
- * stmt        = declspec declarator ("=" expr)? ";"
+ * stmt        = declaration ("=" expr)? ";"
  *             | "if" "(" expr ")" stmt ("else" stmt)?
  *             | "for" "(" expr? ";" expr? ";" expr? ")" stmt
  *             | "while" "(" expr ")" stmt
@@ -146,31 +150,56 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  * fun_args    = (expr ("," expr)*)? ")"
  */
 
-// program     = fun* eof
-pub fn parse(mut it: Tokenizer) -> Expected<Vec<Fun>> {
+// program     = toplevel* eof
+pub fn parse(mut it: Tokenizer) -> Expected<Vec<TopLevel>> {
   let mut funs = Vec::new();
   while !consume_eof(&mut it)? {
-    funs.push(parse_fun(&mut it)?);
+    funs.push(parse_toplevel(&mut it)?);
   }
   Ok(funs)
 }
 
-// fun         = declspec declarator fun_params ";"
-//             | declspec declarator fun_params "{" stmt* "}"
-fn parse_fun(it: &mut Tokenizer) -> Expected<Fun> {
-  let ty = parse_declspec(it)?;
-  let (ret_ty, name) = parse_declarator(it, ty)?;
-  let (param_tys, param_names) = parse_fun_params(it)?;
-  if consume(it, ";")? {
-    Ok(Fun::FunDecl(ret_ty, name, param_tys))
-  } else if consume(it, "{")? {
-    let mut body = Vec::new();
-    while !consume(it, "}")? {
-      body.push(parse_stmt(it)?);
+// toplevel    = declaration ";"
+//             | declaration "{" stmt* "}"
+fn parse_toplevel(it: &mut Tokenizer) -> Expected<TopLevel> {
+  let (ty, name) = parse_declaration(it)?;
+  if let Type::FunTy(ret_ty, params) = ty {
+    let (param_tys, param_names) = params.into_iter().unzip();
+    if consume(it, ";")? {
+      Ok(TopLevel::FunDecl(*ret_ty, name, param_tys))
+    } else if consume(it, "{")? {
+      let mut body = Vec::new();
+      while !consume(it, "}")? {
+        body.push(parse_stmt(it)?);
+      }
+      Ok(TopLevel::FunDef(
+        *ret_ty,
+        name,
+        param_tys,
+        param_names,
+        body,
+      ))
+    } else {
+      err!("unexpected token, expecting `{` or `;`")
     }
-    Ok(Fun::FunDef(ret_ty, name, param_tys, param_names, body))
   } else {
-    err!("unexpected token, expecting `{` or `;`")
+    expect(it, ";")?;
+    Ok(TopLevel::VarDef(ty, name))
+  }
+}
+
+// declaration = declspec declarator
+fn parse_declaration(it: &mut Tokenizer) -> Expected<(Type, String)> {
+  let ty = parse_declspec(it)?;
+  parse_declarator(it, ty)
+}
+
+fn consume_declaration(it: &mut Tokenizer) -> Expected<Option<(Type, String)>> {
+  if let Some(ty) = consume_declspec(it)? {
+    let ty = parse_declarator(it, ty)?;
+    Ok(Some(ty))
+  } else {
+    Ok(None)
   }
 }
 
@@ -191,41 +220,47 @@ fn consume_declspec(it: &mut Tokenizer) -> Expected<Option<Type>> {
   }
 }
 
-// declarator  = "*"* ident ("[" num "]")?
+// declarator  = "*"* ident type_suffix
 fn parse_declarator(it: &mut Tokenizer, mut ty: Type) -> Expected<(Type, String)> {
   while consume(it, "*")? {
     ty = Type::Pointer(Box::new(ty));
   }
   let name = expect_ident(it)?;
-  if consume(it, "[")? {
-    let n = expect_num(it)?;
-    expect(it, "]")?;
-    ty = Type::Array(Box::new(ty), n as u32);
-  }
+  ty = parse_type_suffix(it, ty)?;
   Ok((ty, name))
 }
 
-// fun_params  = "(" param (("," param)*)? ")"
-fn parse_fun_params(it: &mut Tokenizer) -> Expected<(Vec<Type>, Vec<String>)> {
-  expect(it, "(")?;
+// type_suffix = "[" num "]"
+//             | "(" fun_params
+//             | ε
+fn parse_type_suffix(it: &mut Tokenizer, ty: Type) -> Expected<Type> {
+  if consume(it, "[")? {
+    let n = expect_num(it)?;
+    let n = n.try_into().map_err(|_| "failed to convert integer")?;
+    expect(it, "]")?;
+    Ok(Type::Array(Box::new(ty), n))
+  } else if consume(it, "(")? {
+    let params = parse_fun_params(it)?;
+    Ok(Type::FunTy(Box::new(ty), params))
+  } else {
+    Ok(ty)
+  }
+}
+
+// fun_params  = declaration (("," declaration)*)? ")"
+fn parse_fun_params(it: &mut Tokenizer) -> Expected<Vec<(Type, String)>> {
   let mut params = Vec::new();
   if !consume(it, ")")? {
-    params.push(parse_param(it)?);
+    params.push(parse_declaration(it)?);
     while !consume(it, ")")? {
       expect(it, ",")?;
-      params.push(parse_param(it)?);
+      params.push(parse_declaration(it)?);
     }
   }
-  Ok(params.into_iter().unzip())
+  Ok(params)
 }
 
-// param       = declspec declarator
-fn parse_param(it: &mut Tokenizer) -> Expected<(Type, String)> {
-  let ty = parse_declspec(it)?;
-  parse_declarator(it, ty)
-}
-
-// stmt        = declspec declarator ("=" expr)? ";"
+// stmt        = declaration ("=" expr)? ";"
 //             | "if" "(" expr ")" stmt ("else" stmt)?
 //             | "for" "(" expr? ";" expr? ";" expr? ")" stmt
 //             | "while" "(" expr ")" stmt
@@ -236,8 +271,7 @@ fn parse_param(it: &mut Tokenizer) -> Expected<(Type, String)> {
 //             | ";"
 //             | expr ";"
 fn parse_stmt(it: &mut Tokenizer) -> Expected<Stmt> {
-  if let Some(ty) = consume_declspec(it)? {
-    let (ty, name) = parse_declarator(it, ty)?;
+  if let Some((ty, name)) = consume_declaration(it)? {
     let init = if consume(it, "=")? {
       Some(parse_expr(it)?)
     } else {

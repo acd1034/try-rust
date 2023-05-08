@@ -1,7 +1,7 @@
 use crate::common::{self, Expected};
 use crate::err;
 use crate::ir::*;
-use crate::parse::{self, Stmt, AST};
+use crate::parse::{Stmt, TopLevel, AST};
 use crate::ty::Type;
 type Scope = common::Scope<MemId>;
 
@@ -18,7 +18,7 @@ impl IRGen {
     }
   }
 
-  pub fn irgen(mut self, funs: Vec<parse::Fun>) -> Expected<Mod> {
+  pub fn irgen(mut self, funs: Vec<TopLevel>) -> Expected<Mod> {
     for fun in funs {
       GenFun::new(&mut self.module).gen_fun(fun)?;
     }
@@ -57,10 +57,10 @@ impl<'a> GenFun<'a> {
 
   // ----- gen_fun -----
 
-  fn gen_fun(mut self, fun: parse::Fun) -> Expected<FunId> {
+  fn gen_fun(mut self, fun: TopLevel) -> Expected<FunId> {
     match fun {
-      parse::Fun::FunDecl(ret_ty, name, param_tys) => self.gen_fun_decl(ret_ty, name, param_tys),
-      parse::Fun::FunDef(ret_ty, name, param_tys, param_names, body) => {
+      TopLevel::FunDecl(ret_ty, name, param_tys) => self.gen_fun_decl(ret_ty, name, param_tys),
+      TopLevel::FunDef(ret_ty, name, param_tys, param_names, body) => {
         // Check consistency with forward declaration
         let fn_id = self.gen_fun_decl(ret_ty, name, param_tys.clone())?;
         self.set_insert_function(fn_id);
@@ -105,6 +105,7 @@ impl<'a> GenFun<'a> {
 
         Ok(self.insert_fun)
       }
+      TopLevel::VarDef(ty, name) => todo!(),
     }
   }
 
