@@ -114,16 +114,25 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
       TopLevel::FunDef(ret_ty, name, param_tys, param_names, body) => self
         .gen_fun_def(ret_ty, &name, param_tys, param_names, body)
         .map(|fun| fun.as_any_value_enum()),
-      TopLevel::VarDef(ty, name) => {
+      TopLevel::VarDef(ty, name, init) => {
         let var_type = self.into_inkwell_type(ty);
         let var = self.module.add_global(var_type.clone(), None, &name);
-        let init = match var_type {
-          BasicTypeEnum::IntType(int_type) => int_type.const_zero().as_basic_value_enum(),
-          BasicTypeEnum::PointerType(ptr_type) => ptr_type.const_null().as_basic_value_enum(),
-          BasicTypeEnum::ArrayType(array_type) => array_type.const_zero().as_basic_value_enum(),
-          _ => todo!(),
+        let value = if let Some(expr) = init {
+          let rhs = self.gen_expr(expr)?;
+          if var_type == rhs.get_type() {
+            Ok(rhs)
+          } else {
+            err!("inconsistent types in operands of assignment")
+          }?
+        } else {
+          match var_type {
+            BasicTypeEnum::IntType(int_type) => int_type.const_zero().as_basic_value_enum(),
+            BasicTypeEnum::PointerType(ptr_type) => ptr_type.const_null().as_basic_value_enum(),
+            BasicTypeEnum::ArrayType(array_type) => array_type.const_zero().as_basic_value_enum(),
+            _ => todo!(),
+          }
         };
-        var.set_initializer(&init);
+        var.set_initializer(&value);
         self.scope.insert(name, var.as_pointer_value());
         Ok(var.as_any_value_enum())
       }

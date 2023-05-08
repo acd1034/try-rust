@@ -6,7 +6,7 @@ use crate::{common::Expected, err};
 pub enum TopLevel {
   FunDecl(Type, String, Vec<Type>),
   FunDef(Type, String, Vec<Type>, Vec<String>, Vec<Stmt>),
-  VarDef(Type, String),
+  VarDef(Type, String, Option<AST>),
 }
 
 #[derive(Debug)]
@@ -112,7 +112,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
 }
 
 /* program     = toplevel* eof
- * toplevel    = declaration ";"
+ * toplevel    = declaration ("=" expr)? ";"
  *             | declaration "{" stmt* "}"
  * declaration = declspec declarator
  * declspec    = "int"
@@ -159,7 +159,7 @@ pub fn parse(mut it: Tokenizer) -> Expected<Vec<TopLevel>> {
   Ok(funs)
 }
 
-// toplevel    = declaration ";"
+// toplevel    = declaration ("=" expr)? ";"
 //             | declaration "{" stmt* "}"
 fn parse_toplevel(it: &mut Tokenizer) -> Expected<TopLevel> {
   let (ty, name) = parse_declaration(it)?;
@@ -183,8 +183,13 @@ fn parse_toplevel(it: &mut Tokenizer) -> Expected<TopLevel> {
       err!("unexpected token, expecting `{` or `;`")
     }
   } else {
+    let init = if consume(it, "=")? {
+      Some(parse_expr(it)?)
+    } else {
+      None
+    };
     expect(it, ";")?;
-    Ok(TopLevel::VarDef(ty, name))
+    Ok(TopLevel::VarDef(ty, name, init))
   }
 }
 
