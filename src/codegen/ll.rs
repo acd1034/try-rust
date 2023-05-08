@@ -273,8 +273,12 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
       }
       Stmt::Return(expr) => {
         let ret = self.gen_expr(expr)?;
-        self.builder.build_return(Some(&ret));
-        Ok(true)
+        if Some(ret.get_type()) != self.get_current_fun().get_type().get_return_type() {
+          err!("return type differs from the declaration")
+        } else {
+          self.builder.build_return(Some(&ret));
+          Ok(true)
+        }
       }
       Stmt::Block(stmts) => {
         self.scope.push();

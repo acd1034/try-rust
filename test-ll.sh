@@ -194,6 +194,7 @@ assert 3 'int** sub(int** a) { return a; } int main() { int x=3; int* y; *sub(&y
 assert_fail 'int sub(int a); int sub(int* b) { return *b; } int main() { return sub(3); }'
 assert_fail 'int sub(int a) { return a; } int main() { int x=0; sub(&x); return x; }'
 assert_fail 'int* sub(int* a) { return a; } int main() { int x=3; int* y; *sub(&y) = &x; return *y; }'
+assert_fail 'int main() { int x=3; int* y=&x; return y; }'
 # pointer arithmetic
 assert 5 'int main() { int x=3; int y=5; return *(&x+1); }'
 assert 7 'int main() { int x=3; int y=5; *(&x+1)=7; return y; }'
