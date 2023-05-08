@@ -115,7 +115,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  * toplevel    = declaration ("=" expr)? ";"
  *             | declaration "{" stmt* "}"
  * declaration = declspec declarator
- * declspec    = "int"
+ * declspec    = "int" | "char"
  * declarator  = "*"* ident type_suffix
  * type_suffix = "[" num "]"
  *             | "(" fun_params
@@ -208,18 +208,22 @@ fn consume_declaration(it: &mut Tokenizer) -> Expected<Option<(Type, String)>> {
   }
 }
 
-// declspec    = "int"
+// declspec    = "int" | "char"
 fn parse_declspec(it: &mut Tokenizer) -> Expected<Type> {
   if consume_keyword(it, "int")? {
     Ok(Type::Int)
+  } else if consume_keyword(it, "char")? {
+    Ok(Type::Char)
   } else {
-    err!("unexpected token, expecting `int`")
+    err!("unexpected token, expecting `int` or `char`")
   }
 }
 
 fn consume_declspec(it: &mut Tokenizer) -> Expected<Option<Type>> {
   if consume_keyword(it, "int")? {
     Ok(Some(Type::Int))
+  } else if consume_keyword(it, "char")? {
+    Ok(Some(Type::Char))
   } else {
     Ok(None)
   }

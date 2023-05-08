@@ -65,6 +65,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
   fn into_inkwell_type(&self, ty: Type) -> BasicTypeEnum<'ctx> {
     match ty {
       Type::Int => self.context.i64_type().as_basic_type_enum(),
+      Type::Char => self.context.i8_type().as_basic_type_enum(),
       Type::Pointer(ty) => self
         .into_inkwell_type(*ty)
         .ptr_type(AddressSpace::default())

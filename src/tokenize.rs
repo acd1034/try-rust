@@ -10,8 +10,8 @@ pub enum Token<'a> {
 }
 
 fn tokenize<'a>(s: &'a str) -> (Expected<Token<'a>>, &'a str) {
-  static KEYWORDS: [&str; 8] = [
-    "return", "if", "else", "for", "while", "break", "continue", "int",
+  static KEYWORDS: [&str; 9] = [
+    "return", "if", "else", "for", "while", "break", "continue", "int", "char",
   ];
   static TWO_CHAR_OPS: [&str; 10] = ["==", "!=", "<=", ">=", "+=", "-=", "*=", "/=", "++", "--"];
 

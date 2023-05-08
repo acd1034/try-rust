@@ -274,3 +274,11 @@ assert_fail 'int x[4]=7; int main() { return x[0]; }'
 # assert 7 'int x, y; int main() { x=3; y=4; return x+y; }'
 # assert 8 'int x; int main() { return sizeof(x); }'
 # assert 32 'int x[4]; int main() { return sizeof(x); }'
+
+# char type
+# assert 1 'int main() { char x=1; return x; }'
+# assert 1 'int main() { char x=1; char y=2; return x; }'
+# assert 2 'int main() { char x=1; char y=2; return y; }'
+# assert 1 'int sub_char(char a, char b, char c) { return a-b-c; } int main() { return sub_char(7, 3, 3); }'
+# assert 1 'int main() { char x; return sizeof(x); }'
+# assert 10 'int main() { char x[10]; return sizeof(x); }'
