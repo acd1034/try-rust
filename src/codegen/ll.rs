@@ -115,15 +115,19 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         .gen_fun_def(ret_ty, &name, param_tys, param_names, body)
         .map(|fun| fun.as_any_value_enum()),
       TopLevel::VarDef(ty, name, init) => {
+        if self.scope.get(&name).is_some() {
+          return err!("global variable already exists");
+        }
+
         let var_type = self.into_inkwell_type(ty);
         let var = self.module.add_global(var_type.clone(), None, &name);
+
         let value = if let Some(expr) = init {
           let rhs = self.gen_expr(expr)?;
-          if var_type == rhs.get_type() {
-            Ok(rhs)
-          } else {
-            err!("inconsistent types in operands of assignment")
-          }?
+          if var_type != rhs.get_type() {
+            return err!("inconsistent types in operands of global assignment");
+          }
+          rhs
         } else {
           match var_type {
             BasicTypeEnum::IntType(int_type) => int_type.const_zero().as_basic_value_enum(),
@@ -237,6 +241,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
 
         let var_type = self.into_inkwell_type(ty);
         let alloca = self.create_entry_block_alloca(var_type, name);
+
         if let Some(expr) = init {
           let rhs = self.gen_expr(expr)?;
           self.gen_assign_impl(alloca, rhs)?;
