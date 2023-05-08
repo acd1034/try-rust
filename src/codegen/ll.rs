@@ -22,31 +22,37 @@ impl<'ctx> CodeGen<'ctx> {
     CodeGen { context }
   }
 
-  pub fn codegen(self, funs: Vec<TopLevel>) -> Expected<String> {
+  pub fn codegen(self, toplevels: Vec<TopLevel>) -> Expected<String> {
     let module = self.context.create_module("mod");
-    for fun in funs {
-      GenFun::new(self.context, &module).gen_fun(fun)?;
+    let mut scope = Scope::new();
+    scope.push();
+    for toplevel in toplevels {
+      GenTopLevel::new(self.context, &module, &mut scope).gen_toplevel(toplevel)?;
     }
+    scope.pop();
     Ok(module.to_string())
   }
 }
 
-struct GenFun<'a, 'ctx> {
+struct GenTopLevel<'a, 'ctx> {
   context: &'ctx Context,
   module: &'a Module<'ctx>,
   builder: Builder<'ctx>,
-  scope: Scope<'ctx>,
+  scope: &'a mut Scope<'ctx>,
   break_label: Vec<BasicBlock<'ctx>>,
   cont_label: Vec<BasicBlock<'ctx>>,
 }
 
-impl<'a, 'ctx> GenFun<'a, 'ctx> {
-  fn new(context: &'ctx Context, module: &'a Module<'ctx>) -> GenFun<'a, 'ctx> {
+impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
+  fn new(
+    context: &'ctx Context,
+    module: &'a Module<'ctx>,
+    scope: &'a mut Scope<'ctx>,
+  ) -> GenTopLevel<'a, 'ctx> {
     let builder = context.create_builder();
-    let scope = Scope::new();
     let break_label = Vec::new();
     let cont_label = Vec::new();
-    GenFun {
+    GenTopLevel {
       context,
       module,
       builder,
@@ -67,7 +73,7 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
         .into_inkwell_type(*ty)
         .array_type(size)
         .as_basic_type_enum(),
-      Type::FunTy(ret_ty, param_tys) => todo!(),
+      Type::FunTy(_ret_ty, _param_tys) => todo!(),
     }
   }
 
@@ -98,15 +104,29 @@ impl<'a, 'ctx> GenFun<'a, 'ctx> {
     alloca
   }
 
-  // ----- gen_fun -----
+  // ----- gen_toplevel -----
 
-  fn gen_fun(mut self, fun: TopLevel) -> Expected<FunctionValue<'ctx>> {
-    match fun {
-      TopLevel::FunDecl(ret_ty, name, param_tys) => self.gen_fun_decl(ret_ty, &name, param_tys),
-      TopLevel::FunDef(ret_ty, name, param_tys, param_names, body) => {
-        self.gen_fun_def(ret_ty, &name, param_tys, param_names, body)
+  fn gen_toplevel(mut self, toplevel: TopLevel) -> Expected<AnyValueEnum<'ctx>> {
+    match toplevel {
+      TopLevel::FunDecl(ret_ty, name, param_tys) => self
+        .gen_fun_decl(ret_ty, &name, param_tys)
+        .map(|fun| fun.as_any_value_enum()),
+      TopLevel::FunDef(ret_ty, name, param_tys, param_names, body) => self
+        .gen_fun_def(ret_ty, &name, param_tys, param_names, body)
+        .map(|fun| fun.as_any_value_enum()),
+      TopLevel::VarDef(ty, name) => {
+        let var_type = self.into_inkwell_type(ty);
+        let var = self.module.add_global(var_type.clone(), None, &name);
+        let init = match var_type {
+          BasicTypeEnum::IntType(int_type) => int_type.const_zero().as_basic_value_enum(),
+          BasicTypeEnum::PointerType(ptr_type) => ptr_type.const_null().as_basic_value_enum(),
+          BasicTypeEnum::ArrayType(array_type) => array_type.const_zero().as_basic_value_enum(),
+          _ => todo!(),
+        };
+        var.set_initializer(&init);
+        self.scope.insert(name, var.as_pointer_value());
+        Ok(var.as_any_value_enum())
       }
-      TopLevel::VarDef(ty, name) => todo!(),
     }
   }
 
