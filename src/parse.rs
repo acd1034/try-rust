@@ -38,6 +38,7 @@ pub enum AST {
   Call(String, Vec<AST>),
   Ident(String),
   Num(u64),
+  Str(String),
 }
 
 fn consume_eof(it: &mut Tokenizer) -> Expected<bool> {
@@ -70,6 +71,15 @@ fn consume_num(it: &mut Tokenizer) -> Expected<Option<u64>> {
   if let Token::Num(n) = it.current()? {
     it.advance();
     Ok(Some(n))
+  } else {
+    Ok(None)
+  }
+}
+
+fn consume_str(it: &mut Tokenizer) -> Expected<Option<String>> {
+  if let Token::Str(s) = it.current()? {
+    it.advance();
+    Ok(Some(s))
   } else {
     Ok(None)
   }
@@ -147,6 +157,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  *             | ident "(" fun_args
  *             | ident
  *             | num
+ *             | str
  * fun_args    = (expr ("," expr)*)? ")"
  */
 
@@ -533,6 +544,7 @@ fn parse_postfix(it: &mut Tokenizer) -> Expected<AST> {
 //             | ident "(" fun_args
 //             | ident
 //             | num
+//             | str
 fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
   if consume(it, "(")? {
     let n = parse_expr(it)?;
@@ -547,6 +559,8 @@ fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
     }
   } else if let Some(n) = consume_num(it)? {
     Ok(AST::Num(n))
+  } else if let Some(s) = consume_str(it)? {
+    Ok(AST::Str(s))
   } else {
     err!("unexpected token, expecting `(`, identifier or number")
   }

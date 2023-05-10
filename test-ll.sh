@@ -1,8 +1,11 @@
 #!/bin/bash
 # usage: LLVM_SYS_120_PREFIX=/opt/homebrew/opt/llvm@12 ./test-ll.sh
 cat <<EOF | $LLVM_SYS_120_PREFIX/bin/clang -xc -c -o tmp2.o -
+#include <stdio.h>
 int ret3() { return 3; }
 int ret5() { return 5; }
+int char2int(char c) { return c; }
+int print_char(char* str) { printf("%s", str); return 0; }
 EOF
 
 ESC=$(printf '\033')
@@ -283,3 +286,15 @@ assert_fail 'int x[4]=7; int main() { return x[0]; }'
 # assert 1 'int sub_char(char a, char b, char c) { return a-b-c; } int main() { return sub_char(7, 3, 3); }'
 # assert 1 'int main() { char x; return sizeof(x); }'
 # assert 10 'int main() { char x[10]; return sizeof(x); }'
+
+# string literal
+assert 97 'int char2int(char x); int main() { return char2int("abc"[0]); }'
+assert 98 'int char2int(char x); int main() { return char2int("abc"[1]); }'
+assert 99 'int char2int(char x); int main() { return char2int("abc"[2]); }'
+assert 0 'int char2int(char x); int main() { return char2int("abc"[3]); }'
+assert 0 'int char2int(char x); int main() { return char2int(""[0]); }'
+assert 195 'int char2int(char x); int main() { return char2int("abc"[0]) + char2int("abc2"[1]); }'
+assert 0 'int print_char(char* str); int main() { print_char("Hello, World!"); return 0; }'
+assert_fail 'int print_char(char* str); int main() { print_char("Hello, World!); return 0; }'
+# assert 1 'int main() { return sizeof(""); }'
+# assert 4 'int main() { return sizeof("abc"); }'

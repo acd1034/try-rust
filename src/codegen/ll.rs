@@ -5,7 +5,7 @@ use crate::ty::Type;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
-use inkwell::module::Module;
+use inkwell::module::{Linkage, Module};
 use inkwell::types::*;
 use inkwell::values::*;
 use inkwell::AddressSpace;
@@ -599,6 +599,15 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         }
       }
       AST::Num(n) => Ok(i64_type.const_int(n, false).as_basic_value_enum()),
+      AST::Str(s) => {
+        let value = self.context.const_string(s.as_bytes(), true);
+        let global = self.module.add_global(value.get_type(), None, ".str");
+        global.set_initializer(&value);
+        global.set_linkage(Linkage::Private);
+        global.set_constant(true);
+        let ptr = global.as_pointer_value();
+        Ok(self.gen_array_addr_impl(ptr))
+      }
       AST::Assign(..) | AST::Deref(..) | AST::Ident(..) => {
         let var = self.gen_addr(expr)?;
         if var.get_type().get_element_type().is_array_type() {

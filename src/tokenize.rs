@@ -6,6 +6,7 @@ pub enum Token<'a> {
   Keyword(&'a str),
   Ident(String),
   Num(u64),
+  Str(String),
   Punct(&'a str),
 }
 
@@ -39,6 +40,12 @@ fn tokenize<'a>(s: &'a str) -> (Expected<Token<'a>>, &'a str) {
       err!("failed to read integer")
     };
     (tok, &s[pos..])
+  } else if s.starts_with('"') {
+    if let Some(pos) = s[1..].find('"') {
+      (Ok(Token::Str(s[1..pos + 1].to_string())), &s[pos + 2..])
+    } else {
+      (err!("missing terminating `\"` character"), &s[s.len()..])
+    }
   } else if s.starts_with(|c: char| c.is_ascii_punctuation()) {
     if s.len() < 2 {
       (Ok(Token::Punct(&s[..1])), &s[1..])
