@@ -3,7 +3,8 @@
 cat <<EOF | $LLVM_SYS_120_PREFIX/bin/clang -xc -c -o tmp2.o -
 #include <stdio.h>
 int ret3() { return 3; }
-int ret5() { return 5; }
+int ret5(int x) { return 5; }
+char int2char(int i) { return i; }
 int char2int(char c) { return c; }
 int print_char(char* str) { printf("%s", str); return 0; }
 EOF
@@ -178,7 +179,7 @@ assert 4 'int sub(int a, int b) { return a+b; } int main() { int x=2; return sub
 assert 21 'int sub(int a, int b, int c, int d, int e, int f) { return a+b+c+d+e+f; } int main() { return sub(1,2,3,4,5,6); }'
 # function declaration
 assert 3 'int ret3(); int main() { return ret3(); }'
-assert 5 'int ret5(); int main() { return ret5(); }'
+assert 5 'int ret5(int x); int main() { return ret5(3); }'
 assert 4 'int sub(); int sub(); int sub() { return 4; } int main() { return sub(); }'
 assert 0 'int sub(int a); int sub(int b) { return b; } int main() { return sub(0); }'
 assert_fail 'int sub(); int sub(int a) { return a; } int main() { return 0; }'
@@ -280,10 +281,10 @@ assert_fail 'int x[4]=7; int main() { return x[0]; }'
 # assert 32 'int x[4]; int main() { return sizeof(x); }'
 
 # char type
-# assert 1 'int main() { char x=1; return x; }'
-# assert 1 'int main() { char x=1; char y=2; return x; }'
-# assert 2 'int main() { char x=1; char y=2; return y; }'
-# assert 1 'int sub_char(char a, char b, char c) { return a-b-c; } int main() { return sub_char(7, 3, 3); }'
+assert 1 'char int2char(int i); int char2int(char x); int main() { char x=int2char(1); return char2int(x); }'
+assert 1 'char int2char(int i); int char2int(char x); int main() { char x=int2char(1); char y=int2char(2); return char2int(x); }'
+assert 2 'char int2char(int i); int char2int(char x); int main() { char x=int2char(1); char y=int2char(2); return char2int(y); }'
+assert 1 'char int2char(int i); int char2int(char x); int sub_char(char a, char b, char c) { return char2int(a-b-c); } int main() { return sub_char(int2char(7), int2char(3), int2char(3)); }'
 # assert 1 'int main() { char x; return sizeof(x); }'
 # assert 10 'int main() { char x[10]; return sizeof(x); }'
 
