@@ -320,3 +320,12 @@ assert 121 'int main() { return (int)"\ax\ny"[3]; }'
 # assert 106 'int main() { return (int)"\j"[0]; }'
 # assert 107 'int main() { return (int)"\k"[0]; }'
 # assert 108 'int main() { return (int)"\l"[0]; }'
+
+# line and block comment
+assert 2 'int main() { // return 1;
+return 2; }'
+assert 2 'int main() { /* return 1; */ return 2; }'
+assert 2 'int main() { /**/ return 2; }'
+assert_fail 'int main() { // return 1;'
+assert_fail 'int main() { /*/ return 0; }'
+exit

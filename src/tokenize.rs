@@ -11,7 +11,11 @@ pub enum Token<'a> {
 }
 
 /// Finds the first occurence of `pat` in `s`, starting at position `pos`.
-fn find(s: &str, pat: char, pos: usize) -> Option<usize> {
+fn find_char(s: &str, pat: char, pos: usize) -> Option<usize> {
+  s[pos..].find(pat).map(|offset| pos + offset)
+}
+
+fn find_substr(s: &str, pat: &str, pos: usize) -> Option<usize> {
   s[pos..].find(pat).map(|offset| pos + offset)
 }
 
@@ -56,11 +60,20 @@ fn tokenize<'a>(s: &'a str) -> (Expected<Token<'a>>, &'a str) {
     };
     (tok, &s[pos..])
   } else if s.starts_with('"') {
-    if let Some(pos) = find(s, '"', 1) {
+    if let Some(pos) = find_char(s, '"', 1) {
       let data = decode_escaped_string(s[1..pos].to_string());
       (Ok(Token::Str(data)), &s[pos + 1..])
     } else {
       (err!("missing terminating `\"` character"), &s[s.len()..])
+    }
+  } else if s.starts_with("//") {
+    let pos = s.find('\n').unwrap_or(s.len());
+    tokenize(&s[pos..])
+  } else if s.starts_with("/*") {
+    if let Some(pos) = find_substr(s, "*/", 2) {
+      tokenize(&s[pos + 2..])
+    } else {
+      (err!("unterminated block comment"), &s[s.len()..])
     }
   } else if s.starts_with(|c: char| c.is_ascii_punctuation()) {
     if s.len() < 2 {
