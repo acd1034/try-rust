@@ -59,6 +59,7 @@ fn tokenize<'a>(s: &'a str) -> (Expected<Token<'a>>, &'a str) {
   }
 }
 
+#[derive(Clone)]
 pub struct Tokenizer<'a> {
   item: Expected<Token<'a>>,
   input: &'a str,

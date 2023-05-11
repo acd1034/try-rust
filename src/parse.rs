@@ -35,6 +35,7 @@ pub enum AST {
   Div(Box<AST>, Box<AST>),
   Addr(Box<AST>),
   Deref(Box<AST>),
+  Cast(Type, Box<AST>),
   Call(String, Vec<AST>),
   Ident(String),
   Num(u64),
@@ -150,7 +151,7 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  * relational  = add ("<" add | "<=" add | ">" add | ">=" add)*
  * add         = mul ("+" mul | "-" mul)*
  * mul         = unary ("*" unary | "/" unary)*
- * unary       = ("+" | "-" | "&" | "*" | "++" | "--") unary
+ * unary       = ("+" | "-" | "&" | "*" | "++" | "--" | "(" declspec ")") unary
  *             | postfix
  * postfix     = primary ("[" expr "]" | "++" | "--")?
  * primary     = "(" expr ")"
@@ -482,9 +483,10 @@ fn parse_mul_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   }
 }
 
-// unary       = ("+" | "-" | "&" | "*" | "++" | "--") unary
+// unary       = ("+" | "-" | "&" | "*" | "++" | "--" | "(" declspec ")") unary
 //             | postfix
 fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
+  let backup = it.clone();
   if consume(it, "+")? {
     parse_unary(it)
   } else if consume(it, "-")? {
@@ -509,6 +511,15 @@ fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
     let one = AST::Num(1);
     let sub = AST::Sub(Box::new(n.clone()), Box::new(one));
     Ok(AST::Assign(Box::new(n), Box::new(sub)))
+  } else if consume(it, "(")? {
+    if let Some(ty) = consume_declspec(it)? {
+      expect(it, ")")?;
+      let n = parse_unary(it)?;
+      Ok(AST::Cast(ty, Box::new(n)))
+    } else {
+      *it = backup;
+      parse_postfix(it)
+    }
   } else {
     parse_postfix(it)
   }

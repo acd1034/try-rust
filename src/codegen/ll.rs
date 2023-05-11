@@ -575,6 +575,30 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
           Ok(var.as_basic_value_enum())
         }
       }
+      AST::Cast(ty, n) => {
+        let cast_type = self.into_inkwell_type(ty);
+        let value = self.gen_expr(*n)?;
+        match (cast_type, value) {
+          (BasicTypeEnum::IntType(int_type), BasicValueEnum::IntValue(int_value)) => {
+            if int_type.get_bit_width() > int_value.get_type().get_bit_width() {
+              let res = self
+                .builder
+                .build_int_s_extend(int_value, int_type, "sext")
+                .as_basic_value_enum();
+              Ok(res)
+            } else if int_type.get_bit_width() < int_value.get_type().get_bit_width() {
+              let res = self
+                .builder
+                .build_int_truncate(int_value, int_type, "trunc")
+                .as_basic_value_enum();
+              Ok(res)
+            } else {
+              Ok(int_value.as_basic_value_enum())
+            }
+          }
+          _ => todo!(),
+        }
+      }
       AST::Call(name, args) => {
         if let Some(callee) = self.module.get_function(&name) {
           let stored_param_types = callee.get_type().get_param_types();

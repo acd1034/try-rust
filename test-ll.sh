@@ -4,9 +4,7 @@ cat <<EOF | $LLVM_SYS_120_PREFIX/bin/clang -xc -c -o tmp2.o -
 #include <stdio.h>
 int ret3() { return 3; }
 int ret5(int x) { return 5; }
-char int2char(int i) { return i; }
-int char2int(char c) { return c; }
-int print_char(char* str) { printf("%s", str); return 0; }
+int print_str(char* str) { printf("%s", str); return 0; }
 EOF
 
 ESC=$(printf '\033')
@@ -280,22 +278,29 @@ assert_fail 'int x[4]=7; int main() { return x[0]; }'
 # assert 8 'int x; int main() { return sizeof(x); }'
 # assert 32 'int x[4]; int main() { return sizeof(x); }'
 
+# cast
+assert 1 'int main() { char c=(char)1; return (int)c; }'
+assert 1 'int main() { char c=(char)1; return c == (char)1; }'
+assert 1 'int main() { int i=1; char c=(char)i; return (int)c; }'
+assert 1 'int main() { return (int)(char)1; }'
+assert 1 'int main() { return (int)(char)131585; }'
+
 # char type
-assert 1 'char int2char(int i); int char2int(char x); int main() { char x=int2char(1); return char2int(x); }'
-assert 1 'char int2char(int i); int char2int(char x); int main() { char x=int2char(1); char y=int2char(2); return char2int(x); }'
-assert 2 'char int2char(int i); int char2int(char x); int main() { char x=int2char(1); char y=int2char(2); return char2int(y); }'
-assert 1 'char int2char(int i); int char2int(char x); int sub_char(char a, char b, char c) { return char2int(a-b-c); } int main() { return sub_char(int2char(7), int2char(3), int2char(3)); }'
+assert 1 'int main() { char x=(char)1; return (int)x; }'
+assert 1 'int main() { char x=(char)1; char y=(char)2; return (int)x; }'
+assert 2 'int main() { char x=(char)1; char y=(char)2; return (int)y; }'
+assert 1 'int sub_char(char a, char b, char c) { return (int)(a-b-c); } int main() { return sub_char((char)7, (char)3, (char)3); }'
 # assert 1 'int main() { char x; return sizeof(x); }'
 # assert 10 'int main() { char x[10]; return sizeof(x); }'
 
 # string literal
-assert 97 'int char2int(char x); int main() { return char2int("abc"[0]); }'
-assert 98 'int char2int(char x); int main() { return char2int("abc"[1]); }'
-assert 99 'int char2int(char x); int main() { return char2int("abc"[2]); }'
-assert 0 'int char2int(char x); int main() { return char2int("abc"[3]); }'
-assert 0 'int char2int(char x); int main() { return char2int(""[0]); }'
-assert 195 'int char2int(char x); int main() { return char2int("abc"[0]) + char2int("abc2"[1]); }'
-assert 0 'int print_char(char* str); int main() { print_char("Hello, World!"); return 0; }'
-assert_fail 'int print_char(char* str); int main() { print_char("Hello, World!); return 0; }'
+assert 97 'int main() { return (int)"abc"[0]; }'
+assert 98 'int main() { return (int)"abc"[1]; }'
+assert 99 'int main() { return (int)"abc"[2]; }'
+assert 0 'int main() { return (int)"abc"[3]; }'
+assert 0 'int main() { return (int)""[0]; }'
+assert 195 'int main() { return (int)"abc"[0] + (int)"abc2"[1]; }'
+assert 0 'int print_str(char* str); int main() { print_str("Hello, World!"); return 0; }'
+assert_fail 'int print_str(char* str); int main() { print_str("Hello, World!); return 0; }'
 # assert 1 'int main() { return sizeof(""); }'
 # assert 4 'int main() { return sizeof("abc"); }'
