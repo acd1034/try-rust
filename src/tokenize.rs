@@ -10,6 +10,21 @@ pub enum Token<'a> {
   Punct(&'a str),
 }
 
+/// Finds the first occurence of `pat` in `s`, starting at position `pos`.
+fn find(s: &str, pat: char, pos: usize) -> Option<usize> {
+  s[pos..].find(pat).map(|offset| pos + offset)
+}
+
+fn decode_escaped_string(s: String) -> String {
+  s.replace("\\a", "\x07")
+    .replace("\\b", "\x08")
+    .replace("\\t", "\x09")
+    .replace("\\n", "\x0a")
+    .replace("\\v", "\x0b")
+    .replace("\\f", "\x0c")
+    .replace("\\r", "\x0d")
+}
+
 fn tokenize<'a>(s: &'a str) -> (Expected<Token<'a>>, &'a str) {
   static KEYWORDS: [&str; 9] = [
     "return", "if", "else", "for", "while", "break", "continue", "int", "char",
@@ -41,8 +56,9 @@ fn tokenize<'a>(s: &'a str) -> (Expected<Token<'a>>, &'a str) {
     };
     (tok, &s[pos..])
   } else if s.starts_with('"') {
-    if let Some(pos) = s[1..].find('"') {
-      (Ok(Token::Str(s[1..pos + 1].to_string())), &s[pos + 2..])
+    if let Some(pos) = find(s, '"', 1) {
+      let data = decode_escaped_string(s[1..pos].to_string());
+      (Ok(Token::Str(data)), &s[pos + 1..])
     } else {
       (err!("missing terminating `\"` character"), &s[s.len()..])
     }
