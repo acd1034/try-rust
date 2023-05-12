@@ -328,4 +328,13 @@ assert 2 'int main() { /* return 1; */ return 2; }'
 assert 2 'int main() { /**/ return 2; }'
 assert_fail 'int main() { // return 1;'
 assert_fail 'int main() { /*/ return 0; }'
-exit
+
+# GNU statement expression
+assert 0 'int main() { return ({ 0; }); }'
+assert 2 'int main() { return ({ 0; 1; 2; }); }'
+assert 6 'int main() { return ({ 1; }) + ({ 2; }) + ({ 3; }); }'
+assert 3 'int main() { return ({ int x=3; x; }); }'
+assert 3 'int main() { int x=2; return ({ int x=3; x; }); }'
+assert_fail 'int main() { ({}); return 0; }'
+assert_fail 'int main() { ({ return 0; }); return 1; }'
+# assert 1 'int main() { ({ 0; return 1; 2; }); return 3; }'

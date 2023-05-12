@@ -34,6 +34,22 @@ impl<'ctx> CodeGen<'ctx> {
   }
 }
 
+enum StmtKind<'ctx> {
+  Terminator,
+  NoTerminator,
+  Expr(BasicValueEnum<'ctx>),
+}
+
+impl<'ctx> StmtKind<'ctx> {
+  fn is_terminator(&self) -> bool {
+    if let StmtKind::Terminator = self {
+      true
+    } else {
+      false
+    }
+  }
+}
+
 struct GenTopLevel<'a, 'ctx> {
   context: &'ctx Context,
   module: &'a Module<'ctx>,
@@ -214,10 +230,10 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
       }
     }
     // Generate function body
-    let mut has_terminator = false;
+    let mut stmt_kind = StmtKind::NoTerminator;
     for stmt in body {
-      has_terminator = self.gen_stmt(stmt)?;
-      if has_terminator {
+      stmt_kind = self.gen_stmt(stmt)?;
+      if stmt_kind.is_terminator() {
         break;
       }
     }
@@ -225,7 +241,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     self.scope.pop();
 
     // Check terminator
-    if !has_terminator {
+    if !stmt_kind.is_terminator() {
       return err!("no terminator in function");
     }
 
@@ -241,7 +257,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
   // ----- gen_stmt -----
 
   // Returns if the last basic block has a terminator
-  fn gen_stmt(&mut self, stmt: Stmt) -> Expected<bool> {
+  fn gen_stmt(&mut self, stmt: Stmt) -> Expected<StmtKind<'ctx>> {
     match stmt {
       Stmt::VarDef(ty, name, init) => {
         if self.scope.get(&name).is_some() {
@@ -255,7 +271,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
           let rhs = self.gen_expr(expr)?;
           self.gen_assign_impl(alloca, rhs)?;
         }
-        Ok(false)
+        Ok(StmtKind::NoTerminator)
       }
       Stmt::IfElse(cond, then, else_) => self.gen_if_else(cond, then, else_),
       Stmt::For(init, cond, inc, body) => self.gen_for(init, cond, inc, *body),
@@ -263,38 +279,27 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         self
           .builder
           .build_unconditional_branch(*self.break_label.last().unwrap());
-        Ok(true)
+        Ok(StmtKind::Terminator)
       }
       Stmt::Cont => {
         self
           .builder
           .build_unconditional_branch(*self.cont_label.last().unwrap());
-        Ok(true)
+        Ok(StmtKind::Terminator)
       }
       Stmt::Return(expr) => {
         let ret = self.gen_expr(expr)?;
-        if Some(ret.get_type()) != self.get_current_fun().get_type().get_return_type() {
-          err!("return type differs from the declaration")
-        } else {
+        if Some(ret.get_type()) == self.get_current_fun().get_type().get_return_type() {
           self.builder.build_return(Some(&ret));
-          Ok(true)
+          Ok(StmtKind::Terminator)
+        } else {
+          err!("return type differs from the declaration")
         }
       }
-      Stmt::Block(stmts) => {
-        self.scope.push();
-        let mut has_terminator = false;
-        for stmt in stmts {
-          has_terminator = self.gen_stmt(stmt)?;
-          if has_terminator {
-            break;
-          }
-        }
-        self.scope.pop();
-        Ok(has_terminator)
-      }
+      Stmt::Block(stmts) => self.gen_block(stmts),
       Stmt::Expr(expr) => {
-        self.gen_expr(expr)?;
-        Ok(false)
+        let value = self.gen_expr(expr)?;
+        Ok(StmtKind::Expr(value))
       }
     }
   }
@@ -304,7 +309,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     cond: AST,
     then: Box<Stmt>,
     else_: Option<Box<Stmt>>,
-  ) -> Expected<bool> {
+  ) -> Expected<StmtKind<'ctx>> {
     /* `if (A) B else C`
      *   A != 0 ? goto then : goto else;
      * then:
@@ -336,30 +341,30 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
 
     // then:
     self.builder.position_at_end(then_block);
-    let has_terminator_in_then = self.gen_stmt(*then)?;
-    if !has_terminator_in_then {
+    let stmt_kind_in_then = self.gen_stmt(*then)?;
+    if !stmt_kind_in_then.is_terminator() {
       self.builder.build_unconditional_branch(merge_block);
     }
 
     // else:
-    let has_terminator_in_else = if let Some(else_) = else_ {
+    let stmt_kind_in_else = if let Some(else_) = else_ {
       self.builder.position_at_end(else_block);
-      let has_terminator = self.gen_stmt(*else_)?;
-      if !has_terminator {
+      let stmt_kind = self.gen_stmt(*else_)?;
+      if !stmt_kind.is_terminator() {
         self.builder.build_unconditional_branch(merge_block);
       }
-      has_terminator
+      stmt_kind
     } else {
-      false
+      StmtKind::NoTerminator
     };
 
     // merge:
     self.builder.position_at_end(merge_block);
-    if has_terminator_in_then && has_terminator_in_else {
+    if stmt_kind_in_then.is_terminator() && stmt_kind_in_else.is_terminator() {
       self.builder.build_unreachable();
-      Ok(true)
+      Ok(StmtKind::Terminator)
     } else {
-      Ok(false)
+      Ok(StmtKind::NoTerminator)
     }
   }
 
@@ -369,7 +374,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     cond: Option<AST>,
     inc: Option<AST>,
     body: Stmt,
-  ) -> Expected<bool> {
+  ) -> Expected<StmtKind<'ctx>> {
     /* `for (A; B; C) D`
      *   A;
      *   goto cond;
@@ -414,8 +419,8 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
 
     // body:
     self.builder.position_at_end(body_block);
-    let has_terminator_in_body = self.gen_stmt(body)?;
-    if !has_terminator_in_body {
+    let stmt_kind_in_body = self.gen_stmt(body)?;
+    if !stmt_kind_in_body.is_terminator() {
       self.builder.build_unconditional_branch(inc_block);
     }
 
@@ -428,19 +433,36 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
 
     // end:
     self.builder.position_at_end(end_block);
-    let has_no_branch_to_end = end_block.get_first_use().is_none();
-    if has_no_branch_to_end {
+    let end_block_is_unreachable = end_block.get_first_use().is_none();
+    if end_block_is_unreachable {
       self.builder.build_unreachable();
     }
 
     self.break_label.pop();
     self.cont_label.pop();
-    Ok(has_no_branch_to_end)
+    if end_block_is_unreachable {
+      Ok(StmtKind::Terminator)
+    } else {
+      Ok(StmtKind::NoTerminator)
+    }
+  }
+
+  fn gen_block(&mut self, stmts: Vec<Stmt>) -> Expected<StmtKind<'ctx>> {
+    self.scope.push();
+    let mut stmt_kind = StmtKind::NoTerminator;
+    for stmt in stmts {
+      stmt_kind = self.gen_stmt(stmt)?;
+      if stmt_kind.is_terminator() {
+        break;
+      }
+    }
+    self.scope.pop();
+    Ok(stmt_kind)
   }
 
   // ----- gen_expr -----
 
-  fn gen_expr_into_int_value(&self, expr: AST) -> Expected<IntValue<'ctx>> {
+  fn gen_expr_into_int_value(&mut self, expr: AST) -> Expected<IntValue<'ctx>> {
     let value = self.gen_expr(expr)?;
     if value.is_int_value() {
       Ok(value.into_int_value())
@@ -449,7 +471,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     }
   }
 
-  fn gen_expr(&self, expr: AST) -> Expected<BasicValueEnum<'ctx>> {
+  fn gen_expr(&mut self, expr: AST) -> Expected<BasicValueEnum<'ctx>> {
     let i64_type = self.context.i64_type();
     match expr {
       AST::Ternary(cond, then, else_) => self.gen_ternary(*cond, *then, *else_),
@@ -599,6 +621,14 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
           _ => todo!(),
         }
       }
+      AST::Block(stmts) => {
+        let stmt_kind = self.gen_block(stmts)?;
+        if let StmtKind::Expr(value) = stmt_kind {
+          Ok(value)
+        } else {
+          err!("GNU statement expression does not end with expression statement")
+        }
+      }
       AST::Call(name, args) => {
         if let Some(callee) = self.module.get_function(&name) {
           let stored_param_types = callee.get_type().get_param_types();
@@ -644,7 +674,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     }
   }
 
-  fn gen_ternary(&self, cond: AST, then: AST, else_: AST) -> Expected<BasicValueEnum<'ctx>> {
+  fn gen_ternary(&mut self, cond: AST, then: AST, else_: AST) -> Expected<BasicValueEnum<'ctx>> {
     let current_block = self.get_current_basic_block();
     let then_block = self.context.insert_basic_block_after(current_block, "then");
     let else_block = self.context.insert_basic_block_after(then_block, "else");
@@ -705,7 +735,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
 
   // ----- gen_addr -----
 
-  fn gen_addr(&self, expr: AST) -> Expected<PointerValue<'ctx>> {
+  fn gen_addr(&mut self, expr: AST) -> Expected<PointerValue<'ctx>> {
     match expr {
       AST::Assign(n, m) => {
         let rhs = self.gen_expr(*m)?;

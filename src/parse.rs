@@ -9,7 +9,7 @@ pub enum TopLevel {
   VarDef(Type, String, Option<AST>),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Stmt {
   VarDef(Type, String, Option<AST>),
   IfElse(AST, Box<Stmt>, Option<Box<Stmt>>),
@@ -36,6 +36,7 @@ pub enum AST {
   Addr(Box<AST>),
   Deref(Box<AST>),
   Cast(Type, Box<AST>),
+  Block(Vec<Stmt>),
   Call(String, Vec<AST>),
   Ident(String),
   Num(u64),
@@ -154,7 +155,8 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  * unary       = ("+" | "-" | "&" | "*" | "++" | "--" | "(" declspec ")") unary
  *             | postfix
  * postfix     = primary ("[" expr "]" | "++" | "--")?
- * primary     = "(" expr ")"
+ * primary     = "(" "{" stmt+ "}" ")"
+ *             | "(" expr ")"
  *             | ident "(" fun_args
  *             | ident
  *             | num
@@ -551,16 +553,30 @@ fn parse_postfix(it: &mut Tokenizer) -> Expected<AST> {
   }
 }
 
-// primary     = "(" expr ")"
+// primary     = "(" "{" stmt+ "}" ")"
+//             | "(" expr ")"
 //             | ident "(" fun_args
 //             | ident
 //             | num
 //             | str
 fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
   if consume(it, "(")? {
-    let n = parse_expr(it)?;
-    expect(it, ")")?;
-    Ok(n)
+    if consume(it, "{")? {
+      let mut stmts = Vec::new();
+      while !consume(it, "}")? {
+        stmts.push(parse_stmt(it)?);
+      }
+      expect(it, ")")?;
+      if stmts.is_empty() {
+        err!("GNU statement expression is empty")
+      } else {
+        Ok(AST::Block(stmts))
+      }
+    } else {
+      let n = parse_expr(it)?;
+      expect(it, ")")?;
+      Ok(n)
+    }
   } else if let Some(name) = consume_ident(it)? {
     if consume(it, "(")? {
       let args = parse_fun_args(it)?;
