@@ -257,7 +257,7 @@ fn parse_declarator(it: &mut Tokenizer, mut ty: Type) -> Expected<(Type, String)
 fn parse_type_suffix(it: &mut Tokenizer, ty: Type) -> Expected<Type> {
   if consume(it, "[")? {
     let n = expect_num(it)?;
-    let n = n.try_into().map_err(|_| "failed to convert integer")?;
+    let n = n.try_into().or(err!("failed to convert integer"))?;
     expect(it, "]")?;
     Ok(Type::Array(Box::new(ty), n))
   } else if consume(it, "(")? {

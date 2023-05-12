@@ -105,7 +105,7 @@ impl<'a> GenFun<'a> {
 
         Ok(self.insert_fun)
       }
-      TopLevel::VarDef(ty, name, init) => todo!(),
+      TopLevel::VarDef(..) => todo!(),
     }
   }
 

@@ -15,7 +15,7 @@ fn find_char(s: &str, pat: char, pos: usize) -> Option<usize> {
   s[pos..].find(pat).map(|offset| pos + offset)
 }
 
-fn find_substr(s: &str, pat: &str, pos: usize) -> Option<usize> {
+fn find_str(s: &str, pat: &str, pos: usize) -> Option<usize> {
   s[pos..].find(pat).map(|offset| pos + offset)
 }
 
@@ -70,7 +70,7 @@ fn tokenize<'a>(s: &'a str) -> (Expected<Token<'a>>, &'a str) {
     let pos = s.find('\n').unwrap_or(s.len());
     tokenize(&s[pos..])
   } else if s.starts_with("/*") {
-    if let Some(pos) = find_substr(s, "*/", 2) {
+    if let Some(pos) = find_str(s, "*/", 2) {
       tokenize(&s[pos + 2..])
     } else {
       (err!("unterminated block comment"), &s[s.len()..])
