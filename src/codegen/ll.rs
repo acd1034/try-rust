@@ -623,10 +623,12 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
       }
       AST::Block(stmts) => {
         let stmt_kind = self.gen_block(stmts)?;
-        if let StmtKind::Expr(value) = stmt_kind {
-          Ok(value)
-        } else {
-          err!("GNU statement expression does not end with expression statement")
+        match stmt_kind {
+          StmtKind::Terminator => todo!(),
+          StmtKind::NoTerminator => {
+            err!("GNU statement expression does not end with expression statement")
+          }
+          StmtKind::Expr(value) => Ok(value),
         }
       }
       AST::Call(name, args) => {
