@@ -11,7 +11,7 @@ assert() {
   input="$2"
   echo -en "$ESC[32m$input\n$ESC[m=> "
 
-  echo "$input" | ./target/debug/try-rust - > tmp.c || exit
+  echo "$input" | ./target/debug/try-rust -otmp.c - || exit
   clang -o tmp tmp.c tmp2.o
   ./tmp
   actual="$?"
@@ -27,7 +27,7 @@ assert_fail() {
   input="$1"
   echo -en "$ESC[31m$input\n$ESC[m=> "
 
-  echo "$input" | ./target/debug/try-rust - > /dev/null
+  echo "$input" | ./target/debug/try-rust -o/dev/null -
 
   if [ $? -eq 0 ]; then
     echo "Error: unexpected success in compiling"
