@@ -10,6 +10,10 @@ use inkwell::context::Context;
 use std::fs::File;
 use std::io::{self, Read, Write};
 
+fn usage() {
+  eprintln!("try-rust [-ll] [-o<path>] <file>")
+}
+
 fn read_file(path: &str) -> Expected<String> {
   if path == "-" {
     let input = io::stdin()
@@ -45,11 +49,15 @@ fn main() -> Expected<()> {
   let mut output_path = String::from("-");
   let mut input_path = String::new();
   for arg in std::env::args().skip(1) {
-    if arg == "-ll" {
+    if arg == "--help" {
+      usage();
+      return Ok(());
+    } else if arg == "-ll" {
       target_ll = true;
     } else if arg.starts_with("-o") {
       output_path = arg[2..].to_string();
     } else if arg.starts_with('-') && arg.len() > 1 {
+      usage();
       return err!("unknown argument");
     } else {
       input_path = arg;
