@@ -37,13 +37,6 @@ assert_fail() {
   fi
 }
 
-# TODO:
-# postfix bug
-# assert 0 'int main() { int a[3]; a[0]=0; a[1]=1; a[2]=2; int *p=a+1; (*(p--))--; return a[1]; }'
-# assert 0 'int main() { int a[3]; a[0]=0; a[1]=1; a[2]=2; int *p=a+1; (*p++)--; return a[1]; }'
-# assert 2 'int main() { int a[3]; a[0]=0; a[1]=1; a[2]=2; int *p=a+1; (*p++)--; return a[2]; }'
-# assert 2 'int main() { int a[3]; a[0]=0; a[1]=1; a[2]=2; int *p=a+1; (*p++)--; return *p; }'
-# assert_fail 'int main() { x=3; &+x; return x; }'
 # num
 assert 0 'int main() { return 0; }'
 assert 42 'int main() { return 42; }'

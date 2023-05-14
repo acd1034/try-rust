@@ -39,13 +39,6 @@ assert_fail() {
   fi
 }
 
-# TODO:
-# postfix bug
-# assert 0 'int main() { int a[3]; a[0]=0; a[1]=1; a[2]=2; int *p=a+1; (*(p--))--; return a[1]; }'
-# assert 0 'int main() { int a[3]; a[0]=0; a[1]=1; a[2]=2; int *p=a+1; (*p++)--; return a[1]; }'
-# assert 2 'int main() { int a[3]; a[0]=0; a[1]=1; a[2]=2; int *p=a+1; (*p++)--; return a[2]; }'
-# assert 2 'int main() { int a[3]; a[0]=0; a[1]=1; a[2]=2; int *p=a+1; (*p++)--; return *p; }'
-# assert_fail 'int main() { x=3; &+x; return x; }'
 # num
 assert 0 'int main() { return 0; }'
 assert 42 'int main() { return 42; }'
@@ -197,6 +190,7 @@ assert_fail 'int sub(int a); int sub(int* b) { return *b; } int main() { return 
 assert_fail 'int sub(int a) { return a; } int main() { int x=0; sub(&x); return x; }'
 assert_fail 'int* sub(int* a) { return a; } int main() { int x=3; int* y; *sub(&y) = &x; return *y; }'
 assert_fail 'int main() { int x=3; int* y=&x; return y; }'
+# assert_fail 'int main() { x=3; &+x; return x; }'
 # pointer arithmetic
 assert 5 'int main() { int x=3; int y=5; return *(&x+1); }'
 assert 7 'int main() { int x=3; int y=5; *(&x+1)=7; return y; }'
@@ -257,9 +251,6 @@ assert 0 'int main() { int a[3]; a[0]=0; a[1]=1; a[2]=2; int *p=a+1; (*p++)--; r
 assert 2 'int main() { return 0?1:2; }'
 assert 1 'int main() { return 1?1:2; }'
 assert 1 'int main() { return 1 ? 1==1 : 0; }'
-# practical
-assert 55 'int fib(int x) { return x<=1 ? 1 : fib(x-1) + fib(x-2); } int main() { return fib(9); }'
-assert 1 'int partition(int* a, int p, int r) { int piv = a[r]; int i = p - 1; int j; for (j = p; j < r; ++j) if (a[j] <= piv) { ++i; int tmp = a[i]; a[i] = a[j]; a[j] = tmp; } ++i; int tmp = a[i]; a[i] = a[j]; a[j] = tmp; return i; } int quicksort(int* a, int p, int r) { if (p < r) { int q = partition(a, p, r); quicksort(a, p, q - 1); quicksort(a, q + 1, r); } return 0; } int sorted(int* a, int n) { int i; for (i = 1; i < n; ++i) if (a[i - 1] > a[i]) return 0; return 1; } int main() { int a[9]; a[0] = 8; a[1] = 4; a[2] = 3; a[3] = 0; a[4] = 7; a[5] = 6; a[6] = 5; a[7] = 2; a[8] = 1; quicksort(a, 0, 9); return sorted(a, 9); }'
 
 # global variables
 assert 0 'int x; int main() { return x; }'
@@ -340,3 +331,7 @@ assert 3 'int main() { int x=2; return ({ int x=3; x; }); }'
 assert_fail 'int main() { ({}); return 0; }'
 # assert_fail 'int main() { ({ return 0; }); return 1; }'
 # assert 1 'int main() { ({ 0; return 1; 2; }); return 3; }'
+
+# practical
+assert 55 'int fib(int x) { return x<=1 ? 1 : fib(x-1) + fib(x-2); } int main() { return fib(9); }'
+assert 1 'int partition(int* a, int p, int r) { int piv = a[r]; int i = p - 1; int j; for (j = p; j < r; ++j) if (a[j] <= piv) { ++i; int tmp = a[i]; a[i] = a[j]; a[j] = tmp; } ++i; int tmp = a[i]; a[i] = a[j]; a[j] = tmp; return i; } int quicksort(int* a, int p, int r) { if (p < r) { int q = partition(a, p, r); quicksort(a, p, q - 1); quicksort(a, q + 1, r); } return 0; } int sorted(int* a, int n) { int i; for (i = 1; i < n; ++i) if (a[i - 1] > a[i]) return 0; return 1; } int main() { int a[9]; a[0] = 8; a[1] = 4; a[2] = 3; a[3] = 0; a[4] = 7; a[5] = 6; a[6] = 5; a[7] = 2; a[8] = 1; quicksort(a, 0, 9); return sorted(a, 9); }'
