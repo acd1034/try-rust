@@ -2,10 +2,10 @@ try-rust:
 	cargo build
 
 test-ll: try-rust
-	./test-ll.sh
+	test/test-ll.sh
 
 test-c: try-rust
-	./test-c.sh
+	test/test-c.sh
 
 TEST_SRCS=$(wildcard test/*.c)
 TESTS=$(TEST_SRCS:.c=.out)
