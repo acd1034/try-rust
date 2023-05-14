@@ -90,7 +90,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         .into_inkwell_type(*ty)
         .array_type(size)
         .as_basic_type_enum(),
-      Type::FunTy(_ret_ty, _param_tys) => {
+      Type::FunTy(..) => {
         todo!();
         // let return_type = self.into_inkwell_type(*_ret_ty);
         // let param_types: Vec<_> = _param_tys
@@ -259,17 +259,19 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
   // Returns if the last basic block has a terminator
   fn gen_stmt(&mut self, stmt: Stmt) -> Expected<StmtKind<'ctx>> {
     match stmt {
-      Stmt::VarDef(ty, name, init) => {
-        if self.scope.get(&name).is_some() {
-          return err!("variable already exists");
-        }
+      Stmt::VarDef(var_defs) => {
+        for (ty, name, init) in var_defs.into_iter() {
+          if self.scope.get(&name).is_some() {
+            return err!("variable already exists");
+          }
 
-        let var_type = self.into_inkwell_type(ty);
-        let alloca = self.create_entry_block_alloca(var_type, name);
+          let var_type = self.into_inkwell_type(ty);
+          let alloca = self.create_entry_block_alloca(var_type, name);
 
-        if let Some(expr) = init {
-          let rhs = self.gen_expr(expr)?;
-          self.gen_assign_impl(alloca, rhs)?;
+          if let Some(expr) = init {
+            let rhs = self.gen_expr(expr)?;
+            self.gen_assign_impl(alloca, rhs)?;
+          }
         }
         Ok(StmtKind::NoTerminator)
       }

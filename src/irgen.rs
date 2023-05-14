@@ -129,15 +129,17 @@ impl<'a> GenFun<'a> {
 
   fn gen_stmt(&mut self, stmt: Stmt) -> Expected<bool> {
     match stmt {
-      Stmt::VarDef(ty, name, init) => {
-        if self.scope.get(&name).is_some() {
-          return err!("variable already exists");
-        }
+      Stmt::VarDef(var_defs) => {
+        for (ty, name, init) in var_defs.into_iter() {
+          if self.scope.get(&name).is_some() {
+            return err!("variable already exists");
+          }
 
-        let mem = self.create_entry_block_alloca(ty, name);
-        if let Some(expr) = init {
-          let rhs = self.gen_expr(expr)?;
-          self.gen_assign_impl(mem, rhs)?;
+          let mem = self.create_entry_block_alloca(ty, name);
+          if let Some(expr) = init {
+            let rhs = self.gen_expr(expr)?;
+            self.gen_assign_impl(mem, rhs)?;
+          }
         }
         Ok(false)
       }

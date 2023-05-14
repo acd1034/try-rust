@@ -6,7 +6,7 @@ pub enum Type {
   Char,
   Pointer(Box<Type>),
   Array(Box<Type>, u32),
-  FunTy(Box<Type>, Vec<(Type, String)>),
+  FunTy(Box<Type>, Vec<Type>, Vec<String>),
 }
 
 impl fmt::Display for Type {
