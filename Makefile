@@ -15,7 +15,7 @@ test/%.out: try-rust test/%.c
 	$(CC) -otest/$*.out test/$*.ll -xc test/common -Wno-override-module
 
 test: $(TESTS)
-	for i in $^; do echo $$i; ./$$i || exit 1; echo; done
+	for i in $^; do echo $$i; ./$$i || exit 1; echo "  ... passed"; done
 	test/driver.sh
 
 .PHONY: test test-ll test-c

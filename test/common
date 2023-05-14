@@ -3,13 +3,12 @@
 
 int assert(int expected, int actual, char *code)
 {
-  if (expected == actual)
+  if (expected != actual)
   {
-    printf("%s => %d\n", code, actual);
-  }
-  else
-  {
-    printf("%s => %d expected but got %d\n", code, expected, actual);
+    printf("\x1b[1;31mAssertion failed:\n");
+    printf("  \x1b[0;34m%s == %d\n", code, expected);
+    printf("\x1b[0mwith expansion:\n");
+    printf("  \x1b[0;34m%d == %d\n\x1b[0m", actual, expected);
     exit(1);
   }
   return 0;
