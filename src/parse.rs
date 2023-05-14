@@ -562,6 +562,7 @@ fn parse_postfix(it: &mut Tokenizer) -> Expected<AST> {
 fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
   if consume(it, "(")? {
     if consume(it, "{")? {
+      // [GNU] parse statement expression
       let mut stmts = Vec::new();
       while !consume(it, "}")? {
         stmts.push(parse_stmt(it)?);

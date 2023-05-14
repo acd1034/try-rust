@@ -27,21 +27,22 @@ fn string_literal_end(s: &str, mut i: usize) -> Option<usize> {
   return None;
 }
 
-fn decode_escaped_string(s: String) -> String {
+fn read_escaped_char(s: String) -> String {
   let mut res = String::with_capacity(s.len());
   let mut i = 0;
   while i < s.len() {
     if &s[i..i + 1] == "\\" && i + 1 != s.len() {
-      match &s[i + 1..i + 2] {
-        "a" => res.push_str("\x07"),
-        "b" => res.push_str("\x08"),
-        "t" => res.push_str("\x09"),
-        "n" => res.push_str("\x0a"),
-        "v" => res.push_str("\x0b"),
-        "f" => res.push_str("\x0c"),
-        "r" => res.push_str("\x0d"),
-        ch => res.push_str(&ch),
-      }
+      let ch = match &s[i + 1..i + 2] {
+        "a" => "\x07",
+        "b" => "\x08",
+        "t" => "\x09",
+        "n" => "\x0a",
+        "v" => "\x0b",
+        "f" => "\x0c",
+        "r" => "\x0d",
+        ch => &ch,
+      };
+      res.push_str(&ch);
       i += 2;
     } else {
       res.push_str(&s[i..i + 1]);
@@ -83,7 +84,7 @@ fn tokenize<'a>(s: &'a str) -> (Expected<Token<'a>>, &'a str) {
     (tok, &s[pos..])
   } else if s.starts_with('"') {
     if let Some(pos) = string_literal_end(s, 1) {
-      let data = decode_escaped_string(s[1..pos].to_string());
+      let data = read_escaped_char(s[1..pos].to_string());
       (Ok(Token::Str(data)), &s[pos + 1..])
     } else {
       (err!("missing terminating `\"` character"), &s[s.len()..])
