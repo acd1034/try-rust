@@ -123,6 +123,20 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
   }
 }
 
+fn try_parse<F, T>(it: &mut Tokenizer, f: F) -> Option<T>
+where
+  F: FnOnce(&mut Tokenizer) -> Expected<T>,
+{
+  let backup = it.clone();
+  match f(it) {
+    Ok(value) => Some(value),
+    Err(_) => {
+      *it = backup;
+      None
+    }
+  }
+}
+
 /* program     = toplevel* eof
  * toplevel    = declaration ("=" expr)? ";"
  *             | declaration "{" stmt* "}"
@@ -152,7 +166,8 @@ fn expect(it: &mut Tokenizer, op: &str) -> Expected<()> {
  * relational  = add ("<" add | "<=" add | ">" add | ">=" add)*
  * add         = mul ("+" mul | "-" mul)*
  * mul         = unary ("*" unary | "/" unary)*
- * unary       = ("+" | "-" | "&" | "*" | "++" | "--" | "(" declspec ")") unary
+ * unary       = ("+" | "-" | "&" | "*" | "++" | "--") unary
+ *             | cast
  *             | postfix
  * postfix     = primary ("[" expr "]" | "++" | "--")?
  * primary     = "(" "{" stmt+ "}" ")"
@@ -485,10 +500,10 @@ fn parse_mul_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   }
 }
 
-// unary       = ("+" | "-" | "&" | "*" | "++" | "--" | "(" declspec ")") unary
+// unary       = ("+" | "-" | "&" | "*" | "++" | "--") unary
+//             | cast
 //             | postfix
 fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
-  let backup = it.clone();
   if consume(it, "+")? {
     parse_unary(it)
   } else if consume(it, "-")? {
@@ -513,18 +528,20 @@ fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
     let one = AST::Num(1);
     let sub = AST::Sub(Box::new(n.clone()), Box::new(one));
     Ok(AST::Assign(Box::new(n), Box::new(sub)))
-  } else if consume(it, "(")? {
-    if let Some(ty) = consume_declspec(it)? {
-      expect(it, ")")?;
-      let n = parse_unary(it)?;
-      Ok(AST::Cast(ty, Box::new(n)))
-    } else {
-      *it = backup;
-      parse_postfix(it)
-    }
+  } else if let Some(n) = try_parse(it, parse_cast) {
+    Ok(n)
   } else {
     parse_postfix(it)
   }
+}
+
+// cast        = "(" declspec ")" unary
+fn parse_cast(it: &mut Tokenizer) -> Expected<AST> {
+  expect(it, "(")?;
+  let ty = parse_declspec(it)?;
+  expect(it, ")")?;
+  let n = parse_unary(it)?;
+  Ok(AST::Cast(ty, Box::new(n)))
 }
 
 // postfix     = primary ("[" expr "]" | "++" | "--")?
