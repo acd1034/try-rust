@@ -11,22 +11,44 @@ pub enum Token<'a> {
 }
 
 /// Finds the first occurence of `pat` in `s`, starting at position `pos`.
-fn find_char(s: &str, pat: char, pos: usize) -> Option<usize> {
-  s[pos..].find(pat).map(|offset| pos + offset)
-}
-
 fn find_str(s: &str, pat: &str, pos: usize) -> Option<usize> {
   s[pos..].find(pat).map(|offset| pos + offset)
 }
 
+fn string_literal_end(s: &str, mut i: usize) -> Option<usize> {
+  while i < s.len() {
+    match &s[i..i + 1] {
+      "\"" => return Some(i),
+      "\n" => return None,
+      "\\" => i += 2,
+      _ => i += 1,
+    }
+  }
+  return None;
+}
+
 fn decode_escaped_string(s: String) -> String {
-  s.replace("\\a", "\x07")
-    .replace("\\b", "\x08")
-    .replace("\\t", "\x09")
-    .replace("\\n", "\x0a")
-    .replace("\\v", "\x0b")
-    .replace("\\f", "\x0c")
-    .replace("\\r", "\x0d")
+  let mut res = String::with_capacity(s.len());
+  let mut i = 0;
+  while i < s.len() {
+    if &s[i..i + 1] == "\\" && i + 1 != s.len() {
+      match &s[i + 1..i + 2] {
+        "a" => res.push_str("\x07"),
+        "b" => res.push_str("\x08"),
+        "t" => res.push_str("\x09"),
+        "n" => res.push_str("\x0a"),
+        "v" => res.push_str("\x0b"),
+        "f" => res.push_str("\x0c"),
+        "r" => res.push_str("\x0d"),
+        ch => res.push_str(&ch),
+      }
+      i += 2;
+    } else {
+      res.push_str(&s[i..i + 1]);
+      i += 1;
+    }
+  }
+  res
 }
 
 fn tokenize<'a>(s: &'a str) -> (Expected<Token<'a>>, &'a str) {
@@ -60,7 +82,7 @@ fn tokenize<'a>(s: &'a str) -> (Expected<Token<'a>>, &'a str) {
     };
     (tok, &s[pos..])
   } else if s.starts_with('"') {
-    if let Some(pos) = find_char(s, '"', 1) {
+    if let Some(pos) = string_literal_end(s, 1) {
       let data = decode_escaped_string(s[1..pos].to_string());
       (Ok(Token::Str(data)), &s[pos + 1..])
     } else {

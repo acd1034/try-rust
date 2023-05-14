@@ -313,13 +313,15 @@ assert 10 'int main() { return (int)"\n"[0]; }'
 assert 11 'int main() { return (int)"\v"[0]; }'
 assert 12 'int main() { return (int)"\f"[0]; }'
 assert 13 'int main() { return (int)"\r"[0]; }'
+assert 34 'int main() { return (int)"\""[0]; }'
+assert 92 'int main() { return (int)"\\"[0]; }'
+assert 106 'int main() { return (int)"\j"[0]; }'
+assert 107 'int main() { return (int)"\k"[0]; }'
+assert 108 'int main() { return (int)"\l"[0]; }'
 assert 7 'int main() { return (int)"\ax\ny"[0]; }'
 assert 120 'int main() { return (int)"\ax\ny"[1]; }'
 assert 10 'int main() { return (int)"\ax\ny"[2]; }'
 assert 121 'int main() { return (int)"\ax\ny"[3]; }'
-# assert 106 'int main() { return (int)"\j"[0]; }'
-# assert 107 'int main() { return (int)"\k"[0]; }'
-# assert 108 'int main() { return (int)"\l"[0]; }'
 
 # line and block comment
 assert 2 'int main() { // return 1;
