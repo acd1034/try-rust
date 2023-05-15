@@ -107,22 +107,24 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         //   .fn_type(param_types.as_slice(), false)
         //   .as_any_type_enum()
       }
-      Type::Struct(mems) => {
+      Type::Struct(struct_name, mems) => {
         let mem_types: Vec<_> = mems
           .clone()
           .into_iter()
           .map(|(ty, _name)| self.into_inkwell_type(ty).into())
           .collect();
-        let struct_type = self.context.opaque_struct_type("struct.anon");
-        struct_type.set_body(mem_types.as_slice(), false);
-        let name = struct_type
-          .get_name()
-          .unwrap()
-          .to_str()
-          .unwrap()
-          .to_string();
-        self.tag_scope.insert(name, mems);
-        struct_type.as_basic_type_enum()
+        if let Some(name) = struct_name {
+          let struct_type = self.context.opaque_struct_type(&name);
+          struct_type.set_body(mem_types.as_slice(), false);
+          self.tag_scope.insert(name, mems);
+          struct_type.as_basic_type_enum()
+        } else {
+          let struct_type = self.context.opaque_struct_type("struct.anon");
+          struct_type.set_body(mem_types.as_slice(), false);
+          let name = struct_type.get_name().unwrap().to_str().unwrap();
+          self.tag_scope.insert(name.to_string(), mems);
+          struct_type.as_basic_type_enum()
+        }
       }
     }
   }

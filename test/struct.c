@@ -9,6 +9,8 @@ int main()
   ASSERT(3, ({ struct {char a; int b; char c;} x; x.a=(char)1; x.b=2; x.c=(char)3; (int)x.c; }));
 
   ASSERT(3, ({ struct {int a; int b;} x[3]; x[0].a=1; x[1].b=2; x[0].a + x[1].b; }));
+  ASSERT(3, ({ struct {int a[3];} x; x.a[0]=1; x.a[1]=2; x.a[0] + x.a[1]; }));
+
   // ASSERT(0, ({ struct {int a; int b;} x[3]; int *p=x; p[0]=0; x[0].a; }));
   // ASSERT(1, ({ struct {int a; int b;} x[3]; int *p=x; p[1]=1; x[0].b; }));
   // ASSERT(2, ({ struct {int a; int b;} x[3]; int *p=x; p[2]=2; x[1].a; }));
@@ -28,6 +30,14 @@ int main()
   // ASSERT(2, ({ struct {char a; char b;} x; sizeof(x); }));
   // ASSERT(9, ({ struct {char a; int b;} x; sizeof(x); }));
   // ASSERT(0, ({ struct {} x; sizeof(x); }));
+
+  // struct tag
+  // ASSERT(0, ({ struct t {int a; int b;} x; struct t y; y.a; }));
+  // ASSERT(0, ({ struct t {int a; int b;}; struct t y; y.a; }));
+  // ASSERT(16, ({ struct t {int a; int b;} x; struct t y; sizeof(y); }));
+  // ASSERT(16, ({ struct t {int a; int b;}; struct t y; sizeof(y); }));
+  // ASSERT(2, ({ struct t {char a[2];}; { struct t {char a[4];}; } struct t y; sizeof(y); }));
+  // ASSERT(3, ({ struct t {int x;}; int t=1; struct t y; y.x=2; t+y.x; }));
 
   return 0;
 }

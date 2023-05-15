@@ -265,15 +265,16 @@ fn parse_declitem(it: &mut Tokenizer, ty: Type) -> Expected<(Type, String, Optio
   }
 }
 
-// declspec = "char" | "int" | "struct" struct_decl
+// declspec = "char" | "int" | "struct" ident? struct_decl
 fn parse_declspec(it: &mut Tokenizer) -> Expected<Type> {
   if consume_keyword(it, "int")? {
     Ok(Type::Int)
   } else if consume_keyword(it, "char")? {
     Ok(Type::Char)
   } else if consume_keyword(it, "struct")? {
+    let name = consume_ident(it)?;
     let mems = parse_struct_decl(it)?;
-    Ok(Type::Struct(mems))
+    Ok(Type::Struct(name, mems))
   } else {
     err!("unexpected token, expecting `int`, `char` or `struct`")
   }
@@ -300,19 +301,6 @@ fn parse_struct_mem(it: &mut Tokenizer) -> Expected<Vec<(Type, String)>> {
     mem.push(parse_declarator(it, ty.clone())?);
   }
   Ok(mem)
-}
-
-fn consume_declspec(it: &mut Tokenizer) -> Expected<Option<Type>> {
-  if consume_keyword(it, "int")? {
-    Ok(Some(Type::Int))
-  } else if consume_keyword(it, "char")? {
-    Ok(Some(Type::Char))
-  } else if consume_keyword(it, "struct")? {
-    let mems = parse_struct_decl(it)?;
-    Ok(Some(Type::Struct(mems)))
-  } else {
-    Ok(None)
-  }
 }
 
 // declarator  = "*"* ident type_suffix
@@ -373,7 +361,7 @@ fn parse_param(it: &mut Tokenizer) -> Expected<(Type, String)> {
 //             | ";"
 //             | expr ";"
 fn parse_stmt(it: &mut Tokenizer) -> Expected<Stmt> {
-  if let Some(ty) = consume_declspec(it)? {
+  if let Some(ty) = try_parse(it, parse_declspec) {
     let res = parse_decllist(it, ty)?;
     Ok(Stmt::VarDef(res))
   } else if consume_keyword(it, "if")? {
