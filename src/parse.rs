@@ -274,7 +274,8 @@ fn parse_declspec(it: &mut Tokenizer) -> Expected<Type> {
   } else if consume_keyword(it, "struct")? {
     let name = consume_ident(it)?;
     let mems = parse_struct_decl(it)?;
-    Ok(Type::Struct(name, mems))
+    let (mem_tys, mem_names) = mems.into_iter().unzip();
+    Ok(Type::Struct(name, mem_tys, mem_names))
   } else {
     err!("unexpected token, expecting `int`, `char` or `struct`")
   }

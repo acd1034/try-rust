@@ -58,7 +58,7 @@ struct GenTopLevel<'a, 'ctx> {
   module: &'a Module<'ctx>,
   builder: Builder<'ctx>,
   var_scope: &'a mut Scope<PointerValue<'ctx>>,
-  tag_scope: &'a mut Scope<Vec<(Type, String)>>,
+  tag_scope: &'a mut Scope<Vec<String>>,
   break_label: Vec<BasicBlock<'ctx>>,
   cont_label: Vec<BasicBlock<'ctx>>,
 }
@@ -68,7 +68,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     context: &'ctx Context,
     module: &'a Module<'ctx>,
     var_scope: &'a mut Scope<PointerValue<'ctx>>,
-    tag_scope: &'a mut Scope<Vec<(Type, String)>>,
+    tag_scope: &'a mut Scope<Vec<String>>,
   ) -> GenTopLevel<'a, 'ctx> {
     let builder = context.create_builder();
     let break_label = Vec::new();
@@ -107,22 +107,21 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         //   .fn_type(param_types.as_slice(), false)
         //   .as_any_type_enum()
       }
-      Type::Struct(struct_name, mems) => {
-        let mem_types: Vec<_> = mems
-          .clone()
+      Type::Struct(struct_name, mem_tys, mem_names) => {
+        let mem_types: Vec<_> = mem_tys
           .into_iter()
-          .map(|(ty, _name)| self.into_inkwell_type(ty).into())
+          .map(|ty| self.into_inkwell_type(ty).into())
           .collect();
         if let Some(name) = struct_name {
           let struct_type = self.context.opaque_struct_type(&name);
           struct_type.set_body(mem_types.as_slice(), false);
-          self.tag_scope.insert(name, mems);
+          self.tag_scope.insert(name, mem_names);
           struct_type.as_basic_type_enum()
         } else {
           let struct_type = self.context.opaque_struct_type("struct.anon");
           struct_type.set_body(mem_types.as_slice(), false);
           let name = struct_type.get_name().unwrap().to_str().unwrap();
-          self.tag_scope.insert(name.to_string(), mems);
+          self.tag_scope.insert(name.to_string(), mem_names);
           struct_type.as_basic_type_enum()
         }
       }
@@ -811,7 +810,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     let struct_name = struct_type.get_name().unwrap().to_str().unwrap();
     let v = self.tag_scope.get_all(struct_name).unwrap();
     v.iter()
-      .position(|(_ty, name)| name == mem)
+      .position(|name| name == mem)
       .map(|index| index.try_into().unwrap())
   }
 

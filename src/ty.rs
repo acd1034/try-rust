@@ -7,7 +7,7 @@ pub enum Type {
   Pointer(Box<Type>),
   Array(Box<Type>, u32),
   FunTy(Box<Type>, Vec<Type>, Vec<String>),
-  Struct(Option<String>, Vec<(Type, String)>),
+  Struct(Option<String>, Vec<Type>, Vec<String>),
 }
 
 impl fmt::Display for Type {
