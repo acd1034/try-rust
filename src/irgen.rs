@@ -106,6 +106,7 @@ impl<'a> GenFun<'a> {
         Ok(self.insert_fun)
       }
       TopLevel::VarDef(..) => todo!(),
+      TopLevel::StructDef(..) => todo!(),
     }
   }
 
@@ -143,6 +144,7 @@ impl<'a> GenFun<'a> {
         }
         Ok(false)
       }
+      Stmt::StructDef(..) => todo!(),
       Stmt::IfElse(cond, then, else_) => self.gen_if_else(cond, then, else_),
       Stmt::For(init, cond, inc, body) => self.gen_for(init, cond, inc, *body),
       Stmt::Break => {

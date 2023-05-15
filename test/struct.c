@@ -33,11 +33,11 @@ int main()
 
   // struct tag
   ASSERT(0, ({ struct t {int a; int b;} x; struct t y; y.a; }));
-  // ASSERT(0, ({ struct t {int a; int b;}; struct t y; y.a; }));
+  ASSERT(0, ({ struct t {int a; int b;}; struct t y; y.a; }));
   // ASSERT(16, ({ struct t {int a; int b;} x; struct t y; sizeof(y); }));
   // ASSERT(16, ({ struct t {int a; int b;}; struct t y; sizeof(y); }));
   // ASSERT(2, ({ struct t {char a[2];}; { struct t {char a[4];}; } struct t y; sizeof(y); }));
-  // ASSERT(3, ({ struct t {int x;}; int t=1; struct t y; y.x=2; t+y.x; }));
+  ASSERT(3, ({ struct t {int x;}; int t=1; struct t y; y.x=2; t+y.x; }));
 
   return 0;
 }

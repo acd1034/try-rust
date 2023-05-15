@@ -212,6 +212,10 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         self.var_scope.insert(name, var.as_pointer_value());
         Ok(var.as_any_value_enum())
       }
+      TopLevel::StructDef(ty) => {
+        let struct_type = self.into_inkwell_type(ty)?;
+        Ok(struct_type.const_zero().as_any_value_enum())
+      }
     }
   }
 
@@ -324,6 +328,10 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
           };
           self.gen_assign_impl(alloca, rhs)?;
         }
+        Ok(StmtKind::NoTerminator)
+      }
+      Stmt::StructDef(ty) => {
+        self.into_inkwell_type(ty)?;
         Ok(StmtKind::NoTerminator)
       }
       Stmt::IfElse(cond, then, else_) => self.gen_if_else(cond, then, else_),

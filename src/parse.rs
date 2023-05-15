@@ -7,11 +7,13 @@ pub enum TopLevel {
   FunDecl(Type, String, Vec<Type>),
   FunDef(Type, String, Vec<Type>, Vec<String>, Vec<Stmt>),
   VarDef(Type, String, Option<AST>),
+  StructDef(Type),
 }
 
 #[derive(Clone, Debug)]
 pub enum Stmt {
   VarDef(Vec<(Type, String, Option<AST>)>),
+  StructDef(Type),
   IfElse(AST, Box<Stmt>, Option<Box<Stmt>>),
   For(Option<AST>, Option<AST>, Option<AST>, Box<Stmt>),
   Break,
@@ -206,14 +208,21 @@ fn parse_toplevel(it: &mut Tokenizer) -> Expected<Vec<TopLevel>> {
   if let Some(fun_def) = try_parse(it, |it| parse_fun_body(it, ty.clone())) {
     Ok(vec![fun_def])
   } else {
-    let res: Vec<_> = parse_decllist(it, ty)?
-      .into_iter()
-      .map(|(ty, name, init)| match ty {
-        Type::FunTy(ret_ty, param_tys, _param_names) => TopLevel::FunDecl(*ret_ty, name, param_tys),
-        _ => TopLevel::VarDef(ty, name, init),
-      })
-      .collect();
-    Ok(res)
+    let decllist = parse_decllist(it, ty.clone())?;
+    if decllist.is_empty() && matches!(ty, Type::Struct(..)) {
+      Ok(vec![TopLevel::StructDef(ty)])
+    } else {
+      let res: Vec<_> = decllist
+        .into_iter()
+        .map(|(ty, name, init)| match ty {
+          Type::FunTy(ret_ty, param_tys, _param_names) => {
+            TopLevel::FunDecl(*ret_ty, name, param_tys)
+          }
+          _ => TopLevel::VarDef(ty, name, init),
+        })
+        .collect();
+      Ok(res)
+    }
   }
 }
 
@@ -366,8 +375,12 @@ fn parse_param(it: &mut Tokenizer) -> Expected<(Type, String)> {
 //             | expr ";"
 fn parse_stmt(it: &mut Tokenizer) -> Expected<Stmt> {
   if let Some(ty) = try_parse(it, parse_declspec) {
-    let res = parse_decllist(it, ty)?;
-    Ok(Stmt::VarDef(res))
+    let decllist = parse_decllist(it, ty.clone())?;
+    if decllist.is_empty() && matches!(ty, Type::Struct(..)) {
+      Ok(Stmt::StructDef(ty))
+    } else {
+      Ok(Stmt::VarDef(decllist))
+    }
   } else if consume_keyword(it, "if")? {
     expect(it, "(")?;
     let cond = parse_expr(it)?;
