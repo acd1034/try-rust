@@ -179,7 +179,7 @@ where
  * unary       = ("+" | "-" | "&" | "*" | "++" | "--") unary
  *             | cast
  *             | postfix
- * postfix     = primary ("[" expr "]" | "++" | "--" | "." ident)?
+ * postfix     = primary ("[" expr "]" | "++" | "--" | "." ident)*
  * primary     = "(" "{" compound_stmt ")"
  *             | "(" expr ")"
  *             | ident "(" fun_args
@@ -275,7 +275,7 @@ fn parse_declspec(it: &mut Tokenizer) -> Expected<Type> {
     let mems = parse_struct_decl(it)?;
     Ok(Type::Struct(mems))
   } else {
-    err!("unexpected token, expecting `int` or `char`")
+    err!("unexpected token, expecting `int`, `char` or `struct`")
   }
 }
 
@@ -609,32 +609,34 @@ fn parse_cast(it: &mut Tokenizer) -> Expected<AST> {
   Ok(AST::Cast(ty, Box::new(n)))
 }
 
-// postfix     = primary ("[" expr "]" | "++" | "--" | "." ident)?
+// postfix     = primary ("[" expr "]" | "++" | "--" | "." ident)*
 fn parse_postfix(it: &mut Tokenizer) -> Expected<AST> {
-  let n = parse_primary(it)?;
-  if consume(it, "[")? {
-    // convert a[i] to *(a+i)
-    let m = parse_expr(it)?;
-    expect(it, "]")?;
-    let add = AST::Add(Box::new(n), Box::new(m));
-    Ok(AST::Deref(Box::new(add)))
-  } else if consume(it, "++")? {
-    // convert i++ to (i=i+1)-1
-    let one = AST::Num(1);
-    let add = AST::Add(Box::new(n.clone()), Box::new(one.clone()));
-    let assign = AST::Assign(Box::new(n), Box::new(add));
-    Ok(AST::Sub(Box::new(assign), Box::new(one)))
-  } else if consume(it, "--")? {
-    // convert i-- to (i=i-1)+1
-    let one = AST::Num(1);
-    let sub = AST::Sub(Box::new(n.clone()), Box::new(one.clone()));
-    let assign = AST::Assign(Box::new(n), Box::new(sub));
-    Ok(AST::Add(Box::new(assign), Box::new(one)))
-  } else if consume(it, ".")? {
-    let name = expect_ident(it)?;
-    Ok(AST::Dot(Box::new(n), name))
-  } else {
-    Ok(n)
+  let mut n = parse_primary(it)?;
+  loop {
+    if consume(it, "[")? {
+      // convert a[i] to *(a+i)
+      let m = parse_expr(it)?;
+      expect(it, "]")?;
+      let add = AST::Add(Box::new(n), Box::new(m));
+      n = AST::Deref(Box::new(add));
+    } else if consume(it, "++")? {
+      // convert i++ to (i=i+1)-1
+      let one = AST::Num(1);
+      let add = AST::Add(Box::new(n.clone()), Box::new(one.clone()));
+      let assign = AST::Assign(Box::new(n), Box::new(add));
+      n = AST::Sub(Box::new(assign), Box::new(one));
+    } else if consume(it, "--")? {
+      // convert i-- to (i=i-1)+1
+      let one = AST::Num(1);
+      let sub = AST::Sub(Box::new(n.clone()), Box::new(one.clone()));
+      let assign = AST::Assign(Box::new(n), Box::new(sub));
+      n = AST::Add(Box::new(assign), Box::new(one));
+    } else if consume(it, ".")? {
+      let name = expect_ident(it)?;
+      n = AST::Dot(Box::new(n), name);
+    } else {
+      break Ok(n);
+    }
   }
 }
 
@@ -672,7 +674,7 @@ fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
   } else if let Some(s) = consume_str(it)? {
     Ok(AST::Str(s))
   } else {
-    err!("unexpected token, expecting `(`, identifier or number")
+    err!("unexpected token, expecting `(`, identifier, number or string")
   }
 }
 
