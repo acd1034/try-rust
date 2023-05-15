@@ -43,16 +43,6 @@ enum StmtKind<'ctx> {
   Expr(BasicValueEnum<'ctx>),
 }
 
-impl<'ctx> StmtKind<'ctx> {
-  fn is_terminator(&self) -> bool {
-    if let StmtKind::Terminator = self {
-      true
-    } else {
-      false
-    }
-  }
-}
-
 struct GenTopLevel<'a, 'ctx> {
   context: &'ctx Context,
   module: &'a Module<'ctx>,
@@ -180,36 +170,16 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
 
   fn gen_toplevel(mut self, toplevel: TopLevel) -> Expected<AnyValueEnum<'ctx>> {
     match toplevel {
-      TopLevel::FunDecl(ret_ty, name, param_tys) => self
-        .gen_fun_decl(ret_ty, &name, param_tys)
-        .map(|fun| fun.as_any_value_enum()),
-      TopLevel::FunDef(ret_ty, name, param_tys, param_names, body) => self
-        .gen_fun_def(ret_ty, &name, param_tys, param_names, body)
-        .map(|fun| fun.as_any_value_enum()),
+      TopLevel::FunDecl(ret_ty, name, param_tys) => {
+        let fun = self.gen_fun_decl(ret_ty, &name, param_tys)?;
+        Ok(fun.as_any_value_enum())
+      }
+      TopLevel::FunDef(ret_ty, name, param_tys, param_names, body) => {
+        let fun = self.gen_fun_def(ret_ty, &name, param_tys, param_names, body)?;
+        Ok(fun.as_any_value_enum())
+      }
       TopLevel::VarDef(ty, name, init) => {
-        if self.var_scope.get(&name).is_some() {
-          return err!("global variable already exists");
-        }
-
-        let var_type = self.into_inkwell_type(ty)?;
-        let var = self.module.add_global(var_type.clone(), None, &name);
-
-        let value = if let Some(expr) = init {
-          let rhs = self.gen_expr(expr)?;
-          if var_type != rhs.get_type() {
-            return err!("inconsistent types in operands of global assignment");
-          }
-          rhs
-        } else {
-          match var_type {
-            BasicTypeEnum::IntType(int_type) => int_type.const_zero().as_basic_value_enum(),
-            BasicTypeEnum::PointerType(ptr_type) => ptr_type.const_null().as_basic_value_enum(),
-            BasicTypeEnum::ArrayType(array_type) => array_type.const_zero().as_basic_value_enum(),
-            _ => todo!(),
-          }
-        };
-        var.set_initializer(&value);
-        self.var_scope.insert(name, var.as_pointer_value());
+        let var = self.gen_var_def(ty, name, init)?;
         Ok(var.as_any_value_enum())
       }
       TopLevel::StructDef(ty) => {
@@ -276,7 +246,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     for (name, param) in std::iter::zip(param_names, fn_value.get_param_iter()) {
       if self.var_scope.get(&name).is_none() {
         let alloca = self.create_entry_block_alloca(param.get_type(), name);
-        self.builder.build_store(alloca, param);
+        self.gen_assign_impl(alloca, param)?;
       } else {
         return err!("function parameter already exists");
       }
@@ -285,7 +255,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     let mut stmt_kind = StmtKind::NoTerminator;
     for stmt in body {
       stmt_kind = self.gen_stmt(stmt)?;
-      if stmt_kind.is_terminator() {
+      if matches!(stmt_kind, StmtKind::Terminator) {
         break;
       }
     }
@@ -294,7 +264,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     self.tag_scope.pop();
 
     // Check terminator
-    if !stmt_kind.is_terminator() {
+    if !matches!(stmt_kind, StmtKind::Terminator) {
       return err!("no terminator in function");
     }
 
@@ -304,6 +274,34 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
       // TODO: 前方宣言後の定義ならば定義のみ消す。前方宣言なしの定義ならば宣言ごと消す
       // unsafe { fn_value.delete(); }
       err!("failed to verify function")
+    }
+  }
+
+  fn gen_var_def(
+    &mut self,
+    ty: Type,
+    name: String,
+    init: Option<AST>,
+  ) -> Expected<GlobalValue<'ctx>> {
+    if self.var_scope.get(&name).is_some() {
+      return err!("global variable already exists");
+    }
+
+    let var_type = self.into_inkwell_type(ty)?;
+    let var = self.module.add_global(var_type.clone(), None, &name);
+
+    let rhs = if let Some(expr) = init {
+      self.gen_expr(expr)?
+    } else {
+      var_type.const_zero()
+    };
+
+    if rhs.get_type() == var_type {
+      var.set_initializer(&rhs);
+      self.var_scope.insert(name, var.as_pointer_value());
+      Ok(var)
+    } else {
+      err!("inconsistent types in operands of global variable initialization")
     }
   }
 
@@ -319,13 +317,13 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
           }
 
           let var_type = self.into_inkwell_type(ty)?;
-          let alloca = self.create_entry_block_alloca(var_type.clone(), name);
-
           let rhs = if let Some(expr) = init {
             self.gen_expr(expr)?
           } else {
             var_type.const_zero()
           };
+
+          let alloca = self.create_entry_block_alloca(var_type.clone(), name);
           self.gen_assign_impl(alloca, rhs)?;
         }
         Ok(StmtKind::NoTerminator)
@@ -403,7 +401,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     // then:
     self.builder.position_at_end(then_block);
     let stmt_kind_in_then = self.gen_stmt(*then)?;
-    if !stmt_kind_in_then.is_terminator() {
+    if !matches!(stmt_kind_in_then, StmtKind::Terminator) {
       self.builder.build_unconditional_branch(merge_block);
     }
 
@@ -411,7 +409,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     let stmt_kind_in_else = if let Some(else_) = else_ {
       self.builder.position_at_end(else_block);
       let stmt_kind = self.gen_stmt(*else_)?;
-      if !stmt_kind.is_terminator() {
+      if !matches!(stmt_kind, StmtKind::Terminator) {
         self.builder.build_unconditional_branch(merge_block);
       }
       stmt_kind
@@ -421,7 +419,9 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
 
     // merge:
     self.builder.position_at_end(merge_block);
-    if stmt_kind_in_then.is_terminator() && stmt_kind_in_else.is_terminator() {
+    if matches!(stmt_kind_in_then, StmtKind::Terminator)
+      && matches!(stmt_kind_in_else, StmtKind::Terminator)
+    {
       self.builder.build_unreachable();
       Ok(StmtKind::Terminator)
     } else {
@@ -481,7 +481,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     // body:
     self.builder.position_at_end(body_block);
     let stmt_kind_in_body = self.gen_stmt(body)?;
-    if !stmt_kind_in_body.is_terminator() {
+    if !matches!(stmt_kind_in_body, StmtKind::Terminator) {
       self.builder.build_unconditional_branch(inc_block);
     }
 
@@ -514,7 +514,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     let mut stmt_kind = StmtKind::NoTerminator;
     for stmt in stmts {
       stmt_kind = self.gen_stmt(stmt)?;
-      if stmt_kind.is_terminator() {
+      if matches!(stmt_kind, StmtKind::Terminator) {
         break;
       }
     }

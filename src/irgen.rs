@@ -179,7 +179,7 @@ impl<'a> GenFun<'a> {
     }
   }
 
-  fn create_entry_block_alloca(&mut self, ty: Type, name: String) -> MemId {
+  fn create_entry_block_alloca(&mut self, _ty: Type, name: String) -> MemId {
     // Push mem_arena
     let mem_id = insert_fun!(self).build_alloca();
     // Insert scope
