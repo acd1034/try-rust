@@ -140,7 +140,7 @@ where
 /* program     = toplevel* eof
  * toplevel    = declspec fun_body
  *             | declspec decllist
- * fun_body    = declarator "{" stmt* "}"
+ * fun_body    = declarator "{" compound_stmt
  * decllist    = (declitem ("," declitem)*)? ";"
  * declitem    = declarator ("=" expr)?
  * declspec    = "int" | "char"
@@ -158,9 +158,10 @@ where
  *             | "break" ";"
  *             | "continue" ";"
  *             | "return" expr ";"
- *             | "{" stmt* "}"
+ *             | "{" compound_stmt
  *             | ";"
  *             | expr ";"
+ * compound_stmt = stmt* "}"
  *
  * expr        = ternary
  * ternary     = assign ("?" expr ":" ternary)?
@@ -173,7 +174,7 @@ where
  *             | cast
  *             | postfix
  * postfix     = primary ("[" expr "]" | "++" | "--")?
- * primary     = "(" "{" stmt+ "}" ")"
+ * primary     = "(" "{" compound_stmt ")"
  *             | "(" expr ")"
  *             | ident "(" fun_args
  *             | ident
@@ -210,15 +211,12 @@ fn parse_toplevel(it: &mut Tokenizer) -> Expected<Vec<TopLevel>> {
   }
 }
 
-// fun_body    = declarator "{" stmt* "}"
+// fun_body    = declarator "{" compound_stmt
 fn parse_fun_body(it: &mut Tokenizer, ty: Type) -> Expected<TopLevel> {
   let (ty, name) = parse_declarator(it, ty)?;
   if let Type::FunTy(ret_ty, param_tys, param_names) = ty {
     expect(it, "{")?;
-    let mut body = Vec::new();
-    while !consume(it, "}")? {
-      body.push(parse_stmt(it)?);
-    }
+    let body = parse_compound_stmt(it)?;
     Ok(TopLevel::FunDef(
       *ret_ty,
       name,
@@ -336,7 +334,7 @@ fn parse_param(it: &mut Tokenizer) -> Expected<(Type, String)> {
 //             | "break" ";"
 //             | "continue" ";"
 //             | "return" expr ";"
-//             | "{" stmt* "}"
+//             | "{" compound_stmt
 //             | ";"
 //             | expr ";"
 fn parse_stmt(it: &mut Tokenizer) -> Expected<Stmt> {
@@ -381,10 +379,7 @@ fn parse_stmt(it: &mut Tokenizer) -> Expected<Stmt> {
     expect(it, ";")?;
     Ok(Stmt::Return(n))
   } else if consume(it, "{")? {
-    let mut stmts = Vec::new();
-    while !consume(it, "}")? {
-      stmts.push(parse_stmt(it)?);
-    }
+    let stmts = parse_compound_stmt(it)?;
     Ok(Stmt::Block(stmts))
   } else if consume(it, ";")? {
     Ok(Stmt::Block(Vec::new()))
@@ -393,6 +388,15 @@ fn parse_stmt(it: &mut Tokenizer) -> Expected<Stmt> {
     expect(it, ";")?;
     Ok(Stmt::Expr(n))
   }
+}
+
+// compound_stmt = stmt* "}"
+fn parse_compound_stmt(it: &mut Tokenizer) -> Expected<Vec<Stmt>> {
+  let mut stmts = Vec::new();
+  while !consume(it, "}")? {
+    stmts.push(parse_stmt(it)?);
+  }
+  Ok(stmts)
 }
 
 // expr        = ternary
@@ -596,7 +600,7 @@ fn parse_postfix(it: &mut Tokenizer) -> Expected<AST> {
   }
 }
 
-// primary     = "(" "{" stmt+ "}" ")"
+// primary     = "(" "{" compound_stmt ")"
 //             | "(" expr ")"
 //             | ident "(" fun_args
 //             | ident
@@ -606,10 +610,7 @@ fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
   if consume(it, "(")? {
     if consume(it, "{")? {
       // [GNU] parse statement expression
-      let mut stmts = Vec::new();
-      while !consume(it, "}")? {
-        stmts.push(parse_stmt(it)?);
-      }
+      let stmts = parse_compound_stmt(it)?;
       expect(it, ")")?;
       if stmts.is_empty() {
         err!("GNU statement expression is empty")
