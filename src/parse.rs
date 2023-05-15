@@ -265,7 +265,7 @@ fn parse_declitem(it: &mut Tokenizer, ty: Type) -> Expected<(Type, String, Optio
   }
 }
 
-// declspec = "char" | "int" | "struct" ident? struct_decl
+// declspec = "char" | "int" | "struct" ident? struct_decl?
 fn parse_declspec(it: &mut Tokenizer) -> Expected<Type> {
   if consume_keyword(it, "int")? {
     Ok(Type::Int)
@@ -273,23 +273,26 @@ fn parse_declspec(it: &mut Tokenizer) -> Expected<Type> {
     Ok(Type::Char)
   } else if consume_keyword(it, "struct")? {
     let name = consume_ident(it)?;
-    let mems = parse_struct_decl(it)?;
-    let (mem_tys, mem_names) = mems.into_iter().unzip();
-    Ok(Type::Struct(name, mem_tys, mem_names))
+    let mems = try_parse(it, parse_struct_decl);
+    if name.is_none() && mems.is_none() {
+      err!("Both the name and body of the struct are missing")
+    } else {
+      Ok(Type::Struct(name, mems))
+    }
   } else {
     err!("unexpected token, expecting `int`, `char` or `struct`")
   }
 }
 
 // struct_decl = "{" struct_mem* "}"
-fn parse_struct_decl(it: &mut Tokenizer) -> Expected<Vec<(Type, String)>> {
+fn parse_struct_decl(it: &mut Tokenizer) -> Expected<(Vec<Type>, Vec<String>)> {
   expect(it, "{")?;
   let mut mems = Vec::new();
   while !consume(it, "}")? {
     let mut mem = parse_struct_mem(it)?;
     mems.append(&mut mem);
   }
-  Ok(mems)
+  Ok(mems.into_iter().unzip())
 }
 
 // struct_mem  = declspec declarator ("," declarator)* ";"

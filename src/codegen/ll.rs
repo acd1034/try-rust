@@ -84,45 +84,66 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     }
   }
 
-  fn into_inkwell_type(&mut self, ty: Type) -> BasicTypeEnum<'ctx> {
+  fn into_inkwell_type(&mut self, ty: Type) -> Expected<BasicTypeEnum<'ctx>> {
     match ty {
-      Type::Int => self.context.i64_type().as_basic_type_enum(),
-      Type::Char => self.context.i8_type().as_basic_type_enum(),
-      Type::Pointer(ty) => self
-        .into_inkwell_type(*ty)
-        .ptr_type(AddressSpace::default())
-        .as_basic_type_enum(),
-      Type::Array(ty, size) => self
-        .into_inkwell_type(*ty)
-        .array_type(size)
-        .as_basic_type_enum(),
+      Type::Int => Ok(self.context.i64_type().as_basic_type_enum()),
+      Type::Char => Ok(self.context.i8_type().as_basic_type_enum()),
+      Type::Pointer(ty) => {
+        let res = self
+          .into_inkwell_type(*ty)?
+          .ptr_type(AddressSpace::default())
+          .as_basic_type_enum();
+        Ok(res)
+      }
+      Type::Array(ty, size) => {
+        let res = self
+          .into_inkwell_type(*ty)?
+          .array_type(size)
+          .as_basic_type_enum();
+        Ok(res)
+      }
       Type::FunTy(..) => {
         todo!()
-        // let return_type = self.into_inkwell_type(*ret_ty);
+        // let return_type = self.into_inkwell_type(*ret_ty)?;
         // let param_types: Vec<_> = param_tys
         //   .into_iter()
-        //   .map(|(ty, _name)| self.into_inkwell_type(ty).into())
+        //   .map(|(ty, _name)| self.into_inkwell_type(ty)?.into())
         //   .collect();
         // return_type
         //   .fn_type(param_types.as_slice(), false)
         //   .as_any_type_enum()
       }
-      Type::Struct(struct_name, mem_tys, mem_names) => {
-        let mem_types: Vec<_> = mem_tys
-          .into_iter()
-          .map(|ty| self.into_inkwell_type(ty).into())
-          .collect();
-        if let Some(name) = struct_name {
-          let struct_type = self.context.opaque_struct_type(&name);
-          struct_type.set_body(mem_types.as_slice(), false);
-          self.tag_scope.insert(name, mem_names);
-          struct_type.as_basic_type_enum()
+      Type::Struct(struct_name, mems) => {
+        if let Some((mem_tys, mem_names)) = mems {
+          let mem_types = mem_tys
+            .into_iter()
+            .map(|ty| self.into_inkwell_type(ty).map(|x| x.into()))
+            .collect::<Result<Vec<_>, _>>()?;
+          if let Some(name) = struct_name {
+            if self.tag_scope.get_all(&name).is_some() {
+              return err!("struct already exists");
+            }
+            let struct_type = self.context.opaque_struct_type(&name);
+            struct_type.set_body(mem_types.as_slice(), false);
+            self.tag_scope.insert(name, mem_names);
+            Ok(struct_type.as_basic_type_enum())
+          } else {
+            let struct_type = self.context.opaque_struct_type("struct.anon");
+            struct_type.set_body(mem_types.as_slice(), false);
+            let name = struct_type.get_name().unwrap().to_str().unwrap();
+            self.tag_scope.insert(name.to_string(), mem_names);
+            Ok(struct_type.as_basic_type_enum())
+          }
         } else {
-          let struct_type = self.context.opaque_struct_type("struct.anon");
-          struct_type.set_body(mem_types.as_slice(), false);
-          let name = struct_type.get_name().unwrap().to_str().unwrap();
-          self.tag_scope.insert(name.to_string(), mem_names);
-          struct_type.as_basic_type_enum()
+          if let Some(name) = struct_name {
+            if let Some(struct_type) = self.context.get_struct_type(&name) {
+              Ok(struct_type.as_basic_type_enum())
+            } else {
+              err!("struct does not exist")
+            }
+          } else {
+            err!("Both the name and body of the struct are missing")
+          }
         }
       }
     }
@@ -170,7 +191,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
           return err!("global variable already exists");
         }
 
-        let var_type = self.into_inkwell_type(ty);
+        let var_type = self.into_inkwell_type(ty)?;
         let var = self.module.add_global(var_type.clone(), None, &name);
 
         let value = if let Some(expr) = init {
@@ -202,11 +223,11 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
   ) -> Expected<FunctionValue<'ctx>> {
     if let Some(fn_value) = self.module.get_function(name) {
       let stored_fn_type = fn_value.get_type();
-      let return_type = self.into_inkwell_type(ret_ty);
-      let param_types: Vec<_> = param_tys
+      let return_type = self.into_inkwell_type(ret_ty)?;
+      let param_types = param_tys
         .into_iter()
         .map(|ty| self.into_inkwell_type(ty))
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
       if return_type == stored_fn_type.get_return_type().unwrap()
         && param_types == stored_fn_type.get_param_types()
       {
@@ -215,11 +236,11 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         err!("function type differs from the previous declaration")
       }
     } else {
-      let return_type = self.into_inkwell_type(ret_ty);
-      let param_types: Vec<_> = param_tys
+      let return_type = self.into_inkwell_type(ret_ty)?;
+      let param_types = param_tys
         .into_iter()
-        .map(|ty| self.into_inkwell_type(ty).into())
-        .collect();
+        .map(|ty| self.into_inkwell_type(ty).map(|x| x.into()))
+        .collect::<Result<Vec<_>, _>>()?;
       let fn_type = return_type.fn_type(param_types.as_slice(), false);
       Ok(self.module.add_function(name, fn_type, None))
     }
@@ -293,13 +314,15 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
             return err!("variable already exists");
           }
 
-          let var_type = self.into_inkwell_type(ty);
-          let alloca = self.create_entry_block_alloca(var_type, name);
+          let var_type = self.into_inkwell_type(ty)?;
+          let alloca = self.create_entry_block_alloca(var_type.clone(), name);
 
-          if let Some(expr) = init {
-            let rhs = self.gen_expr(expr)?;
-            self.gen_assign_impl(alloca, rhs)?;
-          }
+          let rhs = if let Some(expr) = init {
+            self.gen_expr(expr)?
+          } else {
+            var_type.const_zero()
+          };
+          self.gen_assign_impl(alloca, rhs)?;
         }
         Ok(StmtKind::NoTerminator)
       }
@@ -630,7 +653,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         }
       }
       AST::Cast(ty, n) => {
-        let cast_type = self.into_inkwell_type(ty);
+        let cast_type = self.into_inkwell_type(ty)?;
         let value = self.gen_expr(*n)?;
         match (cast_type, value) {
           (BasicTypeEnum::IntType(int_type), BasicValueEnum::IntValue(int_value)) => {

@@ -32,7 +32,7 @@ int main()
   // ASSERT(0, ({ struct {} x; sizeof(x); }));
 
   // struct tag
-  // ASSERT(0, ({ struct t {int a; int b;} x; struct t y; y.a; }));
+  ASSERT(0, ({ struct t {int a; int b;} x; struct t y; y.a; }));
   // ASSERT(0, ({ struct t {int a; int b;}; struct t y; y.a; }));
   // ASSERT(16, ({ struct t {int a; int b;} x; struct t y; sizeof(y); }));
   // ASSERT(16, ({ struct t {int a; int b;}; struct t y; sizeof(y); }));
