@@ -91,13 +91,25 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         .array_type(size)
         .as_basic_type_enum(),
       Type::FunTy(..) => {
-        todo!();
-        // let return_type = self.into_inkwell_type(*_ret_ty);
-        // let param_types: Vec<_> = _param_tys
+        todo!()
+        // let return_type = self.into_inkwell_type(*ret_ty);
+        // let param_types: Vec<_> = param_tys
         //   .into_iter()
         //   .map(|(ty, _name)| self.into_inkwell_type(ty).into())
         //   .collect();
-        // return_type.fn_type(param_types.as_slice(), false)
+        // return_type
+        //   .fn_type(param_types.as_slice(), false)
+        //   .as_any_type_enum()
+      }
+      Type::Struct(mems) => {
+        let mem_types: Vec<_> = mems
+          .into_iter()
+          .map(|(ty, _name)| self.into_inkwell_type(ty).into())
+          .collect();
+        self
+          .context
+          .struct_type(mem_types.as_slice(), false)
+          .as_basic_type_enum()
       }
     }
   }

@@ -2,7 +2,7 @@ use crate::tokenize::{Token, Tokenizer};
 use crate::ty::Type;
 use crate::{common::Expected, err};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum TopLevel {
   FunDecl(Type, String, Vec<Type>),
   FunDef(Type, String, Vec<Type>, Vec<String>, Vec<Stmt>),
@@ -143,7 +143,9 @@ where
  * fun_body    = declarator "{" compound_stmt
  * decllist    = (declitem ("," declitem)*)? ";"
  * declitem    = declarator ("=" expr)?
- * declspec    = "int" | "char"
+ * declspec = "char" | "int" | "struct" struct_decl
+ * struct_decl = "{" struct_mem* "}"
+ * struct_mem  = declspec declarator ("," declarator)* ";"
  * declarator  = "*"* ident type_suffix
  * type_suffix = "[" num "]"
  *             | "(" fun_params
@@ -259,15 +261,41 @@ fn parse_declitem(it: &mut Tokenizer, ty: Type) -> Expected<(Type, String, Optio
   }
 }
 
-// declspec    = "int" | "char"
+// declspec = "char" | "int" | "struct" struct_decl
 fn parse_declspec(it: &mut Tokenizer) -> Expected<Type> {
   if consume_keyword(it, "int")? {
     Ok(Type::Int)
   } else if consume_keyword(it, "char")? {
     Ok(Type::Char)
+  } else if consume_keyword(it, "struct")? {
+    let mems = parse_struct_decl(it)?;
+    Ok(Type::Struct(mems))
   } else {
     err!("unexpected token, expecting `int` or `char`")
   }
+}
+
+// struct_decl = "{" struct_mem* "}"
+fn parse_struct_decl(it: &mut Tokenizer) -> Expected<Vec<(Type, String)>> {
+  expect(it, "{")?;
+  let mut mems = Vec::new();
+  while !consume(it, "}")? {
+    let mut mem = parse_struct_mem(it)?;
+    mems.append(&mut mem);
+  }
+  Ok(mems)
+}
+
+// struct_mem  = declspec declarator ("," declarator)* ";"
+fn parse_struct_mem(it: &mut Tokenizer) -> Expected<Vec<(Type, String)>> {
+  let ty = parse_declspec(it)?;
+  let mut mem = Vec::new();
+  mem.push(parse_declarator(it, ty.clone())?);
+  while !consume(it, ";")? {
+    expect(it, ",")?;
+    mem.push(parse_declarator(it, ty.clone())?);
+  }
+  Ok(mem)
 }
 
 fn consume_declspec(it: &mut Tokenizer) -> Expected<Option<Type>> {
@@ -275,6 +303,9 @@ fn consume_declspec(it: &mut Tokenizer) -> Expected<Option<Type>> {
     Ok(Some(Type::Int))
   } else if consume_keyword(it, "char")? {
     Ok(Some(Type::Char))
+  } else if consume_keyword(it, "struct")? {
+    let mems = parse_struct_decl(it)?;
+    Ok(Some(Type::Struct(mems)))
   } else {
     Ok(None)
   }

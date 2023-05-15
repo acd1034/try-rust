@@ -53,8 +53,8 @@ fn read_escaped_char(s: String) -> String {
 }
 
 fn tokenize<'a>(s: &'a str) -> (Expected<Token<'a>>, &'a str) {
-  static KEYWORDS: [&str; 9] = [
-    "return", "if", "else", "for", "while", "break", "continue", "int", "char",
+  static KEYWORDS: [&str; 10] = [
+    "return", "if", "else", "for", "while", "break", "continue", "int", "char", "struct",
   ];
   static TWO_CHAR_OPS: [&str; 10] = ["==", "!=", "<=", ">=", "+=", "-=", "*=", "/=", "++", "--"];
 
