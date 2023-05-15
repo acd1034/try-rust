@@ -33,9 +33,13 @@ pub enum AST {
   Sub(Box<AST>, Box<AST>),
   Mul(Box<AST>, Box<AST>),
   Div(Box<AST>, Box<AST>),
+  // vvv unary
   Addr(Box<AST>),
   Deref(Box<AST>),
   Cast(Type, Box<AST>),
+  // vvv postfix
+  Dot(Box<AST>, String),
+  // vvv primary
   Block(Vec<Stmt>),
   Call(String, Vec<AST>),
   Ident(String),
@@ -175,7 +179,7 @@ where
  * unary       = ("+" | "-" | "&" | "*" | "++" | "--") unary
  *             | cast
  *             | postfix
- * postfix     = primary ("[" expr "]" | "++" | "--")?
+ * postfix     = primary ("[" expr "]" | "++" | "--" | "." ident)?
  * primary     = "(" "{" compound_stmt ")"
  *             | "(" expr ")"
  *             | ident "(" fun_args
@@ -605,7 +609,7 @@ fn parse_cast(it: &mut Tokenizer) -> Expected<AST> {
   Ok(AST::Cast(ty, Box::new(n)))
 }
 
-// postfix     = primary ("[" expr "]" | "++" | "--")?
+// postfix     = primary ("[" expr "]" | "++" | "--" | "." ident)?
 fn parse_postfix(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_primary(it)?;
   if consume(it, "[")? {
@@ -626,6 +630,9 @@ fn parse_postfix(it: &mut Tokenizer) -> Expected<AST> {
     let sub = AST::Sub(Box::new(n.clone()), Box::new(one.clone()));
     let assign = AST::Assign(Box::new(n), Box::new(sub));
     Ok(AST::Add(Box::new(assign), Box::new(one)))
+  } else if consume(it, ".")? {
+    let name = expect_ident(it)?;
+    Ok(AST::Dot(Box::new(n), name))
   } else {
     Ok(n)
   }

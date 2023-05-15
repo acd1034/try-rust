@@ -1,4 +1,4 @@
-use crate::common::{self, Expected};
+use crate::common::{Expected, Scope};
 use crate::err;
 use crate::parse::{Stmt, TopLevel, AST};
 use crate::ty::Type;
@@ -10,7 +10,6 @@ use inkwell::types::*;
 use inkwell::values::*;
 use inkwell::AddressSpace;
 use inkwell::IntPredicate;
-type Scope<'a> = common::Scope<PointerValue<'a>>;
 
 // Module ∋ Function ∋ BasicBlock ∋ Instruction
 pub struct CodeGen<'ctx> {
@@ -24,12 +23,16 @@ impl<'ctx> CodeGen<'ctx> {
 
   pub fn codegen(self, toplevels: Vec<TopLevel>) -> Expected<Module<'ctx>> {
     let module = self.context.create_module("mod");
-    let mut scope = Scope::new();
-    scope.push();
+    let mut var_scope = Scope::new();
+    let mut tag_scope = Scope::new();
+    var_scope.push();
+    tag_scope.push();
     for toplevel in toplevels {
-      GenTopLevel::new(self.context, &module, &mut scope).gen_toplevel(toplevel)?;
+      GenTopLevel::new(self.context, &module, &mut var_scope, &mut tag_scope)
+        .gen_toplevel(toplevel)?;
     }
-    scope.pop();
+    var_scope.pop();
+    tag_scope.pop();
     Ok(module)
   }
 }
@@ -54,7 +57,8 @@ struct GenTopLevel<'a, 'ctx> {
   context: &'ctx Context,
   module: &'a Module<'ctx>,
   builder: Builder<'ctx>,
-  scope: &'a mut Scope<'ctx>,
+  var_scope: &'a mut Scope<PointerValue<'ctx>>,
+  tag_scope: &'a mut Scope<Vec<(Type, String)>>,
   break_label: Vec<BasicBlock<'ctx>>,
   cont_label: Vec<BasicBlock<'ctx>>,
 }
@@ -63,7 +67,8 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
   fn new(
     context: &'ctx Context,
     module: &'a Module<'ctx>,
-    scope: &'a mut Scope<'ctx>,
+    var_scope: &'a mut Scope<PointerValue<'ctx>>,
+    tag_scope: &'a mut Scope<Vec<(Type, String)>>,
   ) -> GenTopLevel<'a, 'ctx> {
     let builder = context.create_builder();
     let break_label = Vec::new();
@@ -72,13 +77,14 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
       context,
       module,
       builder,
-      scope,
+      var_scope,
+      tag_scope,
       break_label,
       cont_label,
     }
   }
 
-  fn into_inkwell_type(&self, ty: Type) -> BasicTypeEnum<'ctx> {
+  fn into_inkwell_type(&mut self, ty: Type) -> BasicTypeEnum<'ctx> {
     match ty {
       Type::Int => self.context.i64_type().as_basic_type_enum(),
       Type::Char => self.context.i8_type().as_basic_type_enum(),
@@ -103,13 +109,20 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
       }
       Type::Struct(mems) => {
         let mem_types: Vec<_> = mems
+          .clone()
           .into_iter()
           .map(|(ty, _name)| self.into_inkwell_type(ty).into())
           .collect();
-        self
-          .context
-          .struct_type(mem_types.as_slice(), false)
-          .as_basic_type_enum()
+        let struct_type = self.context.opaque_struct_type("struct.anon");
+        struct_type.set_body(mem_types.as_slice(), false);
+        let name = struct_type
+          .get_name()
+          .unwrap()
+          .to_str()
+          .unwrap()
+          .to_string();
+        self.tag_scope.insert(name, mems);
+        struct_type.as_basic_type_enum()
       }
     }
   }
@@ -137,7 +150,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     }
 
     let alloca = builder.build_alloca(var_type, &name);
-    self.scope.insert(name, alloca);
+    self.var_scope.insert(name, alloca);
     alloca
   }
 
@@ -152,7 +165,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         .gen_fun_def(ret_ty, &name, param_tys, param_names, body)
         .map(|fun| fun.as_any_value_enum()),
       TopLevel::VarDef(ty, name, init) => {
-        if self.scope.get(&name).is_some() {
+        if self.var_scope.get(&name).is_some() {
           return err!("global variable already exists");
         }
 
@@ -174,14 +187,14 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
           }
         };
         var.set_initializer(&value);
-        self.scope.insert(name, var.as_pointer_value());
+        self.var_scope.insert(name, var.as_pointer_value());
         Ok(var.as_any_value_enum())
       }
     }
   }
 
   fn gen_fun_decl(
-    &self,
+    &mut self,
     ret_ty: Type,
     name: &str,
     param_tys: Vec<Type>,
@@ -230,11 +243,12 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     // Create first basic block
     let entry_block = self.context.append_basic_block(fn_value, "entry");
     self.builder.position_at_end(entry_block);
-    // Create first variable scope
-    self.scope.push();
+    // Create first scope
+    self.var_scope.push();
+    self.tag_scope.push();
     // Allocate function parameters
     for (name, param) in std::iter::zip(param_names, fn_value.get_param_iter()) {
-      if self.scope.get(&name).is_none() {
+      if self.var_scope.get(&name).is_none() {
         let alloca = self.create_entry_block_alloca(param.get_type(), name);
         self.builder.build_store(alloca, param);
       } else {
@@ -249,8 +263,9 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         break;
       }
     }
-    // Remove first scope
-    self.scope.pop();
+    // Destroy first scope
+    self.var_scope.pop();
+    self.tag_scope.pop();
 
     // Check terminator
     if !stmt_kind.is_terminator() {
@@ -273,7 +288,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     match stmt {
       Stmt::VarDef(var_defs) => {
         for (ty, name, init) in var_defs.into_iter() {
-          if self.scope.get(&name).is_some() {
+          if self.var_scope.get(&name).is_some() {
             return err!("variable already exists");
           }
 
@@ -462,7 +477,8 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
   }
 
   fn gen_block(&mut self, stmts: Vec<Stmt>) -> Expected<StmtKind<'ctx>> {
-    self.scope.push();
+    self.var_scope.push();
+    self.tag_scope.push();
     let mut stmt_kind = StmtKind::NoTerminator;
     for stmt in stmts {
       stmt_kind = self.gen_stmt(stmt)?;
@@ -470,7 +486,8 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         break;
       }
     }
-    self.scope.pop();
+    self.var_scope.pop();
+    self.tag_scope.pop();
     Ok(stmt_kind)
   }
 
@@ -678,7 +695,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         let ptr = global.as_pointer_value();
         Ok(self.gen_array_addr_impl(ptr))
       }
-      AST::Assign(..) | AST::Deref(..) | AST::Ident(..) => {
+      AST::Assign(..) | AST::Deref(..) | AST::Dot(..) | AST::Ident(..) => {
         let var = self.gen_addr(expr)?;
         if var.get_type().get_element_type().is_array_type() {
           Ok(self.gen_array_addr_impl(var))
@@ -727,7 +744,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
   }
 
   fn gen_pointer_add_impl(
-    &self,
+    &mut self,
     ptr: PointerValue<'ctx>,
     idx: IntValue<'ctx>,
   ) -> BasicValueEnum<'ctx> {
@@ -739,7 +756,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     }
   }
 
-  fn gen_array_addr_impl(&self, ptr: PointerValue<'ctx>) -> BasicValueEnum<'ctx> {
+  fn gen_array_addr_impl(&mut self, ptr: PointerValue<'ctx>) -> BasicValueEnum<'ctx> {
     let zero = self.context.i64_type().const_int(0, false);
     unsafe {
       self
@@ -766,7 +783,21 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
           err!("cannot dereference int value")
         }
       }
-      AST::Ident(name) => match self.scope.get_all(&name) {
+      AST::Dot(n, name) => {
+        let lhs = self.gen_addr(*n)?;
+        if let AnyTypeEnum::StructType(struct_type) = lhs.get_type().get_element_type() {
+          if let Some(index) = self.get_index_from_struct_type(struct_type, &name) {
+            self.builder.build_struct_gep(lhs, index, "tmpgep").or(err!(
+              "!!!internal error!!! struct member index is out of range"
+            ))
+          } else {
+            err!("struct member index is out of range")
+          }
+        } else {
+          err!("lhs is not a struct")
+        }
+      }
+      AST::Ident(name) => match self.var_scope.get_all(&name) {
         Some(&var) => Ok(var),
         None => err!("variable should be declared before its first use"),
       },
@@ -774,8 +805,16 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     }
   }
 
+  fn get_index_from_struct_type(&self, struct_type: StructType<'ctx>, mem: &str) -> Option<u32> {
+    let struct_name = struct_type.get_name().unwrap().to_str().unwrap();
+    let v = self.tag_scope.get_all(struct_name).unwrap();
+    v.iter()
+      .position(|(_ty, name)| name == mem)
+      .map(|index| index.try_into().unwrap())
+  }
+
   fn gen_assign_impl(
-    &self,
+    &mut self,
     lhs: PointerValue<'ctx>,
     rhs: BasicValueEnum<'ctx>,
   ) -> Expected<PointerValue<'ctx>> {
