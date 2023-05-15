@@ -12,7 +12,7 @@ use inkwell::AddressSpace;
 use inkwell::IntPredicate;
 type Scope<'a> = common::Scope<PointerValue<'a>>;
 
-// Module ⊇ Function ⊇ BasicBlock ⊇ Instruction
+// Module ∋ Function ∋ BasicBlock ∋ Instruction
 pub struct CodeGen<'ctx> {
   context: &'ctx Context,
 }
@@ -22,7 +22,7 @@ impl<'ctx> CodeGen<'ctx> {
     CodeGen { context }
   }
 
-  pub fn codegen(self, toplevels: Vec<TopLevel>) -> Expected<String> {
+  pub fn codegen(self, toplevels: Vec<TopLevel>) -> Expected<Module<'ctx>> {
     let module = self.context.create_module("mod");
     let mut scope = Scope::new();
     scope.push();
@@ -30,7 +30,7 @@ impl<'ctx> CodeGen<'ctx> {
       GenTopLevel::new(self.context, &module, &mut scope).gen_toplevel(toplevel)?;
     }
     scope.pop();
-    Ok(module.to_string())
+    Ok(module)
   }
 }
 

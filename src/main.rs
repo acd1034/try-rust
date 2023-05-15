@@ -66,13 +66,14 @@ fn main() -> Expected<()> {
 
   let input = read_file(&input_path)?;
   let it = tokenize::Tokenizer::new(&input);
-  let funs = parse::parse(it)?;
+  let toplevels = parse::parse(it)?;
 
   let body = if target_ll {
     let context = Context::create();
-    codegen::ll::CodeGen::new(&context).codegen(funs)?
+    let module = codegen::ll::CodeGen::new(&context).codegen(toplevels)?;
+    module.to_string()
   } else {
-    let module = irgen::IRGen::new("mod".to_string()).irgen(funs)?;
+    let module = irgen::IRGen::new("mod".to_string()).irgen(toplevels)?;
     format!("{}", codegen::Target::C(module))
   };
 
