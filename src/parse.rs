@@ -143,55 +143,55 @@ where
   }
 }
 
-/* program     = toplevel* eof
- * toplevel    = declspec fun_body
- *             | declspec decllist
- * fun_body    = declarator "{" compound_stmt
- * decllist    = (declitem ("," declitem)*)? ";"
- * declitem    = declarator ("=" expr)?
- * declspec = "char" | "int" | "struct" struct_decl
- * struct_decl = "{" struct_mem* "}"
- * struct_mem  = declspec declarator ("," declarator)* ";"
- * declarator  = "*"* ident type_suffix
- * type_suffix = "[" num "]"
- *             | "(" fun_params
- *             | ε
- * fun_params  = param (("," param)*)? ")"
- * param       = declspec declarator
- *
- * stmt        = declspec decllist
- *             | "if" "(" expr ")" stmt ("else" stmt)?
- *             | "for" "(" expr? ";" expr? ";" expr? ")" stmt
- *             | "while" "(" expr ")" stmt
- *             | "break" ";"
- *             | "continue" ";"
- *             | "return" expr ";"
- *             | "{" compound_stmt
- *             | ";"
- *             | expr ";"
- * compound_stmt = stmt* "}"
- *
- * expr        = ternary
- * ternary     = assign ("?" expr ":" ternary)?
- * assign      = equality ("=" assign | "+=" assign | "-=" assign | "*=" assign | "/=" assign)?
- * equality    = relational ("==" relational | "!=" relational)*
- * relational  = add ("<" add | "<=" add | ">" add | ">=" add)*
- * add         = mul ("+" mul | "-" mul)*
- * mul         = unary ("*" unary | "/" unary)*
- * unary       = ("+" | "-" | "&" | "*" | "++" | "--") unary
- *             | cast
- *             | postfix
- * postfix     = primary ("[" expr "]" | "++" | "--" | "." ident)*
- * primary     = "(" "{" compound_stmt ")"
- *             | "(" expr ")"
- *             | ident "(" fun_args
- *             | ident
- *             | num
- *             | str
- * fun_args    = (expr ("," expr)*)? ")"
- */
+//' program     = toplevel* eof
+//' toplevel    = declspec fun_body
+//'             | declspec decllist
+//' fun_body    = declarator "{" compound_stmt
+//' decllist    = (declitem ("," declitem)*)? ";"
+//' declitem    = declarator ("=" expr)?
+//' declspec = "char" | "int" | "struct" ident? struct_decl?
+//' struct_decl = "{" struct_mem* "}"
+//' struct_mem  = declspec declarator ("," declarator)* ";"
+//' declarator  = "*"* ident type_suffix
+//' type_suffix = "[" num "]"
+//'             | "(" fun_params
+//'             | ε
+//' fun_params  = param (("," param)*)? ")"
+//' param       = declspec declarator
+//'
+//' stmt        = declspec decllist
+//'             | "if" "(" expr ")" stmt ("else" stmt)?
+//'             | "for" "(" expr? ";" expr? ";" expr? ")" stmt
+//'             | "while" "(" expr ")" stmt
+//'             | "break" ";"
+//'             | "continue" ";"
+//'             | "return" expr ";"
+//'             | "{" compound_stmt
+//'             | ";"
+//'             | expr ";"
+//' compound_stmt = stmt* "}"
+//'
+//' expr        = ternary
+//' ternary     = assign ("?" expr ":" ternary)?
+//' assign      = equality ("=" assign | "+=" assign | "-=" assign | "*=" assign | "/=" assign)?
+//' equality    = relational ("==" relational | "!=" relational)*
+//' relational  = add ("<" add | "<=" add | ">" add | ">=" add)*
+//' add         = mul ("+" mul | "-" mul)*
+//' mul         = unary ("*" unary | "/" unary)*
+//' unary       = ("+" | "-" | "&" | "*" | "++" | "--") unary
+//'             | cast
+//'             | postfix
+//' cast        = "(" declspec ")" unary
+//' postfix     = primary ("[" expr "]" | "++" | "--" | "." ident)*
+//' primary     = "(" "{" compound_stmt ")"
+//'             | "(" expr ")"
+//'             | ident "(" fun_args
+//'             | ident
+//'             | num
+//'             | str
+//' fun_args    = (expr ("," expr)*)? ")"
 
-// program     = toplevel* eof
+//' program     = toplevel* eof
 pub fn parse(mut it: Tokenizer) -> Expected<Vec<TopLevel>> {
   let mut toplevels = Vec::new();
   while !consume_eof(&mut it)? {
@@ -201,8 +201,8 @@ pub fn parse(mut it: Tokenizer) -> Expected<Vec<TopLevel>> {
   Ok(toplevels)
 }
 
-// toplevel    = declspec fun_body
-//             | declspec decllist
+//' toplevel    = declspec fun_body
+//'             | declspec decllist
 fn parse_toplevel(it: &mut Tokenizer) -> Expected<Vec<TopLevel>> {
   let ty = parse_declspec(it)?;
   if let Some(fun_def) = try_parse(it, |it| parse_fun_body(it, ty.clone())) {
@@ -226,7 +226,7 @@ fn parse_toplevel(it: &mut Tokenizer) -> Expected<Vec<TopLevel>> {
   }
 }
 
-// fun_body    = declarator "{" compound_stmt
+//' fun_body    = declarator "{" compound_stmt
 fn parse_fun_body(it: &mut Tokenizer, ty: Type) -> Expected<TopLevel> {
   let (ty, name) = parse_declarator(it, ty)?;
   if let Type::FunTy(ret_ty, param_tys, param_names) = ty {
@@ -244,7 +244,7 @@ fn parse_fun_body(it: &mut Tokenizer, ty: Type) -> Expected<TopLevel> {
   }
 }
 
-// decllist    = (declitem ("," declitem)*)? ";"
+//' decllist    = (declitem ("," declitem)*)? ";"
 fn parse_decllist(it: &mut Tokenizer, ty: Type) -> Expected<Vec<(Type, String, Option<AST>)>> {
   let mut decls = Vec::new();
   if !consume(it, ";")? {
@@ -257,7 +257,7 @@ fn parse_decllist(it: &mut Tokenizer, ty: Type) -> Expected<Vec<(Type, String, O
   Ok(decls)
 }
 
-// declitem    = declarator ("=" expr)?
+//' declitem    = declarator ("=" expr)?
 fn parse_declitem(it: &mut Tokenizer, ty: Type) -> Expected<(Type, String, Option<AST>)> {
   let (ty, name) = parse_declarator(it, ty)?;
   if let Type::FunTy(..) = ty {
@@ -274,7 +274,7 @@ fn parse_declitem(it: &mut Tokenizer, ty: Type) -> Expected<(Type, String, Optio
   }
 }
 
-// declspec = "char" | "int" | "struct" ident? struct_decl?
+//' declspec = "char" | "int" | "struct" ident? struct_decl?
 fn parse_declspec(it: &mut Tokenizer) -> Expected<Type> {
   if consume_keyword(it, "int")? {
     Ok(Type::Int)
@@ -293,7 +293,7 @@ fn parse_declspec(it: &mut Tokenizer) -> Expected<Type> {
   }
 }
 
-// struct_decl = "{" struct_mem* "}"
+//' struct_decl = "{" struct_mem* "}"
 fn parse_struct_decl(it: &mut Tokenizer) -> Expected<(Vec<Type>, Vec<String>)> {
   expect(it, "{")?;
   let mut mems = Vec::new();
@@ -304,7 +304,7 @@ fn parse_struct_decl(it: &mut Tokenizer) -> Expected<(Vec<Type>, Vec<String>)> {
   Ok(mems.into_iter().unzip())
 }
 
-// struct_mem  = declspec declarator ("," declarator)* ";"
+//' struct_mem  = declspec declarator ("," declarator)* ";"
 fn parse_struct_mem(it: &mut Tokenizer) -> Expected<Vec<(Type, String)>> {
   let ty = parse_declspec(it)?;
   let mut mem = Vec::new();
@@ -316,7 +316,7 @@ fn parse_struct_mem(it: &mut Tokenizer) -> Expected<Vec<(Type, String)>> {
   Ok(mem)
 }
 
-// declarator  = "*"* ident type_suffix
+//' declarator  = "*"* ident type_suffix
 fn parse_declarator(it: &mut Tokenizer, mut ty: Type) -> Expected<(Type, String)> {
   while consume(it, "*")? {
     ty = Type::Pointer(Box::new(ty));
@@ -326,9 +326,9 @@ fn parse_declarator(it: &mut Tokenizer, mut ty: Type) -> Expected<(Type, String)
   Ok((ty, name))
 }
 
-// type_suffix = "[" num "]"
-//             | "(" fun_params
-//             | ε
+//' type_suffix = "[" num "]"
+//'             | "(" fun_params
+//'             | ε
 fn parse_type_suffix(it: &mut Tokenizer, ty: Type) -> Expected<Type> {
   if consume(it, "[")? {
     let n = expect_num(it)?;
@@ -344,7 +344,7 @@ fn parse_type_suffix(it: &mut Tokenizer, ty: Type) -> Expected<Type> {
   }
 }
 
-// fun_params  = param (("," param)*)? ")"
+//' fun_params  = param (("," param)*)? ")"
 fn parse_fun_params(it: &mut Tokenizer) -> Expected<Vec<(Type, String)>> {
   let mut params = Vec::new();
   if !consume(it, ")")? {
@@ -357,22 +357,22 @@ fn parse_fun_params(it: &mut Tokenizer) -> Expected<Vec<(Type, String)>> {
   Ok(params)
 }
 
-// param       = declspec declarator
+//' param       = declspec declarator
 fn parse_param(it: &mut Tokenizer) -> Expected<(Type, String)> {
   let ty = parse_declspec(it)?;
   parse_declarator(it, ty)
 }
 
-// stmt        = declspec decllist
-//             | "if" "(" expr ")" stmt ("else" stmt)?
-//             | "for" "(" expr? ";" expr? ";" expr? ")" stmt
-//             | "while" "(" expr ")" stmt
-//             | "break" ";"
-//             | "continue" ";"
-//             | "return" expr ";"
-//             | "{" compound_stmt
-//             | ";"
-//             | expr ";"
+//' stmt        = declspec decllist
+//'             | "if" "(" expr ")" stmt ("else" stmt)?
+//'             | "for" "(" expr? ";" expr? ";" expr? ")" stmt
+//'             | "while" "(" expr ")" stmt
+//'             | "break" ";"
+//'             | "continue" ";"
+//'             | "return" expr ";"
+//'             | "{" compound_stmt
+//'             | ";"
+//'             | expr ";"
 fn parse_stmt(it: &mut Tokenizer) -> Expected<Stmt> {
   if let Some(ty) = try_parse(it, parse_declspec) {
     let decllist = parse_decllist(it, ty.clone())?;
@@ -430,7 +430,7 @@ fn parse_stmt(it: &mut Tokenizer) -> Expected<Stmt> {
   }
 }
 
-// compound_stmt = stmt* "}"
+//' compound_stmt = stmt* "}"
 fn parse_compound_stmt(it: &mut Tokenizer) -> Expected<Vec<Stmt>> {
   let mut stmts = Vec::new();
   while !consume(it, "}")? {
@@ -439,12 +439,12 @@ fn parse_compound_stmt(it: &mut Tokenizer) -> Expected<Vec<Stmt>> {
   Ok(stmts)
 }
 
-// expr        = ternary
+//' expr        = ternary
 fn parse_expr(it: &mut Tokenizer) -> Expected<AST> {
   parse_ternary(it)
 }
 
-// ternary     = assign ("?" expr ":" ternary)?
+//' ternary     = assign ("?" expr ":" ternary)?
 fn parse_ternary(it: &mut Tokenizer) -> Expected<AST> {
   let cond = parse_assign(it)?;
   if consume(it, "?")? {
@@ -461,7 +461,7 @@ fn parse_ternary(it: &mut Tokenizer) -> Expected<AST> {
   }
 }
 
-// assign      = equality ("=" assign | "+=" assign | "-=" assign | "*=" assign | "/=" assign)?
+//' assign      = equality ("=" assign | "+=" assign | "-=" assign | "*=" assign | "/=" assign)?
 fn parse_assign(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_equality(it)?;
   if consume(it, "=")? {
@@ -492,7 +492,7 @@ fn parse_assign(it: &mut Tokenizer) -> Expected<AST> {
   }
 }
 
-// equality    = relational ("==" relational | "!=" relational)*
+//' equality    = relational ("==" relational | "!=" relational)*
 fn parse_equality(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_relational(it)?;
   parse_equality_impl(it, n)
@@ -510,7 +510,7 @@ fn parse_equality_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   }
 }
 
-// relational  = add ("<" add | "<=" add | ">" add | ">=" add)*
+//' relational  = add ("<" add | "<=" add | ">" add | ">=" add)*
 fn parse_relational(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_add(it)?;
   parse_relational_impl(it, n)
@@ -534,7 +534,7 @@ fn parse_relational_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   }
 }
 
-// add         = mul ("+" mul | "-" mul)*
+//' add         = mul ("+" mul | "-" mul)*
 fn parse_add(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_mul(it)?;
   parse_add_impl(it, n)
@@ -552,7 +552,7 @@ fn parse_add_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   }
 }
 
-// mul         = unary ("*" unary | "/" unary)*
+//' mul         = unary ("*" unary | "/" unary)*
 fn parse_mul(it: &mut Tokenizer) -> Expected<AST> {
   let n = parse_unary(it)?;
   parse_mul_impl(it, n)
@@ -570,9 +570,9 @@ fn parse_mul_impl(it: &mut Tokenizer, n: AST) -> Expected<AST> {
   }
 }
 
-// unary       = ("+" | "-" | "&" | "*" | "++" | "--") unary
-//             | cast
-//             | postfix
+//' unary       = ("+" | "-" | "&" | "*" | "++" | "--") unary
+//'             | cast
+//'             | postfix
 fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
   if consume(it, "+")? {
     parse_unary(it)
@@ -605,7 +605,7 @@ fn parse_unary(it: &mut Tokenizer) -> Expected<AST> {
   }
 }
 
-// cast        = "(" declspec ")" unary
+//' cast        = "(" declspec ")" unary
 fn parse_cast(it: &mut Tokenizer) -> Expected<AST> {
   expect(it, "(")?;
   let ty = parse_declspec(it)?;
@@ -614,7 +614,7 @@ fn parse_cast(it: &mut Tokenizer) -> Expected<AST> {
   Ok(AST::Cast(ty, Box::new(n)))
 }
 
-// postfix     = primary ("[" expr "]" | "++" | "--" | "." ident)*
+//' postfix     = primary ("[" expr "]" | "++" | "--" | "." ident)*
 fn parse_postfix(it: &mut Tokenizer) -> Expected<AST> {
   let mut n = parse_primary(it)?;
   loop {
@@ -645,12 +645,12 @@ fn parse_postfix(it: &mut Tokenizer) -> Expected<AST> {
   }
 }
 
-// primary     = "(" "{" compound_stmt ")"
-//             | "(" expr ")"
-//             | ident "(" fun_args
-//             | ident
-//             | num
-//             | str
+//' primary     = "(" "{" compound_stmt ")"
+//'             | "(" expr ")"
+//'             | ident "(" fun_args
+//'             | ident
+//'             | num
+//'             | str
 fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
   if consume(it, "(")? {
     if consume(it, "{")? {
@@ -683,7 +683,7 @@ fn parse_primary(it: &mut Tokenizer) -> Expected<AST> {
   }
 }
 
-// fun_args    = (expr ("," expr)*)? ")"
+//' fun_args    = (expr ("," expr)*)? ")"
 fn parse_fun_args(it: &mut Tokenizer) -> Expected<Vec<AST>> {
   let mut args = Vec::new();
   if consume(it, ")")? {

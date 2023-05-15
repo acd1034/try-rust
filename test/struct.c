@@ -39,5 +39,11 @@ int main()
   // ASSERT(2, ({ struct t {char a[2];}; { struct t {char a[4];}; } struct t y; sizeof(y); }));
   ASSERT(3, ({ struct t {int x;}; int t=1; struct t y; y.x=2; t+y.x; }));
 
+  // struct assignment
+  // ASSERT(3, ({ struct {int a,b;} x,y; x.a=3; y=x; y.a; }));
+  ASSERT(7, ({ struct t {int a,b;}; struct t x; x.a=7; struct t y; struct t *z=&y; *z=x; y.a; }));
+  ASSERT(7, ({ struct t {int a,b;}; struct t x; x.a=7; struct t y, *p=&x, *q=&y; *q=*p; y.a; }));
+  // ASSERT(5, ({ struct t {char a, b;} x, y; x.a=(char)5; y=x; y.a; }));
+
   return 0;
 }
