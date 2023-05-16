@@ -3,10 +3,19 @@ use std::collections::HashMap;
 use std::fmt;
 use std::ops;
 
+#[cfg(debug_assertions)]
 #[macro_export]
 macro_rules! err {
   ($x:expr) => {
     Err(concat!($x, " [", file!(), ":", line!(), "]"))
+  };
+}
+
+#[cfg(not(debug_assertions))]
+#[macro_export]
+macro_rules! err {
+  ($x:expr) => {
+    Err($x)
   };
 }
 
