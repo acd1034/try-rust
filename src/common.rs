@@ -1,5 +1,7 @@
+use std::cmp;
 use std::collections::HashMap;
 use std::fmt;
+use std::ops;
 
 #[macro_export]
 macro_rules! err {
@@ -9,6 +11,88 @@ macro_rules! err {
 }
 
 pub type Expected<T> = Result<T, &'static str>;
+
+// ----- StringRef -----
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct StringRef<'a> {
+  base: &'a str,
+  start: usize,
+  end: usize,
+}
+
+#[allow(dead_code)]
+impl<'a> StringRef<'a> {
+  pub fn new(base: &'a str) -> StringRef<'a> {
+    StringRef {
+      base,
+      start: 0,
+      end: base.len(),
+    }
+  }
+
+  pub fn as_str(&self) -> &'a str {
+    &self.base[self.start..self.end]
+  }
+
+  pub fn substr<Idx: SubStr<StringRef<'a>>>(&self, index: Idx) -> StringRef<'a> {
+    index.substr(self)
+  }
+}
+
+pub trait SubStr<Str>
+where
+  Str: ?Sized,
+{
+  fn substr(&self, s: &Str) -> Str;
+}
+
+impl<'a> SubStr<StringRef<'a>> for ops::Range<usize> {
+  fn substr(&self, s: &StringRef<'a>) -> StringRef<'a> {
+    StringRef {
+      base: s.base,
+      start: s.start + self.start,
+      end: cmp::min(s.start + self.end, s.end),
+    }
+  }
+}
+
+impl<'a> SubStr<StringRef<'a>> for ops::RangeFrom<usize> {
+  fn substr(&self, s: &StringRef<'a>) -> StringRef<'a> {
+    StringRef {
+      base: s.base,
+      start: s.start + self.start,
+      end: s.end,
+    }
+  }
+}
+
+impl<'a> SubStr<StringRef<'a>> for ops::RangeTo<usize> {
+  fn substr(&self, s: &StringRef<'a>) -> StringRef<'a> {
+    StringRef {
+      base: s.base,
+      start: s.start,
+      end: cmp::min(s.start + self.end, s.end),
+    }
+  }
+}
+
+#[test]
+fn test_string_ref() {
+  let base = "0123456789";
+  {
+    let sr = StringRef::new(base).substr(3..7);
+    assert_eq!(sr.as_str(), "3456");
+  }
+  {
+    let sr = StringRef::new(base).substr(3..);
+    assert_eq!(sr.as_str(), "3456789");
+  }
+  {
+    let sr = StringRef::new(base).substr(..7);
+    assert_eq!(sr.as_str(), "0123456");
+  }
+}
 
 // ----- JoinView -----
 
