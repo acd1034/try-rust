@@ -1,6 +1,7 @@
 use crate::ir::block::*;
 use crate::ir::function::*;
 use crate::ir::inst::*;
+use crate::ir::memory::*;
 
 pub trait BuilderTrait {
   fn function(&self) -> &Function;
@@ -20,6 +21,34 @@ pub trait BuilderTrait {
 
   // ----- build -----
 
+  fn build_eq(&mut self, v1: InstId, v2: InstId) -> InstId {
+    let block_id = self.insert_block();
+    self
+      .function_mut()
+      .append_inst(block_id, InstKind::Eq(v1, v2))
+  }
+
+  fn build_ne(&mut self, v1: InstId, v2: InstId) -> InstId {
+    let block_id = self.insert_block();
+    self
+      .function_mut()
+      .append_inst(block_id, InstKind::Ne(v1, v2))
+  }
+
+  fn build_lt(&mut self, v1: InstId, v2: InstId) -> InstId {
+    let block_id = self.insert_block();
+    self
+      .function_mut()
+      .append_inst(block_id, InstKind::Lt(v1, v2))
+  }
+
+  fn build_le(&mut self, v1: InstId, v2: InstId) -> InstId {
+    let block_id = self.insert_block();
+    self
+      .function_mut()
+      .append_inst(block_id, InstKind::Le(v1, v2))
+  }
+
   fn build_add(&mut self, v1: InstId, v2: InstId) -> InstId {
     let block_id = self.insert_block();
     self
@@ -27,10 +56,47 @@ pub trait BuilderTrait {
       .append_inst(block_id, InstKind::Add(v1, v2))
   }
 
+  fn build_sub(&mut self, v1: InstId, v2: InstId) -> InstId {
+    let block_id = self.insert_block();
+    self
+      .function_mut()
+      .append_inst(block_id, InstKind::Sub(v1, v2))
+  }
+
+  fn build_mul(&mut self, v1: InstId, v2: InstId) -> InstId {
+    let block_id = self.insert_block();
+    self
+      .function_mut()
+      .append_inst(block_id, InstKind::Mul(v1, v2))
+  }
+
+  fn build_div(&mut self, v1: InstId, v2: InstId) -> InstId {
+    let block_id = self.insert_block();
+    self
+      .function_mut()
+      .append_inst(block_id, InstKind::Div(v1, v2))
+  }
+
+  fn build_call(&mut self, fun_id: FunctionId, args: Vec<InstId>) -> InstId {
+    let block_id = self.insert_block();
+    self
+      .function_mut()
+      .append_inst(block_id, InstKind::Call(fun_id, args))
+  }
+
   fn build_const(&mut self, n: u64) -> InstId {
     let block_id = self.insert_block();
     self
       .function_mut()
       .append_inst(block_id, InstKind::Const(n))
+  }
+
+  fn build_alloca(&mut self) -> MemoryId {
+    self.function_mut().append_memory()
+  }
+
+  fn build_ret(&mut self, v1: InstId) -> InstId {
+    let block_id = self.insert_block();
+    self.function_mut().append_inst(block_id, InstKind::Ret(v1))
   }
 }

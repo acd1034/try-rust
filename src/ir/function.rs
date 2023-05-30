@@ -110,6 +110,12 @@ impl Function {
       .append_inst(inst_id);
     inst_id
   }
+
+  // ----- memory -----
+
+  pub fn append_memory(&mut self) -> MemoryId {
+    self.memory_arena.alloc(Memory::new())
+  }
 }
 
 pub trait AccessFunction {
