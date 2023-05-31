@@ -4,6 +4,7 @@ use crate::ir::memory::*;
 use crate::ty::Type;
 use id_arena::{Arena, Id};
 
+#[derive(Debug, Clone)]
 pub struct Function {
   name: String,
   ret_ty: Type,
@@ -74,8 +75,7 @@ impl Function {
   // ----- block -----
 
   fn new_block(&mut self) -> BlockId {
-    let block = Block::new();
-    self.block_arena.alloc(block)
+    self.block_arena.alloc(Block::new())
   }
 
   fn block_position(&self, block_id: BlockId) -> usize {
@@ -97,12 +97,21 @@ impl Function {
 
   // ----- inst -----
 
-  fn new_inst(&mut self, kind: InstKind) -> InstId {
-    self.inst_arena.alloc(Inst::new(kind))
+  pub fn append_inst(&mut self, block_id: BlockId, inst: Inst) -> InstId {
+    let inst_id = self.inst_arena.alloc(inst);
+    self
+      .block_arena
+      .get_mut(block_id)
+      .unwrap()
+      .append_inst(inst_id);
+    inst_id
   }
 
-  pub fn append_inst(&mut self, block_id: BlockId, kind: InstKind) -> InstId {
-    let inst_id = self.new_inst(kind);
+  pub fn append_inst_with_id<F>(&mut self, block_id: BlockId, f: F) -> InstId
+  where
+    F: FnOnce(InstId) -> Inst,
+  {
+    let inst_id = self.inst_arena.alloc_with_id(f);
     self
       .block_arena
       .get_mut(block_id)

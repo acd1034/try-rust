@@ -2,21 +2,25 @@ use crate::ir::block::*;
 use crate::ir::builder_trait::*;
 use crate::ir::function::*;
 
-pub struct Builder<'a> {
-  function: &'a mut Function,
+pub struct Builder {
+  function: Function,
   insert_block: Option<BlockId>,
 }
 
-impl<'a> Builder<'a> {
-  pub fn new(function: &'a mut Function) -> Builder<'a> {
+impl Builder {
+  pub fn new(function: Function) -> Builder {
     Builder {
       function,
       insert_block: None,
     }
   }
+
+  pub fn retrieve_function(self) -> Function {
+    self.function
+  }
 }
 
-impl<'a> BuilderTrait for Builder<'a> {
+impl BuilderTrait for Builder {
   fn function(&self) -> &Function {
     &self.function
   }

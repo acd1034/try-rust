@@ -43,4 +43,8 @@ impl Module {
   pub fn add_function(&mut self, fun: Function) -> FunctionId {
     self.functions.alloc(fun)
   }
+
+  pub fn replace_function(&mut self, fun_id: FunctionId, fun: Function) {
+    *self.functions.get_mut(fun_id).unwrap() = fun;
+  }
 }

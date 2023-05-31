@@ -2,6 +2,7 @@ use crate::ir::inst::*;
 use id_arena::Id;
 use std::collections::HashSet;
 
+#[derive(Debug, Clone)]
 pub struct Block {
   insts: Vec<InstId>,
   pred: HashSet<BlockId>,

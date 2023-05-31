@@ -4,24 +4,28 @@ use crate::ir::memory::MemoryId;
 use id_arena::Id;
 use std::collections::HashSet;
 
+#[derive(Debug, Clone)]
 pub enum InstKind {
-  Eq(InstId, InstId),
-  Ne(InstId, InstId),
-  Lt(InstId, InstId),
-  Le(InstId, InstId),
-  Add(InstId, InstId),
-  Sub(InstId, InstId),
-  Mul(InstId, InstId),
-  Div(InstId, InstId),
+  // Value
+  Eq(InstId, InstId, InstId),
+  Ne(InstId, InstId, InstId),
+  Lt(InstId, InstId, InstId),
+  Le(InstId, InstId, InstId),
+  Add(InstId, InstId, InstId),
+  Sub(InstId, InstId, InstId),
+  Mul(InstId, InstId, InstId),
+  Div(InstId, InstId, InstId),
+  Load(InstId, MemoryId),
+  Call(InstId, FunctionId, Vec<InstId>),
+  Const(InstId, u64),
+  // Effect
   Br(InstId, BlockId, BlockId),
   Jmp(BlockId),
   Store(MemoryId, InstId),
-  Load(MemoryId),
-  Call(FunctionId, Vec<InstId>),
-  Const(u64),
   Ret(InstId),
 }
 
+#[derive(Debug, Clone)]
 pub struct Inst {
   kind: InstKind,
   use_: HashSet<InstId>,

@@ -1,6 +1,7 @@
 use id_arena::Id;
 use std::collections::HashSet;
 
+#[derive(Debug, Clone)]
 pub struct Memory {
   store: HashSet<MemoryId>,
   load: HashSet<MemoryId>,
