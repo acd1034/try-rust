@@ -1,10 +1,10 @@
 pub mod c;
 pub mod ll;
-use crate::ir::Mod;
+use crate::ir::module::Module;
 use std::fmt;
 
 pub enum Target {
-  C(Mod),
+  C(Module),
 }
 
 impl fmt::Display for Target {
