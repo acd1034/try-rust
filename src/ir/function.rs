@@ -95,6 +95,11 @@ impl Function {
     block_id
   }
 
+  pub fn remove_basic_block(&mut self, block_id: BlockId) {
+    let index = self.block_position(block_id);
+    self.blocks.remove(index);
+  }
+
   // ----- inst -----
 
   pub fn append_inst(&mut self, block_id: BlockId, inst: Inst) -> InstId {

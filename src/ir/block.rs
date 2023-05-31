@@ -24,9 +24,29 @@ impl Block {
     self.insts.as_slice()
   }
 
+  pub fn pred(&self) -> &HashSet<BlockId> {
+    &self.pred
+  }
+
+  pub fn succ(&self) -> &HashSet<BlockId> {
+    &self.succ
+  }
+
   // ----- inst -----
 
   pub fn append_inst(&mut self, inst_id: InstId) {
     self.insts.push(inst_id);
+  }
+
+  // ----- pred -----
+
+  pub fn append_pred(&mut self, block_id: BlockId) {
+    self.pred.insert(block_id);
+  }
+
+  // ----- succ -----
+
+  pub fn append_succ(&mut self, block_id: BlockId) {
+    self.succ.insert(block_id);
   }
 }

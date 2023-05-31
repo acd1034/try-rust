@@ -1,46 +1,47 @@
 use crate::common::JoinView;
-use crate::ir::*;
+use crate::ir::{function::*, inst::*, module::*};
+use id_arena::Arena;
 use std::fmt;
 
-pub fn codegen(f: &mut fmt::Formatter, module: &Mod) -> fmt::Result {
-  write!(f, "// ModuleName = '{}'", module.name)?;
-  for fun in &module.funs {
-    gen_fun(f, fun, module.funs.as_slice())?;
+pub fn codegen(f: &mut fmt::Formatter, module: &Module) -> fmt::Result {
+  write!(f, "// ModuleName = '{}'", module.name())?;
+  for (_id, fun) in module.functions() {
+    gen_fun(f, fun, module.functions())?;
   }
   Ok(())
 }
 
-fn gen_fun(f: &mut fmt::Formatter, fun: &Fun, funs: &[Fun]) -> fmt::Result {
-  if fun.bbs.is_empty() {
+fn gen_fun(f: &mut fmt::Formatter, fun: &Function, funs: &Arena<Function>) -> fmt::Result {
+  if fun.is_declaration() {
     // Emit function declaration
-    let iter = fun.param_tys.iter().map(|ty| format!("{}", ty));
+    let iter = fun.param_tys().iter().map(|ty| format!("{}", ty));
     let param_tys = JoinView::new(iter, ", ");
-    write!(f, "\n\n{} {}({});", fun.ret_ty, fun.name, param_tys)
+    write!(f, "\n\n{} {}({});", fun.ret_ty(), fun.name(), param_tys)
   } else {
     // Emit function return type, name and parameters
     let iter = fun
-      .param_tys
+      .param_tys()
       .iter()
       .enumerate()
       .map(|(i, ty)| format!("{} a{}", ty, i));
     let param_tys = JoinView::new(iter, ", ");
-    write!(f, "\n\n{} {}({}) {{", fun.ret_ty, fun.name, param_tys)?;
+    write!(f, "\n\n{} {}({}) {{", fun.ret_ty(), fun.name(), param_tys)?;
 
     // Allocate memory
-    if !fun.mem_arena.is_empty() {
-      write!(f, "\n  int m[{}];", fun.mem_arena.len())?;
+    if fun.memory_arena().len() != 0 {
+      write!(f, "\n  int m[{}];", fun.memory_arena().len())?;
     }
 
     // Store function parameters to memory
-    for i in 0..fun.param_tys.len() {
+    for i in 0..fun.param_tys().len() {
       write!(f, "\n  m[{i}] = a{i};")?;
     }
 
     // Emit function body
-    for &bb in &fun.bbs {
-      write!(f, "\nbb{}:;", bb)?;
-      for &inst in &fun.bb_arena[bb].insts {
-        gen_inst(f, &fun.inst_arena[inst], funs)?;
+    for &block_id in fun.blocks() {
+      write!(f, "\nblock{}:;", block_id.index())?;
+      for &inst_id in fun.get(block_id).insts() {
+        gen_inst(f, fun.get(inst_id), funs)?;
       }
     }
 
@@ -48,24 +49,85 @@ fn gen_fun(f: &mut fmt::Formatter, fun: &Fun, funs: &[Fun]) -> fmt::Result {
   }
 }
 
-fn gen_inst(f: &mut fmt::Formatter, inst: &Inst, funs: &[Fun]) -> fmt::Result {
-  match inst {
-    Inst::Eq(r0, v1, v2) => write!(f, "\n  int r{} = {} == {};", r0, v1, v2),
-    Inst::Ne(r0, v1, v2) => write!(f, "\n  int r{} = {} != {};", r0, v1, v2),
-    Inst::Lt(r0, v1, v2) => write!(f, "\n  int r{} = {} < {};", r0, v1, v2),
-    Inst::Le(r0, v1, v2) => write!(f, "\n  int r{} = {} <= {};", r0, v1, v2),
-    Inst::Add(r0, v1, v2) => write!(f, "\n  int r{} = {} + {};", r0, v1, v2),
-    Inst::Sub(r0, v1, v2) => write!(f, "\n  int r{} = {} - {};", r0, v1, v2),
-    Inst::Mul(r0, v1, v2) => write!(f, "\n  int r{} = {} * {};", r0, v1, v2),
-    Inst::Div(r0, v1, v2) => write!(f, "\n  int r{} = {} / {};", r0, v1, v2),
-    Inst::Br(v1, bb1, bb2) => write!(f, "\n  if ({}) goto bb{}; else goto bb{};", v1, bb1, bb2),
-    Inst::Jmp(bb1) => write!(f, "\n  goto bb{};", bb1),
-    Inst::Store(m1, v2) => write!(f, "\n  m[{}] = {};", m1, v2),
-    Inst::Load(r0, m1) => write!(f, "\n  int r{} = m[{}];", r0, m1),
-    Inst::Call(r0, fun, args) => {
-      let args = JoinView::new(args.iter(), ", ");
-      write!(f, "\n  int r{} = {}({});", r0, funs[*fun].name, args)
+fn gen_inst(f: &mut fmt::Formatter, inst: &Inst, funs: &Arena<Function>) -> fmt::Result {
+  match inst.kind() {
+    InstKind::Eq(v0, v1, v2) => write!(
+      f,
+      "\n  int r{} = r{} == r{};",
+      v0.index(),
+      v1.index(),
+      v2.index()
+    ),
+    InstKind::Ne(v0, v1, v2) => write!(
+      f,
+      "\n  int r{} = r{} != r{};",
+      v0.index(),
+      v1.index(),
+      v2.index()
+    ),
+    InstKind::Lt(v0, v1, v2) => write!(
+      f,
+      "\n  int r{} = r{} < r{};",
+      v0.index(),
+      v1.index(),
+      v2.index()
+    ),
+    InstKind::Le(v0, v1, v2) => write!(
+      f,
+      "\n  int r{} = r{} <= r{};",
+      v0.index(),
+      v1.index(),
+      v2.index()
+    ),
+    InstKind::Add(v0, v1, v2) => write!(
+      f,
+      "\n  int r{} = r{} + r{};",
+      v0.index(),
+      v1.index(),
+      v2.index()
+    ),
+    InstKind::Sub(v0, v1, v2) => write!(
+      f,
+      "\n  int r{} = r{} - r{};",
+      v0.index(),
+      v1.index(),
+      v2.index()
+    ),
+    InstKind::Mul(v0, v1, v2) => write!(
+      f,
+      "\n  int r{} = r{} * r{};",
+      v0.index(),
+      v1.index(),
+      v2.index()
+    ),
+    InstKind::Div(v0, v1, v2) => write!(
+      f,
+      "\n  int r{} = r{} / r{};",
+      v0.index(),
+      v1.index(),
+      v2.index()
+    ),
+    InstKind::Load(v0, m1) => write!(f, "\n  int r{} = m[{}];", v0.index(), m1.index()),
+    InstKind::Call(v0, fun, args) => {
+      let args = JoinView::new(args.iter().map(|id| format!("r{}", id.index())), ", ");
+      write!(
+        f,
+        "\n  int r{} = {}({});",
+        v0.index(),
+        funs.get(*fun).unwrap().name(),
+        args
+      )
     }
-    Inst::Ret(v1) => write!(f, "\n  return {};", v1),
+    InstKind::Const(v0, n) => write!(f, "\n  int r{} = {};", v0.index(), n),
+    InstKind::Br(v1, block1, block2) => write!(
+      f,
+      "\n  if (r{}) goto block{}; else goto block{};",
+      v1.index(),
+      block1.index(),
+      block2.index()
+    ),
+    InstKind::Jmp(block1) => write!(f, "\n  goto block{};", block1.index()),
+    InstKind::Store(m1, v2) => write!(f, "\n  m[{}] = r{};", m1.index(), v2.index()),
+    InstKind::Ret(v1) => write!(f, "\n  return r{};", v1.index()),
   }
 }

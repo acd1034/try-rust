@@ -29,7 +29,7 @@ impl BuilderTrait for Builder {
     &mut self.function
   }
 
-  fn insert_block(&self) -> BlockId {
+  fn get_insert_block(&self) -> BlockId {
     self.insert_block.unwrap()
   }
 

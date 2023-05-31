@@ -6,7 +6,7 @@ use crate::ir::memory::*;
 pub trait BuilderTrait {
   fn function(&self) -> &Function;
   fn function_mut(&mut self) -> &mut Function;
-  fn insert_block(&self) -> BlockId;
+  fn get_insert_block(&self) -> BlockId;
   fn position_at_end(&mut self, block_id: BlockId);
 
   // ----- block -----
@@ -19,13 +19,17 @@ pub trait BuilderTrait {
     self.function_mut().insert_basic_block_after(block_id)
   }
 
+  fn remove_basic_block(&mut self, block_id: BlockId) {
+    self.function_mut().remove_basic_block(block_id);
+  }
+
   // ----- value -----
 
   fn build_inst_with_id<F>(&mut self, f: F) -> InstId
   where
     F: FnOnce(InstId) -> Inst,
   {
-    let block_id = self.insert_block();
+    let block_id = self.get_insert_block();
     self.function_mut().append_inst_with_id(block_id, f)
   }
 
@@ -61,6 +65,10 @@ pub trait BuilderTrait {
     self.build_inst_with_id(|v0| Inst::new(InstKind::Div(v0, v1, v2)))
   }
 
+  fn build_load(&mut self, m1: MemoryId) -> InstId {
+    self.build_inst_with_id(|v0| Inst::new(InstKind::Load(v0, m1)))
+  }
+
   fn build_call(&mut self, fun_id: FunctionId, args: Vec<InstId>) -> InstId {
     self.build_inst_with_id(|v0| Inst::new(InstKind::Call(v0, fun_id, args)))
   }
@@ -72,11 +80,31 @@ pub trait BuilderTrait {
   // ----- effect -----
 
   fn build_inst(&mut self, inst: Inst) -> InstId {
-    let block_id = self.insert_block();
+    let block_id = self.get_insert_block();
     self.function_mut().append_inst(block_id, inst)
   }
 
-  fn build_ret(&mut self, v1: InstId) -> InstId {
+  fn build_conditional_branch(&mut self, v1: InstId, block1: BlockId, block2: BlockId) -> InstId {
+    let block0 = self.get_insert_block();
+    self.function_mut().get_mut(block0).append_succ(block1);
+    self.function_mut().get_mut(block0).append_succ(block2);
+    self.function_mut().get_mut(block1).append_pred(block0);
+    self.function_mut().get_mut(block2).append_pred(block0);
+    self.build_inst(Inst::new(InstKind::Br(v1, block1, block2)))
+  }
+
+  fn build_unconditional_branch(&mut self, block1: BlockId) -> InstId {
+    let block0 = self.get_insert_block();
+    self.function_mut().get_mut(block0).append_succ(block1);
+    self.function_mut().get_mut(block1).append_pred(block0);
+    self.build_inst(Inst::new(InstKind::Jmp(block1)))
+  }
+
+  fn build_store(&mut self, m1: MemoryId, v1: InstId) -> InstId {
+    self.build_inst(Inst::new(InstKind::Store(m1, v1)))
+  }
+
+  fn build_return(&mut self, v1: InstId) -> InstId {
     self.build_inst(Inst::new(InstKind::Ret(v1)))
   }
 
