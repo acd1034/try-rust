@@ -2,12 +2,10 @@ use crate::ir::block::*;
 use crate::ir::function::*;
 use crate::ir::inst::*;
 use crate::ir::memory::*;
+use crate::ir::visitor_trait::*;
 
-pub trait BuilderTrait {
-  fn function(&self) -> &Function;
+pub trait BuilderTrait: VisitorTrait {
   fn function_mut(&mut self) -> &mut Function;
-  fn get_insert_block(&self) -> BlockId;
-  fn position_at_end(&mut self, block_id: BlockId);
 
   // ----- block -----
 
@@ -29,8 +27,8 @@ pub trait BuilderTrait {
   where
     F: FnOnce(InstId) -> Inst,
   {
-    let block_id = self.get_insert_block();
-    self.function_mut().append_inst_with_id(block_id, f)
+    let (block_id, index) = self.get_insert_index();
+    self.function_mut().insert_inst_with_id(block_id, index, f)
   }
 
   fn build_eq(&mut self, v1: InstId, v2: InstId) -> InstId {
@@ -80,12 +78,12 @@ pub trait BuilderTrait {
   // ----- effect -----
 
   fn build_inst(&mut self, inst: Inst) -> InstId {
-    let block_id = self.get_insert_block();
-    self.function_mut().append_inst(block_id, inst)
+    let (block_id, index) = self.get_insert_index();
+    self.function_mut().insert_inst(block_id, index, inst)
   }
 
   fn build_conditional_branch(&mut self, v1: InstId, block1: BlockId, block2: BlockId) -> InstId {
-    let block0 = self.get_insert_block();
+    let block0 = self.get_insert_block().unwrap();
     self.function_mut().get_mut(block0).append_succ(block1);
     self.function_mut().get_mut(block0).append_succ(block2);
     self.function_mut().get_mut(block1).append_pred(block0);
@@ -94,7 +92,7 @@ pub trait BuilderTrait {
   }
 
   fn build_unconditional_branch(&mut self, block1: BlockId) -> InstId {
-    let block0 = self.get_insert_block();
+    let block0 = self.get_insert_block().unwrap();
     self.function_mut().get_mut(block0).append_succ(block1);
     self.function_mut().get_mut(block1).append_pred(block0);
     self.build_inst(Inst::new(InstKind::Jmp(block1)))

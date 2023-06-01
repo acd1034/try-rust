@@ -34,8 +34,12 @@ impl Block {
 
   // ----- inst -----
 
-  pub fn append_inst(&mut self, inst_id: InstId) {
-    self.insts.push(inst_id);
+  pub fn inst_position(&self, inst_id: InstId) -> usize {
+    self.insts.iter().position(|&x| x == inst_id).unwrap()
+  }
+
+  pub fn insert_inst(&mut self, index: usize, inst_id: InstId) {
+    self.insts.insert(index, inst_id);
   }
 
   // ----- pred -----

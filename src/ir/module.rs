@@ -26,9 +26,9 @@ impl Module {
     self.functions.get(fun_id).unwrap()
   }
 
-  pub fn functions_get_mut(&mut self, fun_id: FunctionId) -> &mut Function {
-    self.functions.get_mut(fun_id).unwrap()
-  }
+  // pub fn functions_get_mut(&mut self, fun_id: FunctionId) -> &mut Function {
+  //   self.functions.get_mut(fun_id).unwrap()
+  // }
 
   // ----- function -----
 

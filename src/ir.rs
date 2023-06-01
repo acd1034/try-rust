@@ -6,3 +6,5 @@ pub mod inst;
 pub mod irdump;
 pub mod memory;
 pub mod module;
+pub mod visitor;
+pub mod visitor_trait;

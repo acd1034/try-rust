@@ -2,6 +2,7 @@ use crate::common::{self, Expected};
 use crate::err;
 use crate::ir::{
   block::*, builder::*, builder_trait::*, function::*, inst::*, memory::*, module::*,
+  visitor_trait::*,
 };
 use crate::parse::{Stmt, TopLevel, AST};
 use crate::ty::Type;
@@ -209,7 +210,7 @@ impl<'a> GenFun<'a> {
     then: Box<Stmt>,
     else_: Option<Box<Stmt>>,
   ) -> Expected<bool> {
-    let current_block = self.builder.get_insert_block();
+    let current_block = self.builder.get_insert_block().unwrap();
     let then_block = self.builder.insert_basic_block_after(current_block);
     let else_block = self.builder.insert_basic_block_after(then_block);
     let merge_block = if else_.is_some() {
@@ -260,7 +261,7 @@ impl<'a> GenFun<'a> {
     inc: Option<AST>,
     body: Stmt,
   ) -> Expected<bool> {
-    let current_block = self.builder.get_insert_block();
+    let current_block = self.builder.get_insert_block().unwrap();
     let cond_block = self.builder.insert_basic_block_after(current_block);
     let body_block = self.builder.insert_basic_block_after(cond_block);
     let inc_block = self.builder.insert_basic_block_after(body_block);

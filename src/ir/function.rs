@@ -78,7 +78,7 @@ impl Function {
     self.block_arena.alloc(Block::new())
   }
 
-  fn block_position(&self, block_id: BlockId) -> usize {
+  pub fn block_position(&self, block_id: BlockId) -> usize {
     self.blocks.iter().position(|&x| x == block_id).unwrap()
   }
 
@@ -102,17 +102,17 @@ impl Function {
 
   // ----- inst -----
 
-  pub fn append_inst(&mut self, block_id: BlockId, inst: Inst) -> InstId {
+  pub fn insert_inst(&mut self, block_id: BlockId, index: usize, inst: Inst) -> InstId {
     let inst_id = self.inst_arena.alloc(inst);
     self
       .block_arena
       .get_mut(block_id)
       .unwrap()
-      .append_inst(inst_id);
+      .insert_inst(index, inst_id);
     inst_id
   }
 
-  pub fn append_inst_with_id<F>(&mut self, block_id: BlockId, f: F) -> InstId
+  pub fn insert_inst_with_id<F>(&mut self, block_id: BlockId, index: usize, f: F) -> InstId
   where
     F: FnOnce(InstId) -> Inst,
   {
@@ -121,7 +121,7 @@ impl Function {
       .block_arena
       .get_mut(block_id)
       .unwrap()
-      .append_inst(inst_id);
+      .insert_inst(index, inst_id);
     inst_id
   }
 
