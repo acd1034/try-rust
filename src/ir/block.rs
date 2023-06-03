@@ -42,8 +42,8 @@ impl Block {
     self.insts.insert(index, inst_id);
   }
 
-  pub fn remove_inst(&mut self, index: usize) {
-    self.insts.remove(index);
+  pub fn remove_inst(&mut self, index: usize) -> InstId {
+    self.insts.remove(index)
   }
 
   // ----- pred -----

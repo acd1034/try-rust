@@ -33,7 +33,39 @@ pub trait BuilderTrait: VisitorTrait {
 
   fn remove_inst(&mut self) {
     let (block_id, index) = self.get_insert_index();
-    self.function_mut().remove_inst(block_id, index);
+    let inst_id = self.function_mut().remove_inst(block_id, index);
+    assert!(self.function().get(inst_id).use_().is_empty());
+    let kind = self.function().get(inst_id).kind().clone();
+
+    use InstKind::*;
+    match kind {
+      Eq(v1, v2)
+      | Ne(v1, v2)
+      | Lt(v1, v2)
+      | Le(v1, v2)
+      | Add(v1, v2)
+      | Sub(v1, v2)
+      | Mul(v1, v2)
+      | Div(v1, v2) => {
+        self.function_mut().get_mut(v1).remove_use(inst_id);
+        self.function_mut().get_mut(v2).remove_use(inst_id);
+      }
+      Load(m1) => self.function_mut().get_mut(m1).remove_load(inst_id),
+      Call(_, args) => {
+        for arg in args {
+          self.function_mut().get_mut(arg).remove_use(inst_id);
+        }
+      }
+      Const(_) => (),
+      Br(v1, _, _) => self.function_mut().get_mut(v1).remove_use(inst_id),
+      Jmp(_) => (),
+      Store(m1, v1) => {
+        self.function_mut().get_mut(m1).remove_store(inst_id);
+        self.function_mut().get_mut(v1).remove_use(inst_id);
+      }
+      Ret(v1) => self.function_mut().get_mut(v1).remove_use(inst_id),
+    }
+
     self.position_at_index(block_id, index);
   }
 

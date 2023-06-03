@@ -18,11 +18,23 @@ impl Memory {
     }
   }
 
+  // ----- store -----
+
   pub fn append_store(&mut self, inst_id: InstId) {
     self.store.insert(inst_id);
   }
 
+  pub fn remove_store(&mut self, inst_id: InstId) {
+    self.store.remove(&inst_id);
+  }
+
+  // ----- load -----
+
   pub fn append_load(&mut self, inst_id: InstId) {
     self.load.insert(inst_id);
+  }
+
+  pub fn remove_load(&mut self, inst_id: InstId) {
+    self.load.remove(&inst_id);
   }
 }

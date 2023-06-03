@@ -60,6 +60,10 @@ impl Inst {
   pub fn append_use(&mut self, inst_id: InstId) {
     self.use_.insert(inst_id);
   }
+
+  pub fn remove_use(&mut self, inst_id: InstId) {
+    self.use_.remove(&inst_id);
+  }
 }
 
 // ----- inst predicates -----
