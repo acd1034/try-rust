@@ -50,4 +50,14 @@ impl Inst {
   pub fn id(&self) -> InstId {
     self.id
   }
+
+  pub fn use_(&self) -> &HashSet<InstId> {
+    &self.use_
+  }
+
+  // ----- use -----
+
+  pub fn append_use(&mut self, inst_id: InstId) {
+    self.use_.insert(inst_id);
+  }
 }
