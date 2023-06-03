@@ -2,7 +2,7 @@ use crate::ir::block::BlockId;
 use crate::ir::function::FunctionId;
 use crate::ir::memory::MemoryId;
 use id_arena::Id;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
 pub enum InstKind {
@@ -59,5 +59,28 @@ impl Inst {
 
   pub fn append_use(&mut self, inst_id: InstId) {
     self.use_.insert(inst_id);
+  }
+}
+
+// ----- inst predicates -----
+
+pub fn has_side_effect(inst: &Inst) -> bool {
+  use InstKind::*;
+  matches!(inst.kind(), Br(..) | Jmp(..) | Store(..) | Ret(..))
+}
+
+pub fn is_dead(inst: &Inst, deadness: &mut HashMap<InstId, bool>) -> bool {
+  if let Some(&dead) = deadness.get(&inst.id()) {
+    dead
+  } else if has_side_effect(inst) {
+    deadness.insert(inst.id(), false);
+    false
+  } else {
+    let dead = inst
+      .use_()
+      .iter()
+      .all(|user| deadness.get(user).copied().unwrap_or(true));
+    deadness.insert(inst.id(), dead);
+    dead
   }
 }

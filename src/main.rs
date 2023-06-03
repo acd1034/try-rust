@@ -75,6 +75,7 @@ fn main() -> Expected<()> {
     module.to_string()
   } else {
     let module = irgen::IRGen::new("mod".to_string()).irgen(toplevels)?;
+    let module = pass::DeadCodeElimination::new(module).run();
     format!("{}", codegen::Target::C(module))
   };
 
