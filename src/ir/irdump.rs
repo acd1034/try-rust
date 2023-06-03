@@ -123,7 +123,7 @@ impl<'a, 'b> DumpIr<'a, 'b> {
           self.f,
           "\n  r{} = call {}({});",
           inst.id().index(),
-          self.module.functions_get(*fun_id).name(),
+          self.module.get_function(*fun_id).name(),
           args
         )
       }

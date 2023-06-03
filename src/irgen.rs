@@ -37,7 +37,7 @@ impl IRGen {
       TopLevel::FunDef(ret_ty, name, param_tys, param_names, body) => {
         // Check consistency with forward declaration
         let fun_id = self.gen_fun_decl(ret_ty, name, param_tys)?;
-        let new_fun = self.module.functions_get(fun_id).clone();
+        let new_fun = self.module.get_function(fun_id).clone();
         let new_fun = GenFun::new(&mut self.module, new_fun).gen_fun(param_names, body)?;
         self.module.replace_function(fun_id, new_fun);
         Ok(())
@@ -53,9 +53,9 @@ impl IRGen {
     name: String,
     param_tys: Vec<Type>,
   ) -> Expected<FunctionId> {
-    if let Some(fun_id) = self.module.get_function(&name) {
-      let previous_ret_ty = self.module.functions_get(fun_id).ret_ty();
-      let previous_param_tys = self.module.functions_get(fun_id).param_tys();
+    if let Some(fun_id) = self.module.get_function_by_name(&name) {
+      let previous_ret_ty = self.module.get_function(fun_id).ret_ty();
+      let previous_param_tys = self.module.get_function(fun_id).param_tys();
       if &ret_ty == previous_ret_ty && &param_tys == previous_param_tys {
         Ok(fun_id)
       } else {
@@ -366,7 +366,7 @@ impl<'a> GenFun<'a> {
         Ok(v0)
       }
       AST::Call(name, args) => {
-        if let Some(fun) = self.module.get_function(&name) {
+        if let Some(fun) = self.module.get_function_by_name(&name) {
           let args = args
             .into_iter()
             .map(|expr| self.gen_expr(expr))

@@ -22,17 +22,21 @@ impl Module {
     &self.functions
   }
 
-  pub fn functions_get(&self, fun_id: FunctionId) -> &Function {
+  pub fn get_function(&self, fun_id: FunctionId) -> &Function {
     self.functions.get(fun_id).unwrap()
   }
 
-  // pub fn functions_get_mut(&mut self, fun_id: FunctionId) -> &mut Function {
+  // pub fn get_function_mut(&mut self, fun_id: FunctionId) -> &mut Function {
   //   self.functions.get_mut(fun_id).unwrap()
   // }
 
+  pub fn function_ids(&self) -> Vec<FunctionId> {
+    self.functions.iter().map(|(id, _fun)| id).collect()
+  }
+
   // ----- function -----
 
-  pub fn get_function(&self, name: &str) -> Option<FunctionId> {
+  pub fn get_function_by_name(&self, name: &str) -> Option<FunctionId> {
     self
       .functions
       .iter()

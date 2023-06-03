@@ -52,13 +52,13 @@ impl Function {
     self.blocks.as_slice()
   }
 
-  pub fn block_arena(&self) -> &Arena<Block> {
-    &self.block_arena
-  }
+  // pub fn block_arena(&self) -> &Arena<Block> {
+  //   &self.block_arena
+  // }
 
-  pub fn inst_arena(&self) -> &Arena<Inst> {
-    &self.inst_arena
-  }
+  // pub fn inst_arena(&self) -> &Arena<Inst> {
+  //   &self.inst_arena
+  // }
 
   pub fn memory_arena(&self) -> &Arena<Memory> {
     &self.memory_arena
@@ -78,8 +78,8 @@ impl Function {
     self.block_arena.alloc(Block::new())
   }
 
-  pub fn block_position(&self, block_id: BlockId) -> usize {
-    self.blocks.iter().position(|&x| x == block_id).unwrap()
+  pub fn block_position(&self, block_id: BlockId) -> Option<usize> {
+    self.blocks.iter().position(|&x| x == block_id)
   }
 
   pub fn append_basic_block(&mut self) -> BlockId {
@@ -89,14 +89,14 @@ impl Function {
   }
 
   pub fn insert_basic_block_after(&mut self, block_id: BlockId) -> BlockId {
-    let index = self.block_position(block_id);
+    let index = self.block_position(block_id).unwrap();
     let block_id = self.new_block();
     self.blocks.insert(index + 1, block_id);
     block_id
   }
 
   pub fn remove_basic_block(&mut self, block_id: BlockId) {
-    let index = self.block_position(block_id);
+    let index = self.block_position(block_id).unwrap();
     self.blocks.remove(index);
   }
 

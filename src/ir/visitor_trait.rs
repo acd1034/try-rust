@@ -22,7 +22,11 @@ pub trait VisitorTrait {
   fn get_insert_index(&self) -> (BlockId, usize) {
     let block_id = self.get_insert_block().unwrap();
     let index = match self.get_insert_point() {
-      InsertPoint::At(inst_id) => self.function().get(block_id).inst_position(inst_id),
+      InsertPoint::At(inst_id) => self
+        .function()
+        .get(block_id)
+        .inst_position(inst_id)
+        .unwrap(),
       InsertPoint::After => self.function().get(block_id).insts().len(),
       _ => panic!("invalid insert point"),
     };
@@ -36,7 +40,7 @@ pub trait VisitorTrait {
 
   fn next_block(&mut self) -> Option<BlockId> {
     let next_block = if let Some(block_id) = self.get_insert_block() {
-      let pos = self.function().block_position(block_id);
+      let pos = self.function().block_position(block_id).unwrap();
       self.function().blocks().get(pos + 1).copied()
     } else {
       self.function().blocks().first().copied()
@@ -53,7 +57,7 @@ pub trait VisitorTrait {
 
   fn prev_block(&mut self) -> Option<BlockId> {
     let prev_block = if let Some(block_id) = self.get_insert_block() {
-      let pos = self.function().block_position(block_id);
+      let pos = self.function().block_position(block_id).unwrap();
       if pos == 0 {
         None
       } else {
@@ -86,7 +90,11 @@ pub trait VisitorTrait {
         }
       }
       InsertPoint::At(inst_id) => {
-        let index = self.function().get(block_id).inst_position(inst_id);
+        let index = self
+          .function()
+          .get(block_id)
+          .inst_position(inst_id)
+          .unwrap();
         if index + 1 == self.function().get(block_id).insts().len() {
           self.position_at_end(block_id);
           None
@@ -114,7 +122,11 @@ pub trait VisitorTrait {
         }
       }
       InsertPoint::At(inst_id) => {
-        let index = self.function().get(block_id).inst_position(inst_id);
+        let index = self
+          .function()
+          .get(block_id)
+          .inst_position(inst_id)
+          .unwrap();
         if index == 0 {
           self.position_before(block_id);
           None

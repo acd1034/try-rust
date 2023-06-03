@@ -22,16 +22,19 @@ impl<'a> OpCountPrinter<'a> {
   }
 
   fn run_on_function(&self, fun: &Function) {
-    let mut count = 0;
-    let mut vis = Visitor::new(fun);
-    while let Some(..) = vis.next_block() {
-      while let Some(..) = vis.next_inst() {
-        count += 1;
-      }
-    }
-    eprintln!("Name of function: {}", vis.function().name());
-    eprintln!("# of ops: {}", count);
+    let count = count_ops(fun);
+    eprintln!("Name of function: {}", fun.name());
+    eprintln!("  # of ops: {}", count);
   }
+}
+
+fn count_ops(fun: &Function) -> usize {
+  let mut count = 0;
+  let mut vis = Visitor::new(fun);
+  while let Some(block_id) = vis.next_block() {
+    count += vis.function().get(block_id).insts().len();
+  }
+  count
 }
 
 // ----- DeadCodeElimination -----
@@ -40,21 +43,15 @@ pub struct DeadCodeElimination {
   module: Module,
 }
 
-#[allow(dead_code)]
 impl DeadCodeElimination {
   pub fn new(module: Module) -> DeadCodeElimination {
     DeadCodeElimination { module }
   }
 
   pub fn run(mut self) -> Module {
-    let fun_ids: Vec<_> = self
-      .module
-      .functions()
-      .iter()
-      .map(|(id, _fun)| id)
-      .collect();
+    let fun_ids = self.module.function_ids();
     for fun_id in fun_ids {
-      let fun = self.run_on_function(self.module.functions_get(fun_id).clone());
+      let fun = self.run_on_function(self.module.get_function(fun_id).clone());
       self.module.replace_function(fun_id, fun);
     }
     self.module
@@ -72,4 +69,28 @@ impl DeadCodeElimination {
     }
     builder.retrieve_function()
   }
+}
+
+#[test]
+fn test_dead_code_elimination() {
+  use crate::irgen::IRGen;
+  use crate::parse::parse;
+  use crate::tokenize::Tokenizer;
+
+  let input = r"
+int main() {
+  int x=0;
+  x+1+2+3;
+  return x;
+}
+  ";
+  let it = Tokenizer::new(input);
+  let funs = parse(it).unwrap();
+  let module = IRGen::new("mod".to_string()).irgen(funs).unwrap();
+
+  let fun_id = module.get_function_by_name("main").unwrap();
+  let before = count_ops(module.get_function(fun_id));
+  let module = DeadCodeElimination::new(module).run();
+  let after = count_ops(module.get_function(fun_id));
+  assert!(after < before);
 }

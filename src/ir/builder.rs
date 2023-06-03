@@ -68,7 +68,6 @@ impl BuilderTrait for Builder {
 fn test_ir_builder() {
   use crate::ir::function;
   use crate::ir::inst;
-  use crate::ir::module;
   use crate::ty::Type;
 
   let fun = function::Function::new("fun".to_string(), Type::Int, Vec::new());
@@ -83,10 +82,6 @@ fn test_ir_builder() {
   assert!(matches!(fun.get(v1).kind(), inst::InstKind::Const(..)));
   assert!(matches!(fun.get(v2).kind(), inst::InstKind::Const(..)));
   assert!(matches!(fun.get(v3).kind(), inst::InstKind::Add(..)));
-
-  // let mut module = module::Module::new("module".to_string());
-  // module.add_function(fun);
-  // eprintln!("{}", module);
 }
 
 #[test]
@@ -118,9 +113,13 @@ fn test_ir_visitor() {
 
   builder.clear_position();
   while let Some(block_id) = builder.next_block() {
-    let block = builder.function().block_position(block_id);
+    let block = builder.function().block_position(block_id).unwrap();
     while let Some(inst_id) = builder.next_inst() {
-      let inst = builder.function().get(block_id).inst_position(inst_id);
+      let inst = builder
+        .function()
+        .get(block_id)
+        .inst_position(inst_id)
+        .unwrap();
       visited[block][inst] = true;
     }
   }
@@ -141,9 +140,13 @@ fn test_ir_visitor() {
 
   builder.clear_position();
   while let Some(block_id) = builder.prev_block() {
-    let block = builder.function().block_position(block_id);
+    let block = builder.function().block_position(block_id).unwrap();
     while let Some(inst_id) = builder.prev_inst() {
-      let inst = builder.function().get(block_id).inst_position(inst_id);
+      let inst = builder
+        .function()
+        .get(block_id)
+        .inst_position(inst_id)
+        .unwrap();
       visited[block][inst] = true;
     }
   }
