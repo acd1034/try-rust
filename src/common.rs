@@ -23,7 +23,7 @@ pub type Expected<T> = Result<T, &'static str>;
 
 // ----- StringRef -----
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct StringRef<'a> {
   base: &'a str,
   start: usize,

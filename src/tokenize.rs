@@ -1,6 +1,6 @@
 use crate::{common::Expected, err};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Token<'a> {
   Eof,
   Keyword(&'a str),

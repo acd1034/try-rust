@@ -21,7 +21,7 @@ pub trait BuilderTrait: VisitorTrait {
     self.function_mut().remove_basic_block(block_id);
   }
 
-  // ----- value -----
+  // ----- inst -----
 
   fn build_inst_with_id<F>(&mut self, f: F) -> InstId
   where
@@ -30,6 +30,18 @@ pub trait BuilderTrait: VisitorTrait {
     let (block_id, index) = self.get_insert_index();
     self.function_mut().insert_inst_with_id(block_id, index, f)
   }
+
+  fn build_inst(&mut self, inst: Inst) -> InstId {
+    let (block_id, index) = self.get_insert_index();
+    self.function_mut().insert_inst(block_id, index, inst)
+  }
+
+  fn remove_inst(&mut self) {
+    let (block_id, index) = self.get_insert_index();
+    self.function_mut().remove_inst(block_id, index)
+  }
+
+  // ----- inst -> value -----
 
   fn build_eq(&mut self, v1: InstId, v2: InstId) -> InstId {
     self.build_inst_with_id(|v0| Inst::new(InstKind::Eq(v0, v1, v2)))
@@ -75,12 +87,7 @@ pub trait BuilderTrait: VisitorTrait {
     self.build_inst_with_id(|v0| Inst::new(InstKind::Const(v0, n)))
   }
 
-  // ----- effect -----
-
-  fn build_inst(&mut self, inst: Inst) -> InstId {
-    let (block_id, index) = self.get_insert_index();
-    self.function_mut().insert_inst(block_id, index, inst)
-  }
+  // ----- inst -> effect -----
 
   fn build_conditional_branch(&mut self, v1: InstId, block1: BlockId, block2: BlockId) -> InstId {
     let block0 = self.get_insert_block().unwrap();

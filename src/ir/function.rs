@@ -125,6 +125,14 @@ impl Function {
     inst_id
   }
 
+  pub fn remove_inst(&mut self, block_id: BlockId, index: usize) {
+    self
+      .block_arena
+      .get_mut(block_id)
+      .unwrap()
+      .remove_inst(index);
+  }
+
   // ----- memory -----
 
   pub fn append_memory(&mut self) -> MemoryId {
