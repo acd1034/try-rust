@@ -60,74 +60,74 @@ impl<'a, 'b> DumpIr<'a, 'b> {
 
   fn run_on_inst(&mut self, inst: &Inst) -> fmt::Result {
     match inst.kind() {
-      InstKind::Eq(v0, v1, v2) => write!(
+      InstKind::Eq(v1, v2) => write!(
         self.f,
         "\n  r{} = eq r{}, r{}",
-        v0.index(),
+        inst.id().index(),
         v1.index(),
         v2.index()
       ),
-      InstKind::Ne(v0, v1, v2) => write!(
+      InstKind::Ne(v1, v2) => write!(
         self.f,
         "\n  r{} = ne r{}, r{}",
-        v0.index(),
+        inst.id().index(),
         v1.index(),
         v2.index()
       ),
-      InstKind::Lt(v0, v1, v2) => write!(
+      InstKind::Lt(v1, v2) => write!(
         self.f,
         "\n  r{} = lt r{}, r{}",
-        v0.index(),
+        inst.id().index(),
         v1.index(),
         v2.index()
       ),
-      InstKind::Le(v0, v1, v2) => write!(
+      InstKind::Le(v1, v2) => write!(
         self.f,
         "\n  r{} = le r{}, r{}",
-        v0.index(),
+        inst.id().index(),
         v1.index(),
         v2.index()
       ),
-      InstKind::Add(v0, v1, v2) => write!(
+      InstKind::Add(v1, v2) => write!(
         self.f,
         "\n  r{} = add r{}, r{}",
-        v0.index(),
+        inst.id().index(),
         v1.index(),
         v2.index()
       ),
-      InstKind::Sub(v0, v1, v2) => write!(
+      InstKind::Sub(v1, v2) => write!(
         self.f,
         "\n  r{} = sub r{}, r{}",
-        v0.index(),
+        inst.id().index(),
         v1.index(),
         v2.index()
       ),
-      InstKind::Mul(v0, v1, v2) => write!(
+      InstKind::Mul(v1, v2) => write!(
         self.f,
         "\n  r{} = mul r{}, r{}",
-        v0.index(),
+        inst.id().index(),
         v1.index(),
         v2.index()
       ),
-      InstKind::Div(v0, v1, v2) => write!(
+      InstKind::Div(v1, v2) => write!(
         self.f,
         "\n  r{} = div r{}, r{}",
-        v0.index(),
+        inst.id().index(),
         v1.index(),
         v2.index()
       ),
-      InstKind::Load(v0, m1) => write!(self.f, "\n  r{} = load m{}", v0.index(), m1.index()),
-      InstKind::Call(v0, fun_id, args) => {
+      InstKind::Load(m1) => write!(self.f, "\n  r{} = load m{}", inst.id().index(), m1.index()),
+      InstKind::Call(fun_id, args) => {
         let args = JoinView::new(args.iter().map(|id| format!("r{}", id.index())), ", ");
         write!(
           self.f,
           "\n  r{} = call {}({});",
-          v0.index(),
+          inst.id().index(),
           self.module.functions_get(*fun_id).name(),
           args
         )
       }
-      InstKind::Const(v0, n) => write!(self.f, "\n  r{} = const {}", v0.index(), n),
+      InstKind::Const(n) => write!(self.f, "\n  r{} = const {}", inst.id().index(), n),
       InstKind::Br(v1, block1, block2) => {
         write!(
           self.f,

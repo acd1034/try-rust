@@ -102,16 +102,6 @@ impl Function {
 
   // ----- inst -----
 
-  pub fn insert_inst(&mut self, block_id: BlockId, index: usize, inst: Inst) -> InstId {
-    let inst_id = self.inst_arena.alloc(inst);
-    self
-      .block_arena
-      .get_mut(block_id)
-      .unwrap()
-      .insert_inst(index, inst_id);
-    inst_id
-  }
-
   pub fn insert_inst_with_id<F>(&mut self, block_id: BlockId, index: usize, f: F) -> InstId
   where
     F: FnOnce(InstId) -> Inst,

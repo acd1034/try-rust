@@ -51,74 +51,74 @@ fn gen_fun(f: &mut fmt::Formatter, fun: &Function, funs: &Arena<Function>) -> fm
 
 fn gen_inst(f: &mut fmt::Formatter, inst: &Inst, funs: &Arena<Function>) -> fmt::Result {
   match inst.kind() {
-    InstKind::Eq(v0, v1, v2) => write!(
+    InstKind::Eq(v1, v2) => write!(
       f,
       "\n  int r{} = r{} == r{};",
-      v0.index(),
+      inst.id().index(),
       v1.index(),
       v2.index()
     ),
-    InstKind::Ne(v0, v1, v2) => write!(
+    InstKind::Ne(v1, v2) => write!(
       f,
       "\n  int r{} = r{} != r{};",
-      v0.index(),
+      inst.id().index(),
       v1.index(),
       v2.index()
     ),
-    InstKind::Lt(v0, v1, v2) => write!(
+    InstKind::Lt(v1, v2) => write!(
       f,
       "\n  int r{} = r{} < r{};",
-      v0.index(),
+      inst.id().index(),
       v1.index(),
       v2.index()
     ),
-    InstKind::Le(v0, v1, v2) => write!(
+    InstKind::Le(v1, v2) => write!(
       f,
       "\n  int r{} = r{} <= r{};",
-      v0.index(),
+      inst.id().index(),
       v1.index(),
       v2.index()
     ),
-    InstKind::Add(v0, v1, v2) => write!(
+    InstKind::Add(v1, v2) => write!(
       f,
       "\n  int r{} = r{} + r{};",
-      v0.index(),
+      inst.id().index(),
       v1.index(),
       v2.index()
     ),
-    InstKind::Sub(v0, v1, v2) => write!(
+    InstKind::Sub(v1, v2) => write!(
       f,
       "\n  int r{} = r{} - r{};",
-      v0.index(),
+      inst.id().index(),
       v1.index(),
       v2.index()
     ),
-    InstKind::Mul(v0, v1, v2) => write!(
+    InstKind::Mul(v1, v2) => write!(
       f,
       "\n  int r{} = r{} * r{};",
-      v0.index(),
+      inst.id().index(),
       v1.index(),
       v2.index()
     ),
-    InstKind::Div(v0, v1, v2) => write!(
+    InstKind::Div(v1, v2) => write!(
       f,
       "\n  int r{} = r{} / r{};",
-      v0.index(),
+      inst.id().index(),
       v1.index(),
       v2.index()
     ),
-    InstKind::Load(v0, m1) => write!(f, "\n  int r{} = m[{}];", v0.index(), m1.index()),
-    InstKind::Call(v0, fun, args) => {
+    InstKind::Load(m1) => write!(f, "\n  int r{} = m[{}];", inst.id().index(), m1.index()),
+    InstKind::Call(fun, args) => {
       let args = JoinView::new(args.iter().map(|id| format!("r{}", id.index())), ", ");
       write!(
         f,
         "\n  int r{} = {}({});",
-        v0.index(),
+        inst.id().index(),
         funs.get(*fun).unwrap().name(),
         args
       )
     }
-    InstKind::Const(v0, n) => write!(f, "\n  int r{} = {};", v0.index(), n),
+    InstKind::Const(n) => write!(f, "\n  int r{} = {};", inst.id().index(), n),
     InstKind::Br(v1, block1, block2) => write!(
       f,
       "\n  if (r{}) goto block{}; else goto block{};",
