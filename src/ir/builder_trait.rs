@@ -69,6 +69,15 @@ pub trait BuilderTrait: VisitorTrait {
     self.position_at_index(block_id, index);
   }
 
+  fn replace_all_uses(&mut self, from: InstId, to: InstId) {
+    let uses = self.function().get(from).use_().clone();
+    for user in uses {
+      self.function_mut().get_mut(user).replace_kind(from, to);
+      self.function_mut().get_mut(from).remove_use(user);
+      self.function_mut().get_mut(to).append_use(user);
+    }
+  }
+
   // ----- inst -> value -----
 
   fn build_eq(&mut self, v1: InstId, v2: InstId) -> InstId {

@@ -1,5 +1,7 @@
 pub mod dce;
+pub mod folder;
 pub mod op_counter;
 
-pub use dce::DeadCodeElimination;
-pub use op_counter::{count_ops, OpCountPrinter};
+pub use dce::*;
+pub use folder::*;
+pub use op_counter::*;

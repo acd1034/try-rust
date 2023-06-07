@@ -55,6 +55,10 @@ impl Inst {
     &self.use_
   }
 
+  // ----- kind -----
+
+  pub fn replace_kind(&mut self, from: InstId, to: InstId) {}
+
   // ----- use -----
 
   pub fn append_use(&mut self, inst_id: InstId) {
