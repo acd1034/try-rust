@@ -1,8 +1,5 @@
-mod codegen;
-mod ir;
-mod irgen;
-mod pass;
-use inkwell::context::Context;
+use inkwell;
+use ir1;
 use ll;
 use parser::*;
 use std::fs::File;
@@ -67,13 +64,13 @@ fn main() -> common::Expected<()> {
   let toplevels = parse::parse(it)?;
 
   let body = if target_ll {
-    let context = Context::create();
+    let context = inkwell::context::Context::create();
     let module = ll::CodeGen::new(&context).codegen(toplevels)?;
     module.to_string()
   } else {
-    let module = irgen::IRGen::new("mod".to_string()).irgen(toplevels)?;
-    let module = pass::DeadCodeElimination::new(module).run();
-    format!("{}", codegen::Target::C(module))
+    let module = ir1::irgen::IRGen::new("mod".to_string()).irgen(toplevels)?;
+    let module = ir1::pass::DeadCodeElimination::new(module).run();
+    format!("{}", ir1::codegen::Target::C(module))
   };
 
   write_to_file(&output_path, &body)?;
