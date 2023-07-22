@@ -13,7 +13,7 @@ assert() {
   input="$2"
   echo -en "$ESC[32m$input\n$ESC[m=> "
 
-  echo "$input" | ./target/debug/try-rust -ll -otmp.ll - || exit
+  echo "$input" | ./target/debug/try-rust -ll -o tmp.ll - || exit
   $LLVM_SYS_120_PREFIX/bin/clang -o tmp tmp.ll tmp2.o -Wno-override-module
   ./tmp
   actual="$?"

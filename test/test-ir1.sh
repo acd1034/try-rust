@@ -11,7 +11,7 @@ assert() {
   input="$2"
   echo -en "$ESC[32m$input\n$ESC[m=> "
 
-  echo "$input" | ./target/debug/try-rust -ir1 -otmp.c - || exit
+  echo "$input" | ./target/debug/try-rust -ir1 -o tmp.c - || exit
   clang -o tmp tmp.c tmp2.o
   ./tmp
   actual="$?"

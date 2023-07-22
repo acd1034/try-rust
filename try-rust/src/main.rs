@@ -19,7 +19,7 @@ struct CommandLineOption {
 }
 
 fn show_usage() {
-  eprintln!("try-rust [-ll|-ir1] [-o<path>] <file>")
+  eprintln!("try-rust [-ll|-ir1] [-o <path>] <file>")
 }
 
 fn read_command_line_option() -> common::Expected<CommandLineOption> {
@@ -27,7 +27,8 @@ fn read_command_line_option() -> common::Expected<CommandLineOption> {
   let mut input_path = String::new();
   let mut output_path = String::from("-");
 
-  for arg in std::env::args().skip(1) {
+  let mut it = std::env::args().skip(1);
+  while let Some(arg) = it.next() {
     if arg == "--help" {
       show_usage();
       break;
@@ -35,6 +36,8 @@ fn read_command_line_option() -> common::Expected<CommandLineOption> {
       target = Target::LL;
     } else if arg == "-ir1" {
       target = Target::IR1;
+    } else if arg == "-o" {
+      output_path = it.next().ok_or("missing file name")?.to_string();
     } else if arg.starts_with("-o") {
       output_path = arg[2..].to_string();
     } else if arg.starts_with('-') && arg.len() > 1 {
@@ -65,9 +68,9 @@ fn read_file(path: &str) -> common::Expected<String> {
       Err(_) => err!("failed to read from stdin"),
     }
   } else {
-    let mut f = File::open(path).or(err!("file not found"))?;
+    let mut file = File::open(path).or(err!("file not found"))?;
     let mut input = String::new();
-    match f.read_to_string(&mut input) {
+    match file.read_to_string(&mut input) {
       Ok(_) => Ok(input),
       Err(_) => err!("something went wrong reading the file"),
     }

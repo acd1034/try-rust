@@ -14,7 +14,7 @@ check() {
 
 # -o
 rm -f $tmp/out
-./target/debug/try-rust -o$tmp/out $tmp/empty.c
+./target/debug/try-rust -o $tmp/out $tmp/empty.c
 [ -f $tmp/out ]
 check -o
 
