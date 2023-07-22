@@ -3,7 +3,7 @@ mod ir;
 mod irgen;
 mod pass;
 use inkwell::context::Context;
-use parser::common::Expected;
+use ll;
 use parser::*;
 use std::fs::File;
 use std::io::{self, Read, Write};
@@ -12,7 +12,7 @@ fn usage() {
   eprintln!("try-rust [-ll] [-o<path>] <file>")
 }
 
-fn read_file(path: &str) -> Expected<String> {
+fn read_file(path: &str) -> common::Expected<String> {
   if path == "-" {
     let input = io::stdin()
       .lines()
@@ -32,7 +32,7 @@ fn read_file(path: &str) -> Expected<String> {
   }
 }
 
-fn write_to_file(path: &str, body: &str) -> Expected<()> {
+fn write_to_file(path: &str, body: &str) -> common::Expected<()> {
   if path == "-" {
     println!("{}", body);
   } else {
@@ -42,7 +42,7 @@ fn write_to_file(path: &str, body: &str) -> Expected<()> {
   Ok(())
 }
 
-fn main() -> Expected<()> {
+fn main() -> common::Expected<()> {
   let mut target_ll = false;
   let mut output_path = String::from("-");
   let mut input_path = String::new();
@@ -68,7 +68,7 @@ fn main() -> Expected<()> {
 
   let body = if target_ll {
     let context = Context::create();
-    let module = codegen::ll::CodeGen::new(&context).codegen(toplevels)?;
+    let module = ll::CodeGen::new(&context).codegen(toplevels)?;
     module.to_string()
   } else {
     let module = irgen::IRGen::new("mod".to_string()).irgen(toplevels)?;

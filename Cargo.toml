@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "ll",
   "parser",
   "try-rust",
 ]
