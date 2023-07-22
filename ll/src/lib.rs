@@ -383,7 +383,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     let then_block = self.context.insert_basic_block_after(current_block, "then");
     let else_block = self.context.insert_basic_block_after(then_block, "else");
     let merge_block = if else_.is_some() {
-      self.context.insert_basic_block_after(else_block, "cont")
+      self.context.insert_basic_block_after(else_block, "merge")
     } else {
       else_block
     };
@@ -440,21 +440,21 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
      *   A;
      *   goto cond;
      * cond:
-     *   B != 0 ? goto body : goto end;
+     *   B != 0 ? goto body : goto cont;
      * body:
      *   D;
      *   goto inc;
      * inc:
      *   C;
      *   goto cond;
-     * end:
+     * cont:
      */
     let current_block = self.get_current_basic_block();
     let cond_block = self.context.insert_basic_block_after(current_block, "cond");
     let body_block = self.context.insert_basic_block_after(cond_block, "body");
     let inc_block = self.context.insert_basic_block_after(body_block, "inc");
-    let end_block = self.context.insert_basic_block_after(inc_block, "end");
-    self.break_label.push(end_block.clone());
+    let cont_block = self.context.insert_basic_block_after(inc_block, "cont");
+    self.break_label.push(cont_block.clone());
     self.cont_label.push(inc_block.clone());
 
     // init:
@@ -473,7 +473,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         .build_int_compare(IntPredicate::NE, lhs, zero, "cond");
       self
         .builder
-        .build_conditional_branch(comp, body_block, end_block);
+        .build_conditional_branch(comp, body_block, cont_block);
     } else {
       self.builder.build_unconditional_branch(body_block);
     }
@@ -493,15 +493,15 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     self.builder.build_unconditional_branch(cond_block);
 
     // end:
-    self.builder.position_at_end(end_block);
-    let end_block_is_unreachable = end_block.get_first_use().is_none();
-    if end_block_is_unreachable {
+    self.builder.position_at_end(cont_block);
+    let cont_block_is_unreachable = cont_block.get_first_use().is_none();
+    if cont_block_is_unreachable {
       self.builder.build_unreachable();
     }
 
     self.break_label.pop();
     self.cont_label.pop();
-    if end_block_is_unreachable {
+    if cont_block_is_unreachable {
       Ok(StmtKind::Terminator)
     } else {
       Ok(StmtKind::NoTerminator)

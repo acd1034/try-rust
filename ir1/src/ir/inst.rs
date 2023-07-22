@@ -57,7 +57,7 @@ impl Inst {
 
   // ----- kind -----
 
-  pub fn replace_kind(&mut self, from: InstId, to: InstId) {
+  pub fn replace_kind(&mut self, _from: InstId, _to: InstId) {
     todo!()
   }
 

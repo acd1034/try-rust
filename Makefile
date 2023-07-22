@@ -9,12 +9,14 @@ test-ll-old:
 TEST_SRCS=$(wildcard test/*.c)
 TESTS=$(TEST_SRCS:.c=.out)
 
-test/%.out: test/%.c
+dummy:
+	cargo build
+
+test/%.out: dummy test/%.c
 	$(CC) -o- -E -P -C test/$*.c | ./target/debug/try-rust -ll -otest/$*.ll -
 	$(CC) -otest/$*.out test/$*.ll -xc test/common -Wno-override-module
 
 test-ll: $(TESTS)
-	cargo build
 	for i in $^; do echo $$i; ./$$i || exit 1; echo "  ... passed"; done
 	test/driver.sh
 
@@ -24,4 +26,4 @@ test-ir1:
 	cargo build
 	test/test-ir1.sh
 
-.PHONY: test-ll-old test-ll test-ir1
+.PHONY: test-ll-old dummy test-ll test-ir1
