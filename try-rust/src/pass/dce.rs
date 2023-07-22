@@ -38,9 +38,9 @@ impl DeadCodeElimination {
 #[test]
 fn test_dead_code_elimination() {
   use crate::irgen::IRGen;
-  use crate::parse::parse;
   use crate::pass::count_ops;
-  use crate::tokenize::Tokenizer;
+  use parser::parse::parse;
+  use parser::tokenize::Tokenizer;
 
   let input = r"
 int main() {

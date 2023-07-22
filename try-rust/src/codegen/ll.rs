@@ -1,7 +1,3 @@
-use crate::common::{Expected, Scope};
-use crate::err;
-use crate::parse::{Stmt, TopLevel, AST};
-use crate::ty::Type;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
@@ -10,6 +6,10 @@ use inkwell::types::*;
 use inkwell::values::*;
 use inkwell::AddressSpace;
 use inkwell::IntPredicate;
+use parser::common::{Expected, Scope};
+use parser::err;
+use parser::parse::{Stmt, TopLevel, AST};
+use parser::ty::Type;
 
 // Module ∋ Function ∋ BasicBlock ∋ Instruction
 pub struct CodeGen<'ctx> {

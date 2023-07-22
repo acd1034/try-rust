@@ -1,13 +1,10 @@
 mod codegen;
-mod common;
 mod ir;
 mod irgen;
-mod parse;
 mod pass;
-mod tokenize;
-mod ty;
-use common::Expected;
 use inkwell::context::Context;
+use parser::common::Expected;
+use parser::*;
 use std::fs::File;
 use std::io::{self, Read, Write};
 

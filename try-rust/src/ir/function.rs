@@ -1,8 +1,8 @@
 use crate::ir::block::*;
 use crate::ir::inst::*;
 use crate::ir::memory::*;
-use crate::ty::Type;
 use id_arena::{Arena, Id};
+use parser::ty::Type;
 
 #[derive(Debug, Clone)]
 pub struct Function {

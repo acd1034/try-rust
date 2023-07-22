@@ -1,11 +1,11 @@
-use crate::common::{self, Expected};
-use crate::err;
 use crate::ir::{
   block::*, builder::*, builder_trait::*, function::*, inst::*, memory::*, module::*,
   visitor_trait::*,
 };
-use crate::parse::{Stmt, TopLevel, AST};
-use crate::ty::Type;
+use parser::common::{self, Expected};
+use parser::err;
+use parser::parse::{Stmt, TopLevel, AST};
+use parser::ty::Type;
 type Scope = common::Scope<MemoryId>;
 
 // ----- irgen -----

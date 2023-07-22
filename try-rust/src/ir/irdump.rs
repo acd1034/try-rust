@@ -1,7 +1,7 @@
-use crate::common::JoinView;
 use crate::ir::function::*;
 use crate::ir::inst::*;
 use crate::ir::module::*;
+use parser::common::JoinView;
 use std::fmt;
 
 impl fmt::Display for Module {

@@ -58,7 +58,7 @@ fn test_ir_visitor() {
   use crate::ir::builder;
   use crate::ir::builder_trait::BuilderTrait;
   use crate::ir::function;
-  use crate::ty::Type;
+  use parser::ty::Type;
 
   let fun = function::Function::new("fun".to_string(), Type::Int, Vec::new());
   let mut builder = builder::Builder::new(fun);

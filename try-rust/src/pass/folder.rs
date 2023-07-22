@@ -82,9 +82,9 @@ fn maybe_const(inst: &Inst) -> Option<i64> {
 #[test]
 fn test_constant_folding() {
   use crate::irgen::IRGen;
-  use crate::parse::parse;
   use crate::pass::{count_ops, DeadCodeElimination};
-  use crate::tokenize::Tokenizer;
+  use parser::parse::parse;
+  use parser::tokenize::Tokenizer;
 
   let input = r"
 int main() {
