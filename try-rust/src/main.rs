@@ -5,14 +5,54 @@ use parser::*;
 use std::fs::File;
 use std::io::{self, Read, Write};
 
+// ----- read_command_line_option -----
+
 enum Target {
   LL,
   IR1,
 }
 
-fn usage() {
+struct CommandLineOption {
+  target: Target,
+  input_path: String,
+  output_path: String,
+}
+
+fn show_usage() {
   eprintln!("try-rust [-ll|-ir1] [-o<path>] <file>")
 }
+
+fn read_command_line_option() -> common::Expected<CommandLineOption> {
+  let mut target = Target::LL;
+  let mut input_path = String::new();
+  let mut output_path = String::from("-");
+
+  for arg in std::env::args().skip(1) {
+    if arg == "--help" {
+      show_usage();
+      break;
+    } else if arg == "-ll" {
+      target = Target::LL;
+    } else if arg == "-ir1" {
+      target = Target::IR1;
+    } else if arg.starts_with("-o") {
+      output_path = arg[2..].to_string();
+    } else if arg.starts_with('-') && arg.len() > 1 {
+      show_usage();
+      return err!("unknown argument");
+    } else {
+      input_path = arg;
+    }
+  }
+
+  Ok(CommandLineOption {
+    target,
+    input_path,
+    output_path,
+  })
+}
+
+// ----- read_file, write_to_file -----
 
 fn read_file(path: &str) -> common::Expected<String> {
   if path == "-" {
@@ -44,33 +84,18 @@ fn write_to_file(path: &str, body: &str) -> common::Expected<()> {
   Ok(())
 }
 
+// ----- main -----
+
 fn main() -> common::Expected<()> {
-  let mut target = Target::LL;
-  let mut output_path = String::from("-");
-  let mut input_path = String::new();
-  for arg in std::env::args().skip(1) {
-    if arg == "--help" {
-      usage();
-      return Ok(());
-    } else if arg == "-ll" {
-      target = Target::LL;
-    } else if arg == "-ir1" {
-      target = Target::IR1;
-    } else if arg.starts_with("-o") {
-      output_path = arg[2..].to_string();
-    } else if arg.starts_with('-') && arg.len() > 1 {
-      usage();
-      return err!("unknown argument");
-    } else {
-      input_path = arg;
-    }
-  }
+  let opt = read_command_line_option()?;
 
-  let input = read_file(&input_path)?;
-  let it = tokenize::Tokenizer::new(&input);
-  let toplevels = parse::parse(it)?;
+  let toplevels = {
+    let input = read_file(&opt.input_path)?;
+    let it = tokenize::Tokenizer::new(&input);
+    parse::parse(it)?
+  };
 
-  let body = match target {
+  let body = match opt.target {
     Target::LL => {
       let context = inkwell::context::Context::create();
       let module = ll::CodeGen::new(&context).codegen(toplevels)?;
@@ -83,6 +108,6 @@ fn main() -> common::Expected<()> {
     }
   };
 
-  write_to_file(&output_path, &body)?;
+  write_to_file(&opt.output_path, &body)?;
   Ok(())
 }
