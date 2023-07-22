@@ -1,21 +1,20 @@
-mod codegen;
-mod common;
-mod ir;
-mod irgen;
-mod parse;
-mod pass;
-mod tokenize;
-mod ty;
-use common::Expected;
-use inkwell::context::Context;
+use inkwell;
+use ir1;
+use ll;
+use parser::*;
 use std::fs::File;
 use std::io::{self, Read, Write};
 
-fn usage() {
-  eprintln!("try-rust [-ll] [-o<path>] <file>")
+enum Target {
+  LL,
+  IR1,
 }
 
-fn read_file(path: &str) -> Expected<String> {
+fn usage() {
+  eprintln!("try-rust [-ll|-ir1] [-o<path>] <file>")
+}
+
+fn read_file(path: &str) -> common::Expected<String> {
   if path == "-" {
     let input = io::stdin()
       .lines()
@@ -35,7 +34,7 @@ fn read_file(path: &str) -> Expected<String> {
   }
 }
 
-fn write_to_file(path: &str, body: &str) -> Expected<()> {
+fn write_to_file(path: &str, body: &str) -> common::Expected<()> {
   if path == "-" {
     println!("{}", body);
   } else {
@@ -45,8 +44,8 @@ fn write_to_file(path: &str, body: &str) -> Expected<()> {
   Ok(())
 }
 
-fn main() -> Expected<()> {
-  let mut target_ll = false;
+fn main() -> common::Expected<()> {
+  let mut target = Target::LL;
   let mut output_path = String::from("-");
   let mut input_path = String::new();
   for arg in std::env::args().skip(1) {
@@ -54,7 +53,9 @@ fn main() -> Expected<()> {
       usage();
       return Ok(());
     } else if arg == "-ll" {
-      target_ll = true;
+      target = Target::LL;
+    } else if arg == "-ir1" {
+      target = Target::IR1;
     } else if arg.starts_with("-o") {
       output_path = arg[2..].to_string();
     } else if arg.starts_with('-') && arg.len() > 1 {
@@ -69,14 +70,17 @@ fn main() -> Expected<()> {
   let it = tokenize::Tokenizer::new(&input);
   let toplevels = parse::parse(it)?;
 
-  let body = if target_ll {
-    let context = Context::create();
-    let module = codegen::ll::CodeGen::new(&context).codegen(toplevels)?;
-    module.to_string()
-  } else {
-    let module = irgen::IRGen::new("mod".to_string()).irgen(toplevels)?;
-    let module = pass::DeadCodeElimination::new(module).run();
-    format!("{}", codegen::Target::C(module))
+  let body = match target {
+    Target::LL => {
+      let context = inkwell::context::Context::create();
+      let module = ll::CodeGen::new(&context).codegen(toplevels)?;
+      module.to_string()
+    }
+    Target::IR1 => {
+      let module = ir1::irgen::IRGen::new("mod".to_string()).irgen(toplevels)?;
+      let module = ir1::pass::DeadCodeElimination::new(module).run();
+      format!("{}", ir1::codegen::Target::C(module))
+    }
   };
 
   write_to_file(&output_path, &body)?;

@@ -1,0 +1,10 @@
+[package]
+edition = "2021"
+name = "try-rust"
+version = "0.1.0"
+
+[dependencies]
+inkwell = {git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm12-0"]}
+ir1 = {path = "../ir1"}
+ll = {path = "../ll"}
+parser = {path = "../parser"}

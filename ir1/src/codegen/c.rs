@@ -1,6 +1,6 @@
-use crate::common::JoinView;
 use crate::ir::{function::*, inst::*, module::*};
 use id_arena::Arena;
+use parser::common::JoinView;
 use std::fmt;
 
 pub fn codegen(f: &mut fmt::Formatter, module: &Module) -> fmt::Result {

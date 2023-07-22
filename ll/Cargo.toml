@@ -1,0 +1,8 @@
+[package]
+edition = "2021"
+name = "ll"
+version = "0.1.0"
+
+[dependencies]
+inkwell = {git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm12-0"]}
+parser = {path = "../parser"}

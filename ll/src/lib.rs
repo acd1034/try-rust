@@ -1,7 +1,3 @@
-use crate::common::{Expected, Scope};
-use crate::err;
-use crate::parse::{Stmt, TopLevel, AST};
-use crate::ty::Type;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
@@ -10,6 +6,10 @@ use inkwell::types::*;
 use inkwell::values::*;
 use inkwell::AddressSpace;
 use inkwell::IntPredicate;
+use parser::common::{Expected, Scope};
+use parser::err;
+use parser::parse::{Stmt, TopLevel, AST};
+use parser::ty::Type;
 
 // Module ∋ Function ∋ BasicBlock ∋ Instruction
 pub struct CodeGen<'ctx> {
@@ -543,10 +543,10 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         let rhs = self.gen_expr_into_int_value(*m)?;
         let cmp = self
           .builder
-          .build_int_compare(IntPredicate::EQ, lhs, rhs, "tmpcmp");
+          .build_int_compare(IntPredicate::EQ, lhs, rhs, "");
         let zext = self
           .builder
-          .build_int_z_extend(cmp, i64_type, "tmpzext")
+          .build_int_z_extend(cmp, i64_type, "")
           .as_basic_value_enum();
         Ok(zext)
       }
@@ -555,10 +555,10 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         let rhs = self.gen_expr_into_int_value(*m)?;
         let cmp = self
           .builder
-          .build_int_compare(IntPredicate::NE, lhs, rhs, "tmpcmp");
+          .build_int_compare(IntPredicate::NE, lhs, rhs, "");
         let zext = self
           .builder
-          .build_int_z_extend(cmp, i64_type, "tmpzext")
+          .build_int_z_extend(cmp, i64_type, "")
           .as_basic_value_enum();
         Ok(zext)
       }
@@ -567,10 +567,10 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         let rhs = self.gen_expr_into_int_value(*m)?;
         let cmp = self
           .builder
-          .build_int_compare(IntPredicate::SLT, lhs, rhs, "tmpcmp");
+          .build_int_compare(IntPredicate::SLT, lhs, rhs, "");
         let zext = self
           .builder
-          .build_int_z_extend(cmp, i64_type, "tmpzext")
+          .build_int_z_extend(cmp, i64_type, "")
           .as_basic_value_enum();
         Ok(zext)
       }
@@ -579,10 +579,10 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         let rhs = self.gen_expr_into_int_value(*m)?;
         let cmp = self
           .builder
-          .build_int_compare(IntPredicate::SLE, lhs, rhs, "tmpcmp");
+          .build_int_compare(IntPredicate::SLE, lhs, rhs, "");
         let zext = self
           .builder
-          .build_int_z_extend(cmp, i64_type, "tmpzext")
+          .build_int_z_extend(cmp, i64_type, "")
           .as_basic_value_enum();
         Ok(zext)
       }
@@ -593,7 +593,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
           (BasicValueEnum::IntValue(lhs), BasicValueEnum::IntValue(rhs)) => {
             let res = self
               .builder
-              .build_int_add(lhs, rhs, "tmpadd")
+              .build_int_add(lhs, rhs, "")
               .as_basic_value_enum();
             Ok(res)
           }
@@ -613,12 +613,12 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
           (BasicValueEnum::IntValue(lhs), BasicValueEnum::IntValue(rhs)) => {
             let res = self
               .builder
-              .build_int_sub(lhs, rhs, "tmpadd")
+              .build_int_sub(lhs, rhs, "")
               .as_basic_value_enum();
             Ok(res)
           }
           (BasicValueEnum::PointerValue(ptr), BasicValueEnum::IntValue(idx)) => {
-            let idx = self.builder.build_int_neg(idx, "tmpneg");
+            let idx = self.builder.build_int_neg(idx, "");
             Ok(self.gen_pointer_add_impl(ptr, idx))
           }
           (BasicValueEnum::PointerValue(lhs), BasicValueEnum::PointerValue(rhs)) => {
@@ -627,7 +627,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
             }
             let res = self
               .builder
-              .build_ptr_diff(lhs, rhs, "tmp_ptr_diff")
+              .build_ptr_diff(lhs, rhs, "")
               .as_basic_value_enum();
             Ok(res)
           }
@@ -639,7 +639,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         let rhs = self.gen_expr_into_int_value(*m)?;
         let res = self
           .builder
-          .build_int_mul(lhs, rhs, "tmpmul")
+          .build_int_mul(lhs, rhs, "")
           .as_basic_value_enum();
         Ok(res)
       }
@@ -648,7 +648,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         let rhs = self.gen_expr_into_int_value(*m)?;
         let res = self
           .builder
-          .build_int_signed_div(lhs, rhs, "tmpdiv")
+          .build_int_signed_div(lhs, rhs, "")
           .as_basic_value_enum();
         Ok(res)
       }
@@ -709,7 +709,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
           let args: Vec<_> = args.into_iter().map(|arg| arg.into()).collect();
           let res = self
             .builder
-            .build_call(callee, args.as_slice(), "tmpcall")
+            .build_call(callee, args.as_slice(), "")
             .try_as_basic_value()
             .unwrap_left();
           Ok(res)
@@ -737,7 +737,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         if var.get_type().get_element_type().is_array_type() {
           Ok(self.gen_array_addr_impl(var))
         } else {
-          let res = self.builder.build_load(var, "tmpload");
+          let res = self.builder.build_load(var, "");
           Ok(res)
         }
       }
@@ -775,7 +775,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
       return err!("inconsistent types in operands of ternary operator");
     }
     self.builder.position_at_end(merge_block);
-    let phi = self.builder.build_phi(then_value.get_type(), "tmpphi");
+    let phi = self.builder.build_phi(then_value.get_type(), "");
     phi.add_incoming(&[(&then_value, then_block), (&else_value, else_block)]);
     Ok(phi.as_basic_value())
   }
@@ -788,7 +788,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     unsafe {
       self
         .builder
-        .build_in_bounds_gep(ptr, &[idx], "tmpgep")
+        .build_in_bounds_gep(ptr, &[idx], "")
         .as_basic_value_enum()
     }
   }
@@ -798,7 +798,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
     unsafe {
       self
         .builder
-        .build_in_bounds_gep(ptr, &[zero, zero], "tmpgep")
+        .build_in_bounds_gep(ptr, &[zero, zero], "")
         .as_basic_value_enum()
     }
   }
@@ -824,7 +824,7 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
         let lhs = self.gen_addr(*n)?;
         if let AnyTypeEnum::StructType(struct_type) = lhs.get_type().get_element_type() {
           if let Some(index) = self.get_index_from_struct_type(struct_type, &name) {
-            self.builder.build_struct_gep(lhs, index, "tmpgep").or(err!(
+            self.builder.build_struct_gep(lhs, index, "").or(err!(
               "!!!internal error!!! struct member index is out of range"
             ))
           } else {

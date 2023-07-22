@@ -68,7 +68,7 @@ impl BuilderTrait for Builder {
 fn test_ir_builder() {
   use crate::ir::function;
   use crate::ir::inst;
-  use crate::ty::Type;
+  use parser::ty::Type;
 
   let fun = function::Function::new("fun".to_string(), Type::Int, Vec::new());
   let mut builder = Builder::new(fun);
