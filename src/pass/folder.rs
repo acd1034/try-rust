@@ -2,11 +2,10 @@ use crate::ir::{
   builder::*,
   builder_trait::*,
   function::*,
-  inst::{Inst, InstKind},
+  inst::{Inst, InstId, InstKind},
   module::*,
   visitor_trait::*,
 };
-use std::collections::HashMap;
 
 pub struct ConstantFolding {
   module: Module,
@@ -30,7 +29,7 @@ impl ConstantFolding {
     let mut builder = Builder::new(fun);
     while let Some(..) = builder.next_block() {
       while let Some(inst_id) = builder.next_inst() {
-        if let Some(n) = maybe_fold_const(fun.get(inst_id), &fun) {
+        if let Some(n) = maybe_fold_const(inst_id, builder.function()) {
           let new_const = builder.build_const(n);
           builder.replace_all_uses(inst_id, new_const);
         }
@@ -40,9 +39,10 @@ impl ConstantFolding {
   }
 }
 
-fn maybe_fold_const(inst: &Inst, fun: &Function) -> Option<i64> {
+fn maybe_fold_const(inst_id: InstId, fun: &Function) -> Option<i64> {
   use InstKind::*;
-  let (n1, n2) = match inst.kind() {
+  let kind = fun.get(inst_id).kind();
+  let (n1, n2) = match kind {
     Eq(v1, v2)
     | Ne(v1, v2)
     | Lt(v1, v2)
@@ -58,7 +58,7 @@ fn maybe_fold_const(inst: &Inst, fun: &Function) -> Option<i64> {
     _ => return None,
   };
 
-  match inst.kind() {
+  match kind {
     Eq(..) => Some((n1 == n2) as i64),
     Ne(..) => Some((n1 != n2) as i64),
     Lt(..) => Some((n1 < n2) as i64),
@@ -72,8 +72,8 @@ fn maybe_fold_const(inst: &Inst, fun: &Function) -> Option<i64> {
 }
 
 fn maybe_const(inst: &Inst) -> Option<i64> {
-  if let InstKind::Const(&n) = inst {
-    Some(n as i64)
+  if let &InstKind::Const(n) = inst.kind() {
+    Some(n)
   } else {
     None
   }

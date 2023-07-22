@@ -717,7 +717,12 @@ impl<'a, 'ctx> GenTopLevel<'a, 'ctx> {
           err!("function does not exist")
         }
       }
-      AST::Num(n) => Ok(i64_type.const_int(n, false).as_basic_value_enum()),
+      AST::Num(n) => {
+        if n < 0 {
+          todo!();
+        }
+        Ok(i64_type.const_int(n as u64, false).as_basic_value_enum())
+      }
       AST::Str(s) => {
         let value = self.context.const_string(s.as_bytes(), true);
         let global = self.module.add_global(value.get_type(), None, ".str");

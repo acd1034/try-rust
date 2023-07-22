@@ -17,7 +17,7 @@ pub enum InstKind {
   Div(InstId, InstId),
   Load(MemoryId),
   Call(FunctionId, Vec<InstId>),
-  Const(u64),
+  Const(i64),
   // Effect
   Br(InstId, BlockId, BlockId),
   Jmp(BlockId),
@@ -57,7 +57,9 @@ impl Inst {
 
   // ----- kind -----
 
-  pub fn replace_kind(&mut self, from: InstId, to: InstId) {}
+  pub fn replace_kind(&mut self, from: InstId, to: InstId) {
+    todo!()
+  }
 
   // ----- use -----
 

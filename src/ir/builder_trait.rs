@@ -150,7 +150,7 @@ pub trait BuilderTrait: VisitorTrait {
     v0
   }
 
-  fn build_const(&mut self, n: u64) -> InstId {
+  fn build_const(&mut self, n: i64) -> InstId {
     let v0 = self.build_inst_with_id(|id| Inst::new(InstKind::Const(n), id));
     v0
   }

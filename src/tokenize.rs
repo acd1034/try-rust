@@ -5,7 +5,7 @@ pub enum Token<'a> {
   Eof,
   Keyword(&'a str),
   Ident(String),
-  Num(u64),
+  Num(i64),
   Str(String),
   Punct(&'a str),
 }

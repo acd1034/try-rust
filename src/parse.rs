@@ -45,7 +45,7 @@ pub enum AST {
   Block(Vec<Stmt>),
   Call(String, Vec<AST>),
   Ident(String),
-  Num(u64),
+  Num(i64),
   Str(String),
 }
 
@@ -75,7 +75,7 @@ fn consume_ident(it: &mut Tokenizer) -> Expected<Option<String>> {
   }
 }
 
-fn consume_num(it: &mut Tokenizer) -> Expected<Option<u64>> {
+fn consume_num(it: &mut Tokenizer) -> Expected<Option<i64>> {
   if let Token::Num(n) = it.current()? {
     it.advance();
     Ok(Some(n))
@@ -111,7 +111,7 @@ fn expect_ident(it: &mut Tokenizer) -> Expected<String> {
   }
 }
 
-fn expect_num(it: &mut Tokenizer) -> Expected<u64> {
+fn expect_num(it: &mut Tokenizer) -> Expected<i64> {
   if let Token::Num(n) = it.current()? {
     it.advance();
     Ok(n)
